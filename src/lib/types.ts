@@ -31,4 +31,5 @@ export interface Model {
         prompt: string;
         completion: string;
     };
+    allowed?: boolean;
 }

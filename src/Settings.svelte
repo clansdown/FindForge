@@ -8,7 +8,8 @@
   export let isOpen: boolean = false;
 
   let localConfig: Config = new Config();
-  let availableModels: Model[] = [];
+  let openrouterModels: Model[] = [];
+  let availableModels : Model[] = [];
   let modelFetchError: string | null = null;
   let currentTab : 'general' | 'model' = 'general';
 
@@ -26,6 +27,8 @@
     removeKeydown = () => window.removeEventListener('keydown', handleKeydown);
   }
 
+  $: availableModels = calculateAvailableModelsFromConfig(localConfig.availableModels, openrouterModels);
+
   onDestroy(() => {
     if (removeKeydown) removeKeydown();
   });
@@ -36,14 +39,48 @@
     // Fetch models when dialog opens
     modelFetchError = null;
     getModels(config)
-      .then(models => { availableModels = models; })
+      .then(models => { 
+        models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        openrouterModels = models; 
+      })
       .catch(error => {
         modelFetchError = error.message;
         console.error('Model fetch failed:', error);
       });
   }
 
+  function calculateAvailableModelsFromConfig(list:string[], models: Model[]) : Model[] {
+    let am : Model[] = [];
+    if (list && list.length > 0) {
+      list.forEach(modelID => {
+        let model = models.find(m => m.id === modelID);
+        if (model) {
+          am.push(model);
+        }
+      });
+    } else {
+      // If no available models are set, return all models
+      am = models;
+    }
+    return am;
+  }
+
+  /**
+   * Sets the availableModels field in the config based on the user-sellected models.
+  */
+  function setAvailableModelsConfig(models: Model[]) {
+    let am : string[] = [];
+    models.forEach(model => {
+      if (model.allowed) {
+        am.push(model.id);
+      }
+    });
+    localConfig.availableModels = am;
+    localConfig = localConfig;
+  }
+
   function save() {
+    setAvailableModelsConfig(openrouterModels);
     Object.assign(config, localConfig);
     saveConfig(config);
     isOpen = false;
@@ -62,6 +99,9 @@
       <li class="nav-item" class:active={currentTab === 'model'}><a class="nav-link" href="#" on:click={() => currentTab = 'model'}>Model</a></li>
     </ul>
 
+    <!---------------------------->
+    <!-- Research Configuration -->
+    <!---------------------------->
     {#if currentTab === 'general'}
 
       <div class="form-group">
@@ -92,13 +132,16 @@
         <label>Search Engine:</label>
         <select bind:value={localConfig.searchEngine}>
           <option value="duckduckgo">DuckDuckGo</option>
-          <option value="google">Google</option>
-          <option value="bing">Bing</option>
           <option value="kagi">Kagi</option>
           <option value="brave">Brave</option>
+          <option value="bing">Bing</option>
+          <option value="google">Google</option>
         </select>
       </div>
 
+    <!------------------------->
+    <!-- Model Configuration -->
+    <!------------------------->
     {:else if currentTab === 'model'}
       <div class="form-group">
         <label>API Key:</label>
@@ -109,14 +152,27 @@
         <label>Default Model:</label>
         <select bind:value={localConfig.defaultModel}>
           {#each availableModels as model}
-            <option value={model}>{model}</option>
+            <option value={model.id}>{model.name}</option>
           {/each}
         </select>
         {#if modelFetchError}
           <div class="error">{modelFetchError}</div>
         {/if}
-    </div>
+      </div>
 
+      <div class="form-group">
+        <label>Available Models</label>
+        <div class="model-list">
+          {#each openrouterModels as model}
+            <div class="row">
+              <div class="col">
+                <input type="checkbox" bind:checked={model.allowed} />
+                {model.name}
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
 
     {/if}
 
@@ -192,4 +248,14 @@
     margin-top: 0.5rem;
     font-size: 0.9rem;
   }
+
+  .model-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0.5rem;
+    background-color: #333;
+  }
+
 </style>
