@@ -1,4 +1,5 @@
-import type { Config, Model, StreamingResult } from './types';
+import type { Config, Model, StreamingResult, GenerationData } from './types';
+import { sleep } from './util';
 
 
 let cachedModels: Model[] | null = null;
@@ -124,4 +125,27 @@ export async function callOpenRouterStreaming(
 
   result.done = true;
   return result;
+}
+
+// Fetch generation data from OpenRouter Generation API
+async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData | null> {
+    try {
+        // We can't request this immediately as the generation object won't instantly exist, we have to wait a short time
+        await sleep(1000);
+        const response = await fetch(`https://openrouter.ai/api/v1/generation?id=${encodeURIComponent(requestId)}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://openrouter.ai',
+            },
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch generation data');
+        const data = await response.json();
+        return data.data as GenerationData;
+    } catch (error) {
+        console.error('Error fetching generation data:', error);
+        return null;
+    }
 }

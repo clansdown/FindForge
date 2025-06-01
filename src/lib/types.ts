@@ -30,6 +30,18 @@ export interface StreamingResult {
   totalTokens?: number;
 }
 
+export interface GenerationData {
+    id: string;
+    model: string;
+    created: number;
+    usage?: {
+        prompt_tokens: number;
+        completion_tokens: number;
+        total_tokens: number;
+    };
+    // Add other fields as needed
+}
+
 export interface Model {
     id: string;
     name: string;
