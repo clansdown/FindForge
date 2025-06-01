@@ -65,6 +65,7 @@ export interface MessageData {
     model?: string;
     generationData?: GenerationData;
     webSearchResults?: string[];
+    requestID?: string;
 }
 
 export interface ConversationData {

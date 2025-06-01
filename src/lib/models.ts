@@ -107,6 +107,9 @@ export async function callOpenRouterStreaming(
 
           try {
             const json = JSON.parse(data);
+            if(json.id) {
+                result.requestID = json.id;
+            }
             if (json.choices?.[0]?.delta?.content) {
               callback(json.choices[0].delta.content);
             }

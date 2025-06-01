@@ -73,7 +73,7 @@
         messagesForAPI.unshift({ role: 'user', content: config.systemPrompt });
       }
       
-      // Call streaming API
+      /* Call streaming API */
       const result = await callOpenRouterStreaming(
         config.apiKey,
         config.defaultModel,
@@ -88,9 +88,11 @@
         },
         abortController
       );
+      userInput = ''; // Clear input after sending
       
-      // Fetch generation data
+      /* Fetch generation data */
       if (result.requestID) {
+        assistantMessage.requestID = result.requestID;
         const generationData = await fetchGenerationData(config.apiKey, result.requestID);
         if (generationData) {
           assistantMessage.generationData = generationData;
@@ -196,13 +198,13 @@
   .message {
     margin-bottom: 1rem;
     padding: 0.5rem;
-    border-radius: 4px;
+    border-radius: 16px;
     width: 80%;
   }
   
   .message.user {
     background-color: #30577a;
-
+    margin-left: auto;
   }
   
   .message.assistant {
@@ -216,7 +218,8 @@
   
   .cost {
     font-size: 0.8rem;
-    color: #666;
+    color: #999;
+    text-align: right;
   }
   
   .total-cost {
