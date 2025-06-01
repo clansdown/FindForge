@@ -1,0 +1,83 @@
+<script lang="ts">
+  let activeMenu: string | null = null;
+  
+  function toggleMenu(menu: string) {
+    activeMenu = activeMenu === menu ? null : menu;
+  }
+
+  function closeMenu() {
+    activeMenu = null;
+  }
+</script>
+
+<div class="menu-bar" on:mouseleave={closeMenu}>
+  <div class="menu-item">
+    <button on:click={() => toggleMenu('file')}>File</button>
+    {#if activeMenu === 'file'}
+      <div class="dropdown">
+        <button on:click={closeMenu}>New Conversation</button>
+        <button on:click={closeMenu}>Settings</button>
+      </div>
+    {/if}
+  </div>
+  
+  <div class="menu-item">
+    <button on:click={() => toggleMenu('view')}>View</button>
+    {#if activeMenu === 'view'}
+      <div class="dropdown">
+        <button on:click={closeMenu}>History</button>
+      </div>
+    {/if}
+  </div>
+  
+  <div class="menu-item">
+    <button on:click={() => toggleMenu('help')}>Help</button>
+    {#if activeMenu === 'help'}
+      <div class="dropdown">
+        <button on:click={closeMenu}>About</button>
+      </div>
+    {/if}
+  </div>
+</div>
+
+<style>
+  .menu-bar {
+    display: flex;
+    padding: 0.5rem;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .menu-item {
+    position: relative;
+    margin-right: 1rem;
+  }
+  
+  .menu-item button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+  }
+  
+  .dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    z-index: 100;
+  }
+  
+  .dropdown button {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .dropdown button:hover {
+    background-color: #f5f5f5;
+  }
+</style>
