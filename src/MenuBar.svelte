@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Config } from './types';
+  import type { Config } from './lib/types';
   import Settings from './Settings.svelte';
   
   export let config: Config;

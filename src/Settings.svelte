@@ -1,15 +1,16 @@
 <script lang="ts">
   import { saveConfig } from './lib/storage';
-  import { Config } from './lib/types';
+  import { Config, type Model } from './lib/types';
   import { onDestroy, onMount } from 'svelte';
-  import { getModels } from '../lib/models';
+  import { getModels } from './lib/models';
 
   export let config: Config;
   export let isOpen: boolean = false;
 
   let localConfig: Config = new Config();
-  let availableModels: string[] = [];
+  let availableModels: Model[] = [];
   let modelFetchError: string | null = null;
+  let currentTab : 'general' | 'model' = 'general';
 
   function handleKeydown(event: KeyboardEvent) {
     if(isOpen) {
@@ -35,9 +36,7 @@
     // Fetch models when dialog opens
     modelFetchError = null;
     getModels(config)
-      .then(models => {
-        availableModels = models.map(m => m.id);
-      })
+      .then(models => { availableModels = models; })
       .catch(error => {
         modelFetchError = error.message;
         console.error('Model fetch failed:', error);
@@ -58,6 +57,8 @@
   <div class="modal-content" on:click|stopPropagation>
     <h2>Settings</h2>
     
+ 
+
     <div class="form-group">
       <label>API Key:</label>
       <input type="password" bind:value={localConfig.apiKey} />
@@ -138,7 +139,7 @@
     border-radius: 18px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     width: 80%;
-    max-width: 600px;
+    max-width: 860px;
   }
   
   .form-group {

@@ -1,15 +1,5 @@
-import type { Config } from './types';
+import type { Config, Model } from './types';
 
-export interface Model {
-    id: string;
-    name: string;
-    description: string;
-    context_length: number;
-    pricing: {
-        prompt: string;
-        completion: string;
-    };
-}
 
 let cachedModels: Model[] | null = null;
 
