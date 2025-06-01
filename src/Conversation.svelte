@@ -137,6 +137,20 @@
     formattedContent = formattedContent.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     formattedContent = formattedContent.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     formattedContent = formattedContent.replace(/\n/g, '<br>');
+
+    // Convert markdown links to [source] links
+    formattedContent = formattedContent.replace(/\[[^\]]*\]\(([^)]+)\)/g, '[<a href="$1" target="_blank">source</a>]');
+
+    // Split by HTML tags to avoid replacing URLs inside tags
+    const parts = formattedContent.split(/(<[^>]+>)/);
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 0) { // not inside a tag
+        // Replace bare URLs with [source] links
+        parts[i] = parts[i].replace(/(https?:\/\/[^\s<]+)/g, '[<a href="$1" target="_blank">source</a>]');
+      }
+    }
+    formattedContent = parts.join('');
+
     return formattedContent;
   }
 </script>
