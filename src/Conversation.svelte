@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Config } from './types';
+  import type { Config } from './lib/types';
   export let config: Config;
 
   let conversationDiv: HTMLDivElement;

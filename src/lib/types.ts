@@ -53,3 +53,20 @@ export interface Model {
     };
     allowed?: boolean;
 }
+
+export interface Message {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    timestamp?: number;
+    totalCost?: number;
+    model?: string;
+    generationData?: GenerationData;
+    webSearchResults?: string[];
+}
+
+export interface Conversation {
+    id: string;
+    messages: Message[];
+    created: number;
+    updated: number;
+}
