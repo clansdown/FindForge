@@ -63,6 +63,7 @@ export interface MessageData {
     timestamp?: number;
     totalCost?: number;
     model?: string;
+    modelName?: string;
     generationData?: GenerationData;
     webSearchResults?: string[];
     requestID?: string;

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { callOpenRouterStreaming, fetchGenerationData } from './lib/models';
+  import { callOpenRouterStreaming, fetchGenerationData, getModels } from './lib/models';
   import { escapeHtml, generateID } from './lib/util';
-  import type { MessageData, GenerationData } from './lib/types';
+  import type { MessageData, GenerationData, Model } from './lib/types';
   import type { Config, ConversationData } from './lib/types';
 
   export let config: Config;
@@ -13,11 +13,16 @@
   let generating = false;
   let abortController: AbortController | null = null;
   let textarea: HTMLTextAreaElement;
+  let models : Model[] = [];
 
   // Scroll to bottom when messages change
   $: if (currentConversation.messages.length) {
     scrollToBottom();
   }
+
+  getModels(config).then(m => {
+    models = m;
+  });
 
   function scrollToBottom() {
     conversationDiv.scrollTop = conversationDiv.scrollHeight;
@@ -52,6 +57,7 @@
       content: '',
       timestamp: Date.now(),
       model: config.defaultModel,
+      modelName: models.find(m => m.id === config.defaultModel)?.name || 'Unknown',
       totalCost: 0,
     };
     currentConversation.messages.push(assistantMessage);
@@ -147,7 +153,6 @@
   <div bind:this={conversationDiv} class="conversation-content">
     {#each currentConversation.messages as message (message.id)}
       <div class="message {message.role}">
-        <div class="role">{message.role}</div>
         <div class="content">{@html formatMessage(message.content)}</div>
         {#if message.totalCost}
           <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
@@ -185,7 +190,7 @@
 
 <style>
   .conversation {
-    height: 100%;
+    height: 99%;
     padding: 1rem;
     display: flex;
     flex-direction: column;
