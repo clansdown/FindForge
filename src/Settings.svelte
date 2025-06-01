@@ -57,58 +57,70 @@
   <div class="modal-content" on:click|stopPropagation>
     <h2>Settings</h2>
     
- 
+    <ul class="nav nav-tabs">
+      <li class="nav-item" class:active={currentTab === 'general'}><a class="nav-link" href="#" on:click={() => currentTab = 'general'}>Research</a></li>
+      <li class="nav-item" class:active={currentTab === 'model'}><a class="nav-link" href="#" on:click={() => currentTab = 'model'}>Model</a></li>
+    </ul>
 
-    <div class="form-group">
-      <label>API Key:</label>
-      <input type="password" bind:value={localConfig.apiKey} />
+    {#if currentTab === 'general'}
+
+      <div class="form-group">
+        <label>System Prompt:</label>
+        <textarea bind:value={localConfig.systemPrompt} rows="4" />
+      </div>
+      
+      <div class="form-group">
+        <label>
+          <input type="checkbox" bind:checked={localConfig.allowWebSearch} />
+          Allow Web Search
+        </label>
+      </div>
+      
+      <div class="form-group">
+        <label>Web Search Max Results:</label>
+        <input type="number" bind:value={localConfig.webSearchMaxResults} min="1" />
+      </div>
+      
+      <div class="form-group">
+        <label>
+          <input type="checkbox" bind:checked={localConfig.includePreviousMessagesAsContext} />
+          Include Previous Messages as Context
+        </label>
+      </div>
+      
+      <div class="form-group">
+        <label>Search Engine:</label>
+        <select bind:value={localConfig.searchEngine}>
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="google">Google</option>
+          <option value="bing">Bing</option>
+          <option value="kagi">Kagi</option>
+          <option value="brave">Brave</option>
+        </select>
+      </div>
+
+    {:else if currentTab === 'model'}
+      <div class="form-group">
+        <label>API Key:</label>
+        <input type="password" bind:value={localConfig.apiKey} />
+      </div>
+      
+      <div class="form-group">
+        <label>Default Model:</label>
+        <select bind:value={localConfig.defaultModel}>
+          {#each availableModels as model}
+            <option value={model}>{model}</option>
+          {/each}
+        </select>
+        {#if modelFetchError}
+          <div class="error">{modelFetchError}</div>
+        {/if}
     </div>
-    
-    <div class="form-group">
-      <label>Default Model:</label>
-      <select bind:value={localConfig.defaultModel}>
-        {#each availableModels as model}
-          <option value={model}>{model}</option>
-        {/each}
-      </select>
-      {#if modelFetchError}
-        <div class="error">{modelFetchError}</div>
-      {/if}
-    </div>
-    <div class="form-group">
-      <label>System Prompt:</label>
-      <textarea bind:value={localConfig.systemPrompt} rows="4" />
-    </div>
-    
-    <div class="form-group">
-      <label>
-        <input type="checkbox" bind:checked={localConfig.allowWebSearch} />
-        Allow Web Search
-      </label>
-    </div>
-    
-    <div class="form-group">
-      <label>Web Search Max Results:</label>
-      <input type="number" bind:value={localConfig.webSearchMaxResults} min="1" />
-    </div>
-    
-    <div class="form-group">
-      <label>
-        <input type="checkbox" bind:checked={localConfig.includePreviousMessagesAsContext} />
-        Include Previous Messages as Context
-      </label>
-    </div>
-    
-    <div class="form-group">
-      <label>Search Engine:</label>
-      <select bind:value={localConfig.searchEngine}>
-        <option value="duckduckgo">DuckDuckGo</option>
-        <option value="google">Google</option>
-        <option value="bing">Bing</option>
-        <option value="kagi">Kagi</option>
-        <option value="brave">Brave</option>
-      </select>
-    </div>
+
+
+    {/if}
+
+
     
     <div class="button-group">
       <button on:click={() => isOpen = false}>Cancel</button>
@@ -125,7 +137,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.6);
+    background-color: rgba(0,0,0,0.7);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -134,10 +146,10 @@
   
   .modal-content {
     background: #222;
-    padding: 2rem;
-    border: 1px solid #ddd;
+    padding: 0 2rem 2rem 2rem;
+    border: 2px solid #ddd;
     border-radius: 18px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 10px rgba(1,1,1,0.3);
     width: 80%;
     max-width: 860px;
   }
