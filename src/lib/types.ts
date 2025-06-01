@@ -32,13 +32,15 @@ export interface StreamingResult {
 
 export interface GenerationData {
     id: string;
+    total_cost: number;
     model: string;
     created: number;
-    usage?: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
-    };
+    usage?: number;
+    cache_discount? : boolean;
+    streamed : boolean;
+    canceled : boolean;
+    finish_reason : string;
+    num_search_results? : number;
     // Add other fields as needed
 }
 

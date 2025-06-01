@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { callOpenRouterStreaming, fetchGenerationData } from './lib/models';
-  import { generateID } from './lib/util';
+  import { escapeHtml, generateID } from './lib/util';
   import type { MessageData, GenerationData } from './lib/types';
   import type { Config, ConversationData } from './lib/types';
 
@@ -52,9 +52,13 @@
       content: '',
       timestamp: Date.now(),
       model: config.defaultModel,
+      totalCost: 0,
     };
     currentConversation.messages.push(assistantMessage);
-    
+    currentConversation.messages = currentConversation.messages; // Trigger reactivity
+    await tick();
+
+
     // Start generation
     generating = true;
     abortController = new AbortController();
@@ -90,11 +94,7 @@
         const generationData = await fetchGenerationData(config.apiKey, result.requestID);
         if (generationData) {
           assistantMessage.generationData = generationData;
-          assistantMessage.totalCost = calculateCost(
-            generationData.usage?.prompt_tokens || 0,
-            generationData.usage?.completion_tokens || 0,
-            config.defaultModel
-          );
+          assistantMessage.totalCost = generationData?.total_cost || 0;
         }
       }
     } catch (error : any) {
@@ -121,6 +121,16 @@
     // Add actual pricing calculation logic here
     return 0;
   }
+
+  function formatMessage(text: string): string {
+    let formattedContent = text;
+    formattedContent = formattedContent.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    formattedContent = formattedContent.replace(/`([^`]+)`/g, '<code>$1</code>');
+    formattedContent = formattedContent.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    formattedContent = formattedContent.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    formattedContent = formattedContent.replace(/\n/g, '<br>');
+    return formattedContent;
+  }
 </script>
 
 
@@ -136,9 +146,9 @@
     {#each currentConversation.messages as message (message.id)}
       <div class="message {message.role}">
         <div class="role">{message.role}</div>
-        <div class="content">{message.content}</div>
-        {#if message.totalCost !== undefined}
-          <div class="cost">Cost: ${message.totalCost.toFixed(6)}</div>
+        <div class="content">{@html formatMessage(message.content)}</div>
+        {#if message.totalCost}
+          <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
         {/if}
       </div>
     {/each}
