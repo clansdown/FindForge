@@ -1,13 +1,13 @@
 export class Config {
-  historyWidth: number;
-  apiKey: string;
-  defaultModel: string;
-  availableModels: string[];
-  systemPrompt: string;
-  allowWebSearch: boolean;
-  webSearchMaxResults: number;
-  includePreviousMessagesAsContext: boolean;
-  searchEngine: string;
+  historyWidth!: number;
+  apiKey!: string;
+  defaultModel!: string;
+  availableModels!: string[];
+  systemPrompt!: string;
+  allowWebSearch!: boolean;
+  webSearchMaxResults!: number;
+  includePreviousMessagesAsContext!: boolean;
+  searchEngine!: string;
 
   constructor() {
     this.historyWidth = 400;

@@ -1,8 +1,11 @@
 <script lang="ts">
   import type { Config } from './types';
+  import Settings from './Settings.svelte';
+  
   export let config: Config;
   
   let activeMenu: string | null = null;
+  let showSettings = false;
   
   function toggleMenu(menu: string) {
     activeMenu = activeMenu === menu ? null : menu;
@@ -19,7 +22,9 @@
     {#if activeMenu === 'file'}
       <div class="dropdown">
         <button on:click={closeMenu}>New Conversation</button>
-        <button on:click={closeMenu}>Settings</button>
+        <button on:click={() => { showSettings = true; closeMenu(); }}>
+          Settings
+        </button>
       </div>
     {/if}
   </div>
@@ -42,6 +47,8 @@
     {/if}
   </div>
 </div>
+
+<Settings bind:config bind:isOpen={showSettings} />
 
 <style>
   .menu-bar {
@@ -66,12 +73,12 @@
     position: absolute;
     top: 100%;
     left: 0;
-    background: white;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     display: flex;
     flex-direction: column;
     min-width: 150px;
     z-index: 100;
+    background: #000;
   }
   
   .dropdown button {
@@ -81,6 +88,6 @@
   }
   
   .dropdown button:hover {
-    background-color: #f5f5f5;
+    background-color: #454545;
   }
 </style>
