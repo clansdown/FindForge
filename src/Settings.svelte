@@ -170,12 +170,19 @@
       <div class="form-group">
         <label>Available Models</label>
         <div class="form-group">
-          <input 
-            type="text" 
-            placeholder="Filter models..." 
-            bind:value={modelFilter}
-            class="filter-input"
-          />
+          <div class="filter-container">
+            <input 
+              type="text" 
+              placeholder="Filter models..." 
+              bind:value={modelFilter}
+              class="filter-input"
+            />
+            {#if modelFilter}
+              <button class="clear-button" on:click={() => modelFilter = ''} aria-label="Clear filter">
+                ×
+              </button>
+            {/if}
+          </div>
         </div>
         <div class="model-list">
           {#each filteredModels as model}
@@ -273,9 +280,32 @@
     background-color: #333;
   }
   
+  .filter-container {
+    position: relative;
+    display: flex;
+  }
+  
+  .clear-button {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0;
+  }
+  
+  .clear-button:hover {
+    color: #fff;
+  }
+  
   .filter-input {
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.5rem 30px 0.5rem 0.5rem; /* top, right, bottom, left */
     border: 1px solid #ddd;
     border-radius: 4px;
     background-color: #333;
