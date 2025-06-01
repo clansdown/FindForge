@@ -3,7 +3,7 @@
   import History from './lib/History.svelte';
   import Conversation from './lib/Conversation.svelte';
   
-  let historyWidth = 300; // Initial width in pixels
+  let historyWidth = 400; // Increased initial width
   let isDragging = false;
   
   function startDrag() {
