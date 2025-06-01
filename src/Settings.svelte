@@ -1,11 +1,30 @@
 <script lang="ts">
   import { saveConfig } from './lib/storage';
   import { Config } from './lib/types';
+  import { onDestroy } from 'svelte';
 
   export let config: Config;
   export let isOpen: boolean = false;
 
   let localConfig: Config = new Config();
+
+  function handleKeydown(event: KeyboardEvent) {
+    if(isOpen) {
+      if (event.key === 'Escape') {
+        isOpen = false;
+      }
+    }
+  }
+
+  let removeKeydown: () => void;
+  $: if (isOpen) {
+    window.addEventListener('keydown', handleKeydown);
+    removeKeydown = () => window.removeEventListener('keydown', handleKeydown);
+  }
+
+  onDestroy(() => {
+    if (removeKeydown) removeKeydown();
+  });
 
   $: if (isOpen) {
     // Create a deep copy when dialog opens
@@ -19,8 +38,10 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
 {#if isOpen}
-<div class="modal-background" on:click|stopPropagation>
+<div class="modal-background" on:click|stopPropagation on:keydown={handleKeydown} role="dialog" aria-modal="true" tabindex="0">
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="modal-content" on:click|stopPropagation>
     <h2>Settings</h2>
     
@@ -66,15 +87,17 @@
     <div class="form-group">
       <label>Search Engine:</label>
       <select bind:value={localConfig.searchEngine}>
+        <option value="duckduckgo">DuckDuckGo</option>
         <option value="google">Google</option>
         <option value="bing">Bing</option>
-        <option value="duckduckgo">DuckDuckGo</option>
+        <option value="kagi">Kagi</option>
+        <option value="brave">Brave</option>
       </select>
     </div>
     
     <div class="button-group">
-      <button on:click={save}>Save</button>
       <button on:click={() => isOpen = false}>Cancel</button>
+      <button on:click={save}>Save</button>
     </div>
   </div>
 </div>
@@ -87,7 +110,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0,0,0,0.6);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -95,9 +118,10 @@
   }
   
   .modal-content {
-    background: #111;
+    background: #222;
     padding: 2rem;
-    border-radius: 8px;
+    border: 1px solid #ddd;
+    border-radius: 18px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     width: 80%;
     max-width: 600px;

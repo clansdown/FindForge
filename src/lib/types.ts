@@ -18,6 +18,6 @@ export class Config {
     this.allowWebSearch = false;
     this.webSearchMaxResults = 5;
     this.includePreviousMessagesAsContext = true;
-    this.searchEngine = 'google';
+    this.searchEngine = 'duckduckgo';
   }
 }
