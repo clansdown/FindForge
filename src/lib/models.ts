@@ -128,7 +128,7 @@ export async function callOpenRouterStreaming(
 }
 
 // Fetch generation data from OpenRouter Generation API
-async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData | null> {
+export async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData | null> {
     try {
         // We can't request this immediately as the generation object won't instantly exist, we have to wait a short time
         await sleep(1000);
