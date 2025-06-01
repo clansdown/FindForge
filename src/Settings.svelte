@@ -159,7 +159,10 @@
         <label>Default Model:</label>
         <select bind:value={localConfig.defaultModel}>
           {#each availableModels as model}
-            <option value={model.id}>{model.name}</option>
+            <option value={model.id}>
+              {model.name}
+              (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+            </option>
           {/each}
         </select>
         {#if modelFetchError}
@@ -189,7 +192,8 @@
             <div class="row">
               <div class="col">
                 <input type="checkbox" bind:checked={model.allowed} />
-                {model.name}
+                <span style="margin-right: 1rem;">{model.name} </span>
+                (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
               </div>
             </div>
           {/each}
