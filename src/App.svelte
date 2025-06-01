@@ -1,7 +1,7 @@
 <script lang="ts">
-  import MenuBar from './lib/MenuBar.svelte';
-  import History from './lib/History.svelte';
-  import Conversation from './lib/Conversation.svelte';
+  import MenuBar from './MenuBar.svelte';
+  import History from './History.svelte';
+  import Conversation from './Conversation.svelte';
     import type { Config } from './lib/types';
     import { loadConfig, saveConfig } from './lib/storage';
   
