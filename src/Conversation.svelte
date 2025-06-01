@@ -153,6 +153,7 @@
   <div bind:this={conversationDiv} class="conversation-content">
     {#each currentConversation.messages as message (message.id)}
       <div class="message {message.role}">
+        {#if message.modelName}<div class="role">{message.modelName}</div>{/if}
         <div class="content">{@html formatMessage(message.content)}</div>
         {#if message.totalCost}
           <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
