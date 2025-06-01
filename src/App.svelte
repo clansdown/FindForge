@@ -2,10 +2,13 @@
   import MenuBar from './lib/MenuBar.svelte';
   import History from './lib/History.svelte';
   import Conversation from './lib/Conversation.svelte';
+    import type { Config } from './lib/types';
+    import { loadConfig, saveConfig } from './lib/storage';
   
-  let historyWidth = 400; // Increased initial width
+  let config : Config = loadConfig();
   let isDragging = false;
-  
+  let splitContainer: HTMLDivElement;
+
   function startDrag() {
     isDragging = true;
   }
@@ -16,18 +19,22 @@
   
   function handleDrag(e: MouseEvent) {
     if (isDragging) {
-      historyWidth = Math.max(100, Math.min(e.clientX, window.innerWidth - 100));
+      let x = e.clientX - splitContainer.getBoundingClientRect().x;
+      config.historyWidth = Math.max(100, x);
+      saveConfig(config);
+      config = config; // Trigger reactivity
     }
   }
 </script>
 
 <main>
   <MenuBar />
-  <div class="split-container" on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag}>
-    <div class="history-container" style="width: {historyWidth}px">
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
+  <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
+    <div class="history-container" style="width: {config.historyWidth}px">
       <History />
     </div>
-    <div class="resize-handle" on:mousedown={startDrag} />
+    <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
     <div class="conversation-container">
       <Conversation />
     </div>
@@ -35,6 +42,12 @@
 </main>
 
 <style>
+  main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+  }
   .split-container {
     display: flex;
     height: calc(100vh - 50px); /* Adjust based on menu bar height */
@@ -60,23 +73,9 @@
   .conversation-container {
     flex: 1;
     height: 100%;
+    width: 100%;
     overflow: hidden;
   }
   
-  /* Existing styles remain unchanged */
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
+
 </style>
