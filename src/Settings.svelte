@@ -1,12 +1,15 @@
 <script lang="ts">
   import { saveConfig } from './lib/storage';
   import { Config } from './lib/types';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { getModels } from '../lib/models';
 
   export let config: Config;
   export let isOpen: boolean = false;
 
   let localConfig: Config = new Config();
+  let availableModels: string[] = [];
+  let modelFetchError: string | null = null;
 
   function handleKeydown(event: KeyboardEvent) {
     if(isOpen) {
@@ -29,6 +32,16 @@
   $: if (isOpen) {
     // Create a deep copy when dialog opens
     localConfig = JSON.parse(JSON.stringify(config));
+    // Fetch models when dialog opens
+    modelFetchError = null;
+    getModels(config)
+      .then(models => {
+        availableModels = models.map(m => m.id);
+      })
+      .catch(error => {
+        modelFetchError = error.message;
+        console.error('Model fetch failed:', error);
+      });
   }
 
   function save() {
@@ -52,14 +65,15 @@
     
     <div class="form-group">
       <label>Default Model:</label>
-      <input type="text" bind:value={localConfig.defaultModel} />
+      <select bind:value={localConfig.defaultModel}>
+        {#each availableModels as model}
+          <option value={model}>{model}</option>
+        {/each}
+      </select>
+      {#if modelFetchError}
+        <div class="error">{modelFetchError}</div>
+      {/if}
     </div>
-    <!--  TODO: fix this garbage
-    <div class="form-group">
-      <label>Available Models (comma separated):</label>
-      <input type="text" bind:value={localConfig.availableModels.join(', ')} />
-    </div>
-  -->
     <div class="form-group">
       <label>System Prompt:</label>
       <textarea bind:value={localConfig.systemPrompt} rows="4" />
@@ -158,5 +172,11 @@
   .button-group button {
     padding: 0.5rem 1rem;
     cursor: pointer;
+  }
+
+  .error {
+    color: #ff6b6b;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
   }
 </style>

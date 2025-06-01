@@ -21,3 +21,14 @@ export class Config {
     this.searchEngine = 'duckduckgo';
   }
 }
+
+export interface Model {
+    id: string;
+    name: string;
+    description: string;
+    context_length: number;
+    pricing: {
+        prompt: string;
+        completion: string;
+    };
+}
