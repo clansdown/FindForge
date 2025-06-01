@@ -12,6 +12,13 @@
   let availableModels : Model[] = [];
   let modelFetchError: string | null = null;
   let currentTab : 'general' | 'model' = 'general';
+  let modelFilter = '';
+  
+  $: filteredModels = modelFilter ? openrouterModels.filter(model => 
+        model.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
+        model.id.toLowerCase().includes(modelFilter.toLowerCase())
+      )
+    : openrouterModels;
 
   function handleKeydown(event: KeyboardEvent) {
     if(isOpen) {
@@ -162,8 +169,16 @@
 
       <div class="form-group">
         <label>Available Models</label>
+        <div class="form-group">
+          <input 
+            type="text" 
+            placeholder="Filter models..." 
+            bind:value={modelFilter}
+            class="filter-input"
+          />
+        </div>
         <div class="model-list">
-          {#each openrouterModels as model}
+          {#each filteredModels as model}
             <div class="row">
               <div class="col">
                 <input type="checkbox" bind:checked={model.allowed} />
@@ -256,6 +271,15 @@
     border-radius: 4px;
     padding: 0.5rem;
     background-color: #333;
+  }
+  
+  .filter-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #333;
+    color: white;
   }
 
 </style>
