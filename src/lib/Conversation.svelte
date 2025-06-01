@@ -1,3 +1,8 @@
+<script lang="ts">
+  import type { Config } from './types';
+  export let config: Config;
+</script>
+
 <div class="conversation">
   <h2>Conversation</h2>
   <!-- Conversation content will go here -->

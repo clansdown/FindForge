@@ -1,4 +1,7 @@
 <script lang="ts">
+  import type { Config } from './types';
+  export let config: Config;
+  
   let activeMenu: string | null = null;
   
   function toggleMenu(menu: string) {
