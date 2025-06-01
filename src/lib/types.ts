@@ -55,6 +55,7 @@ export interface Model {
 }
 
 export interface MessageData {
+    id: string; // Add ID for message tracking
     role: 'user' | 'assistant' | 'system';
     content: string;
     timestamp?: number;

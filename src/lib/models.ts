@@ -58,10 +58,10 @@ export async function callOpenRouterStreaming(
 
   const body = {
     model: modelId,
-    messages,
+    messages : messages,
     max_tokens: maxTokens,
     stream: true,
-    plugins: maxWebRequests > 0 ? [{ type: "web_search", max_requests: maxWebRequests }] : undefined
+    plugins: maxWebRequests > 0 ? [{ id: "web", max_results: maxWebRequests }] : [],
   };
 
   const response = await fetch(url, {
