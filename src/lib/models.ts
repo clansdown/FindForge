@@ -1,4 +1,4 @@
-import type { Config, Model } from './types';
+import type { Config, Model, StreamingResult } from './types';
 
 
 let cachedModels: Model[] | null = null;
@@ -38,4 +38,90 @@ export async function getModels(config: Config): Promise<Model[]> {
     
     cachedModels = await fetchModels(config.apiKey);
     return cachedModels;
+}
+
+export async function callOpenRouterStreaming(
+  apiKey: string,
+  modelId: string,
+  maxTokens: number,
+  maxWebRequests: number,
+  messages: any[],
+  callback: (chunk: string) => void,
+  abortController?: AbortController
+): Promise<StreamingResult> {
+  const url = 'https://openrouter.ai/api/v1/chat/completions';
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  const body = {
+    model: modelId,
+    messages,
+    max_tokens: maxTokens,
+    stream: true,
+    plugins: maxWebRequests > 0 ? [{ type: "web_search", max_requests: maxWebRequests }] : undefined
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: abortController?.signal
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const requestID = response.headers.get('X-Request-ID') || '';
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let result: StreamingResult = {
+    requestID,
+    model: modelId,
+    created: Date.now(),
+    done: false
+  };
+
+  if (!reader) {
+    throw new Error('Failed to get response reader');
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.replace('data: ', '');
+          if (data === '[DONE]') {
+            result.done = true;
+            return result;
+          }
+
+          try {
+            const json = JSON.parse(data);
+            if (json.choices?.[0]?.delta?.content) {
+              callback(json.choices[0].delta.content);
+            }
+            if (json.usage) {
+              result.totalTokens = json.usage.total_tokens;
+            }
+          } catch (e) {
+            console.error('Error parsing JSON chunk', e);
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  result.done = true;
+  return result;
 }

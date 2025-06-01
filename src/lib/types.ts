@@ -22,6 +22,14 @@ export class Config {
   }
 }
 
+export interface StreamingResult {
+  requestID: string;
+  model: string;
+  created: number;
+  done: boolean;
+  totalTokens?: number;
+}
+
 export interface Model {
     id: string;
     name: string;
