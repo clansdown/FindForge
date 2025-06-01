@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { Config } from './lib/types';
+  import type { Config, ConversationData } from './lib/types';
   export let config: Config;
+  export let currentConversation : ConversationData;
 
   let conversationDiv: HTMLDivElement;
   let totalCost: number = 0;

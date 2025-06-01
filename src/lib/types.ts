@@ -54,7 +54,7 @@ export interface Model {
     allowed?: boolean;
 }
 
-export interface Message {
+export interface MessageData {
     role: 'user' | 'assistant' | 'system';
     content: string;
     timestamp?: number;
@@ -64,9 +64,9 @@ export interface Message {
     webSearchResults?: string[];
 }
 
-export interface Conversation {
+export interface ConversationData {
     id: string;
-    messages: Message[];
+    messages: MessageData[];
     created: number;
     updated: number;
 }

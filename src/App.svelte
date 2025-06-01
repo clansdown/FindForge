@@ -2,12 +2,18 @@
   import MenuBar from './MenuBar.svelte';
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
-    import type { Config } from './lib/types';
+    import type { Config, ConversationData } from './lib/types';
     import { loadConfig, saveConfig } from './lib/storage';
   
   let config : Config = loadConfig();
   let isDragging = false;
   let splitContainer: HTMLDivElement;
+  let currentConversation : ConversationData = {
+    id: '',
+    messages: [],
+    created: new Date().valueOf(),
+    updated: new Date().valueOf()
+  };
 
   function startDrag() {
     isDragging = true;
@@ -36,7 +42,7 @@
     </div>
     <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
     <div class="conversation-container">
-      <Conversation {config} />
+      <Conversation bind:currentConversation={currentConversation} {config} />
     </div>
   </div>
 </main>
