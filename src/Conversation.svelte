@@ -21,6 +21,7 @@
   $: if (currentConversation.messages.length) {
     scrollToBottom();
   }
+  
 
   function handleScroll() {
     if (!conversationDiv) return;
