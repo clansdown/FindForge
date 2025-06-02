@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { callOpenRouterStreaming, fetchGenerationData, getModels } from './lib/models';
+  import ConversationToolbar from './ConversationToolbar.svelte';
   import { generateID } from './lib/util';
   import MarkdownIt from 'markdown-it';
   import hljs from 'highlight.js';
   import type { MessageData, GenerationData, Model } from './lib/types';
-  import type { Config, ConversationData } from './lib/types';
+  import { Config, type ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
 
   const md = new MarkdownIt({
@@ -25,6 +26,17 @@
   });
 
   export let config: Config;
+  let localConfig = createConfigCopy(config);
+
+  $: {
+    localConfig = createConfigCopy(config);
+  }
+
+  function createConfigCopy(source: Config): Config {
+    const newConfig = new Config();
+    Object.assign(newConfig, source);
+    return newConfig;
+  }
   export let currentConversation : ConversationData;
   export let saveConversation: (conversation: ConversationData) => void;
   export let refreshAvailableCredits: () => Promise<void>;
@@ -90,7 +102,7 @@
     clearSelection(); // Clear selection on scroll
   }
 
-  getModels(config).then(m => {
+  getModels(localConfig).then(m => {
     models = m;
   });
 
@@ -158,10 +170,10 @@
       
       /* Call streaming API */
       const result = await callOpenRouterStreaming(
-        config.apiKey,
-        config.defaultModel,
+        localConfig.apiKey,
+        localConfig.defaultModel,
         8192, // maxTokens
-        config.allowWebSearch ? config.webSearchMaxResults : 0,
+        localConfig.allowWebSearch ? localConfig.webSearchMaxResults : 0,
         messagesForAPI,
         (chunk) => {
           assistantMessage.content += chunk;
@@ -176,7 +188,7 @@
       /* Fetch generation data */
       if (result.requestID) {
         assistantMessage.requestID = result.requestID;
-        const generationData = await fetchGenerationData(config.apiKey, result.requestID);
+        const generationData = await fetchGenerationData(localConfig.apiKey, result.requestID);
         if (generationData) {
           assistantMessage.generationData = generationData;
           assistantMessage.totalCost = generationData?.total_cost || 0;
@@ -223,6 +235,7 @@
 <div class="conversation">
   <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
   <!-- Toolbar goes here -->
+  <ConversationToolbar bind:config={localConfig} />
   
 
   <!-- Conversation content will go here -->
@@ -258,7 +271,7 @@
           position={selectionRect} 
           selectedText={selectedText} 
           onInternalSearch={doInternalSearch} 
-          searchEngine={config.searchEngine} 
+          searchEngine={localConfig.searchEngine} 
         />
       {/if}
   </div>
@@ -294,7 +307,7 @@
   .conversation-title {
     font-size: 1.5rem;
     font-weight: bold;
-    margin: 0.83em 0;
+    margin: .1rem 0;
     width: 100%;
     border: none;
     border-bottom: 1px solid transparent;

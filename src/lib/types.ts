@@ -1,8 +1,8 @@
 export class Config {
   historyWidth!: number;
   apiKey!: string;
-  defaultModel!: string;
-  availableModels!: string[];
+  defaultModel!: string; // model ID
+  availableModels!: string[]; // model IDs
   systemPrompt!: string;
   allowWebSearch!: boolean;
   webSearchMaxResults!: number;
