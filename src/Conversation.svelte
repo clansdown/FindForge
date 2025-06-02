@@ -1,10 +1,28 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { callOpenRouterStreaming, fetchGenerationData, getModels } from './lib/models';
-  import { escapeHtml, generateID } from './lib/util';
+  import { generateID } from './lib/util';
+  import MarkdownIt from 'markdown-it';
+  import hljs from 'highlight.js';
   import type { MessageData, GenerationData, Model } from './lib/types';
   import type { Config, ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
+
+  const md = new MarkdownIt({
+    html: false,
+    breaks: true,
+    linkify: true,
+    highlight: function (str, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          return '<pre class="hljs"><code>' +
+                 hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                 '</code></pre>';
+        } catch (__) {}
+      }
+      return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+    }
+  });
 
   export let config: Config;
   export let currentConversation : ConversationData;
@@ -192,27 +210,10 @@
   }
 
   function formatMessage(text: string): string {
-    let formattedContent = text;
-    formattedContent = formattedContent.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-    formattedContent = formattedContent.replace(/`([^`]+)`/g, '<code>$1</code>');
-    formattedContent = formattedContent.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    formattedContent = formattedContent.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    formattedContent = formattedContent.replace(/\n/g, '<br>');
-
-    // Convert markdown links to [source] links
-    formattedContent = formattedContent.replace(/\[[^\]]*\]\(([^)]+)\)/g, '[<a href="$1" target="_blank">source</a>]');
-
-    // Split by HTML tags to avoid replacing URLs inside tags
-    const parts = formattedContent.split(/(<[^>]+>)/);
-    for (let i = 0; i < parts.length; i++) {
-      if (i % 2 === 0) { // not inside a tag
-        // Replace bare URLs with [source] links
-        parts[i] = parts[i].replace(/(https?:\/\/[^\s<]+)/g, '[<a href="$1" target="_blank">source</a>]');
-      }
-    }
-    formattedContent = parts.join('');
-
-    return formattedContent;
+    let html = md.render(text);
+    // Replace all <a> tags with [source] links
+    // html = html.replace(/<a\s+[^>]*?href="([^"]*)"[^>]*>[\s\S]*?<\/a>/gi, '[<a href="$1" target="_blank">source</a>]');
+    return html;
   }
 </script>
 
