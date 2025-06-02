@@ -15,10 +15,17 @@
   let abortController: AbortController | null = null;
   let textarea: HTMLTextAreaElement;
   let models : Model[] = [];
+  let showScrollToBottom = false;
 
   // Scroll to bottom when messages change
   $: if (currentConversation.messages.length) {
     scrollToBottom();
+  }
+
+  function handleScroll() {
+    if (!conversationDiv) return;
+    const { scrollTop, scrollHeight, clientHeight } = conversationDiv;
+    showScrollToBottom = scrollTop + clientHeight < scrollHeight - 10; // 10px tolerance
   }
 
   getModels(config).then(m => {
@@ -27,6 +34,7 @@
 
   function scrollToBottom() {
     conversationDiv.scrollTop = conversationDiv.scrollHeight;
+    showScrollToBottom = false;
   }
 
   // Handle textarea key events
@@ -167,16 +175,23 @@
   
 
   <!-- Conversation content will go here -->
-  <div bind:this={conversationDiv} class="conversation-content">
-    {#each currentConversation.messages as message (message.id)}
-      <div class="message {message.role}">
-        {#if message.modelName}<div class="role">{message.modelName}</div>{/if}
-        <div class="content">{@html formatMessage(message.content)}</div>
-        {#if message.totalCost}
-          <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
-        {/if}
+  <div class="conversation-window">
+    <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll}>
+      {#each currentConversation.messages as message (message.id)}
+        <div class="message {message.role}">
+          {#if message.modelName}<div class="role">{message.modelName}</div>{/if}
+          <div class="content">{@html formatMessage(message.content)}</div>
+          {#if message.totalCost}
+            <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
+          {/if}
+        </div>
+      {/each}
       </div>
-    {/each}
+      {#if showScrollToBottom}
+        <button class="scroll-to-bottom" on:click={scrollToBottom}>
+          ↓
+        </button>
+      {/if}
   </div>
 
   <!-- Total Cost goes here -->
@@ -230,9 +245,37 @@
     display: flex;
     flex-direction: column;
   }
+  .conversation-window {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    position: relative;
+    height: 5rem;
+  }
   .conversation-content {
+    height: 100%;
     overflow-y: auto;
     flex: 1;
+  }
+  
+  .scroll-to-bottom {
+    position: absolute;
+    bottom: 10px;
+    right: 24px;
+    opacity: 0.7;
+    background: #383;
+    color: white;
+    border: none;
+    border-radius: 40%;
+    cursor: pointer;
+    z-index: 100;
+    padding: 8px 16px;
+    font-size: 28px;
+  }
+  
+  .scroll-to-bottom:hover {
+    opacity: 1;
+    background: #5a5;
   }
   
   .message {
@@ -260,6 +303,7 @@
     font-size: 0.8rem;
     color: #999;
     text-align: right;
+    flex-grow: 0;
   }
   
   .total-cost {
@@ -270,8 +314,8 @@
   
   .chat-input {
     display: flex;
-    margin-top: 1rem;
     margin-bottom: 1rem;
+    flex-grow: 0;
   }
   
   .chat-input textarea {
