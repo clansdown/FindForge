@@ -12,7 +12,7 @@
   let openrouterModels: Model[] = [];
   let availableModels : Model[] = [];
   let modelFetchError: string | null = null;
-  let currentTab : 'general' | 'model' = 'general';
+  let currentTab : 'general' | 'model' =  config.apiKey ? 'general' : 'model';
   let modelFilter = '';
   
   $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;

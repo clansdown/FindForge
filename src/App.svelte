@@ -6,6 +6,7 @@
   import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation } from './lib/storage';
   import { generateID, sleep } from './lib/util';
   import { fetchOpenRouterCredits } from './lib/models';
+  import Intro from './Intro.svelte';
   
   let config : Config = loadConfig();
   let isDragging = false;
@@ -91,20 +92,30 @@
     }
     saveConversationStorage(conversation);
   }
+
+  function openSettings() {
+    // This will be handled by MenuBar via event bubbling
+    const event = new CustomEvent('openSettings');
+    document.dispatchEvent(event);
+  }
 </script>
 
 <main>
   <MenuBar bind:config={config} {newConversation} credits={availableOpenrouterCredits} />
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
-  <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
-    <div class="history-container" style="width: {config.historyWidth}px">
-      <History {config} {conversations} {setCurrentConversation} {removeConversation} />
+  {#if config.apiKey}
+    <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
+    <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
+      <div class="history-container" style="width: {config.historyWidth}px">
+        <History {config} {conversations} {setCurrentConversation} {removeConversation} />
+      </div>
+      <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
+      <div class="conversation-container">
+        <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {refreshAvailableCredits} />
+      </div>
     </div>
-    <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
-    <div class="conversation-container">
-      <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {refreshAvailableCredits} />
-    </div>
-  </div>
+  {:else}
+    <Intro on:openSettings={openSettings} />
+  {/if}
 </main>
 
 <style>

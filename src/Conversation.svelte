@@ -12,7 +12,7 @@
     html: false,
     breaks: true,
     linkify: true,
-    highlight: function (str, lang) {
+    highlight: function (str : string, lang : string) : string {
       if (lang && hljs.getLanguage(lang)) {
         try {
           return '<pre class="hljs"><code>' +

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Config, OpenRouterCredits } from './lib/types';
   import Settings from './Settings.svelte';
+  import { onMount } from 'svelte';
   
   export let config: Config;
   export let newConversation: () => void;
@@ -16,6 +17,18 @@
   function closeMenu() {
     activeMenu = null;
   }
+
+  onMount(() => {
+    const handleOpenSettings = () => {
+      showSettings = true;
+    };
+
+    document.addEventListener('openSettings', handleOpenSettings);
+
+    return () => {
+      document.removeEventListener('openSettings', handleOpenSettings);
+    };
+  });
 </script>
 
 <div class="menu-bar" on:mouseleave={closeMenu}>
