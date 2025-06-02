@@ -64,6 +64,27 @@ export function loadConversations(): ConversationData[] {
     return conversations;
 }
 
+export function deleteConversation(id: string): void {
+    // Remove from IDs list
+    const ids = loadConversationIDs();
+    const index = ids.indexOf(id);
+    if (index >= 0) {
+        ids.splice(index, 1);
+        localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
+    }
+    
+    // Remove the conversation data
+    localStorage.removeItem(`conversation_${id}`);
+    
+    // Update cache if exists
+    if (conversationsCache) {
+        const cacheIndex = conversationsCache.findIndex(c => c.id === id);
+        if (cacheIndex >= 0) {
+            conversationsCache.splice(cacheIndex, 1);
+        }
+    }
+}
+
 function loadConversationIDs(): string[] {
     const item = localStorage.getItem(CONVERSATION_IDS_KEY);
     if (item) {

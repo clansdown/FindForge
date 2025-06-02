@@ -3,6 +3,7 @@
   export let config: Config;
   export let conversations: ConversationData[];
   export let setCurrentConversation: (conversation: ConversationData) => void;
+  export let removeConversation: (conversation: ConversationData) => void;
 
   let filter = '';
   $: filteredConversations = filter
@@ -24,7 +25,10 @@
   <ul>
     {#each filteredConversations.reverse() as conversation}
       <li>
-        <h3>{conversation.title}</h3>
+        <div class="conversation-header">
+          <h3>{conversation.title}</h3>
+          <button class="delete-button" on:click|stopPropagation={() => removeConversation(conversation)}>✕</button>
+        </div>
         <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
           <p>{conversation.messages[0]?.content?.substring(0, 100) || 'No messages'}</p>
           <div style="text-align: right;"><small>{new Date(conversation.created).toLocaleString()}</small></div>
@@ -76,6 +80,27 @@
     padding: 0.5rem;
     border-bottom: 1px solid #ccc;
     cursor: pointer;
+  }
+  .conversation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .delete-button {
+    background: none;
+    border: none;
+    color: #ccc;
+    cursor: pointer;
+    padding: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .delete-button:hover {
+    color: #fff;
+    background-color: #ff0000;
+    border-radius: 50%;
   }
   button.conversation {
     background: none;

@@ -3,7 +3,7 @@
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
   import type { Config, ConversationData, OpenRouterCredits } from './lib/types';
-  import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations } from './lib/storage';
+  import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation } from './lib/storage';
   import { generateID, sleep } from './lib/util';
   import { fetchOpenRouterCredits } from './lib/models';
   
@@ -70,6 +70,13 @@
     currentConversation = conversation;
   }
 
+  function removeConversation(conversation: ConversationData) {
+    if (confirm('Are you sure you want to delete this conversation? This action is permanent and cannot be undone.')) {
+      deleteConversation(conversation.id);
+      conversations = conversations.filter(c => c.id !== conversation.id);
+    }
+  }
+
   function saveConversation(conversation: ConversationData) {
     console.log('Saving conversation:', conversation);
     // Update the conversations list: if it exists, replace, else add
@@ -88,7 +95,7 @@
   <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
   <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
     <div class="history-container" style="width: {config.historyWidth}px">
-      <History {config} {conversations} setCurrentConversation={setCurrentConversation} />
+      <History {config} {conversations} {setCurrentConversation} {removeConversation} />
     </div>
     <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
     <div class="conversation-container">
