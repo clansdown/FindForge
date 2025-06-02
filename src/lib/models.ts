@@ -1,4 +1,4 @@
-import type { Config, Model, StreamingResult, GenerationData } from './types';
+import type { Config, Model, StreamingResult, GenerationData, OpenRouterCredits } from './types';
 import { sleep } from './util';
 
 
@@ -26,6 +26,21 @@ export async function fetchModels(apiKey: string): Promise<Model[]> {
             completion: model.pricing.completion
         }
     }));
+}
+
+export async function fetchOpenRouterCredits(apiKey: string): Promise<OpenRouterCredits> {
+    const response = await fetch('https://openrouter.ai/api/v1/credits', {
+        headers: {
+            'Authorization': `Bearer ${apiKey}`
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`Failed to fetch credits: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data as OpenRouterCredits;
 }
 
 export async function getModels(config: Config): Promise<Model[]> {

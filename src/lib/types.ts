@@ -76,3 +76,8 @@ export interface ConversationData {
     created: number;
     updated: number;
 }
+
+export interface OpenRouterCredits {
+  total_credits: number;
+  total_usage: number;
+}
