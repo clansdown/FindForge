@@ -9,6 +9,7 @@
   export let config: Config;
   export let currentConversation : ConversationData;
   export let saveConversation: (conversation: ConversationData) => void;
+  export let refreshAvailableCredits: () => Promise<void>;
 
   let conversationDiv: HTMLDivElement;
   let userInput = '';
@@ -82,6 +83,9 @@
     }
   }
 
+  /**
+   * Send a message to the assistant for a streaming response
+  */
   async function sendMessage() {
     if (!userInput.trim() || generating) return;
     scrollToBottom();
@@ -163,6 +167,7 @@
         msg.id === assistantMessage.id ? assistantMessage : msg
       );
       saveConversation(currentConversation);
+      refreshAvailableCredits();
     }
   }
 
