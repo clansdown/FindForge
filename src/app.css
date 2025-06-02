@@ -153,17 +153,31 @@ table {
   margin: 1rem 0; /* Vertical spacing around the table */
   font-size: 16px; /* Readable font size */
   background-color: #2a2a2a; /* Dark background for dark mode */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.5); /* Subtle shadow for depth */
+  border-radius: 12px; /* Rounded corners for a modern look */
+
+}
+
+thead tr {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px; 
+  background-color: #3a4a6a; /* Slightly lighter dark shade for headers */
+}
+
+thead tr :nth-child(1) {
+  border-top-left-radius: 12px; /* Rounded top left corner */
+}
+thead tr :last-child {
+  border-top-right-radius: 12px; /* Rounded top right corner */
 }
 
 /* Style table headers */
 th {
-  background-color: #3a3a3a; /* Slightly lighter dark shade for headers */
   color: #e0e0e0; /* Light text for contrast */
   font-weight: 600; /* Slightly bold headers */
   padding: 12px 15px; /* Comfortable padding */
   text-align: left; /* Left-align headers (adjust as needed) */
-  border-bottom: 2px solid #4a4a4a; /* Stronger border below headers */
+  border-bottom: 2px solid #6a6a6a; /* Stronger border below headers */
 }
 
 /* Style table cells */
@@ -176,7 +190,7 @@ td {
 
 /* Alternating row colors for better readability */
 tr:nth-child(even) {
-  background-color: #323232; /* Subtle zebra striping for dark mode */
+  background-color: #363632; /* Subtle zebra striping for dark mode */
 }
 
 /* Hover effect for rows */
