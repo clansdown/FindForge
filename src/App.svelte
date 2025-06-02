@@ -2,9 +2,10 @@
   import MenuBar from './MenuBar.svelte';
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
-    import type { Config, ConversationData } from './lib/types';
-    import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations } from './lib/storage';
-    import { generateID } from './lib/util';
+  import type { Config, ConversationData, OpenRouterCredits } from './lib/types';
+  import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations } from './lib/storage';
+  import { generateID } from './lib/util';
+  import { fetchOpenRouterCredits } from './lib/models';
   
   let config : Config = loadConfig();
   let isDragging = false;
@@ -17,6 +18,25 @@
     updated: new Date().valueOf()
   };
   let conversations: ConversationData[] = loadConversations();
+  let availableOpenrouterCredits: OpenRouterCredits | undefined;
+
+  async function refreshAvailableCredits() {
+    if (config.apiKey) {
+      try {
+        availableOpenrouterCredits = await fetchOpenRouterCredits(config.apiKey);
+      } catch (e) {
+        console.error('Failed to fetch OpenRouter credits', e);
+        availableOpenrouterCredits = undefined;
+      }
+    } else {
+      availableOpenrouterCredits = undefined;
+    }
+  }
+
+  // Refresh credits when the API key changes
+  $: if (config.apiKey) {
+    refreshAvailableCredits();
+  }
 
   function startDrag() {
     isDragging = true;
@@ -63,7 +83,7 @@
 </script>
 
 <main>
-  <MenuBar bind:config={config} {newConversation} />
+  <MenuBar bind:config={config} {newConversation} credits={availableOpenrouterCredits} />
   <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
   <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
     <div class="history-container" style="width: {config.historyWidth}px">

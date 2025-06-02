@@ -1,9 +1,10 @@
 <script lang="ts">
-  import type { Config } from './lib/types';
+  import type { Config, OpenRouterCredits } from './lib/types';
   import Settings from './Settings.svelte';
   
   export let config: Config;
   export let newConversation: () => void;
+  export let credits: OpenRouterCredits | null = null;
   
   let activeMenu: string | null = null;
   let showSettings = false;
@@ -43,8 +44,15 @@
     <button on:click={() => toggleMenu('help')}>Help</button>
     {#if activeMenu === 'help'}
       <div class="dropdown">
+        <button on:click={() => { window.open('https://github.com/clansdown/MachineLearner', '_blank'); closeMenu(); }}>Source Code</button>
         <button on:click={closeMenu}>About</button>
       </div>
+    {/if}
+  </div>
+  
+  <div class="credits" title="Available OpenRouter Credits">
+    {#if credits}
+      Available: ${(credits.total_credits - credits.total_usage).toFixed(2)}
     {/if}
   </div>
 </div>
@@ -90,5 +98,13 @@
   
   .dropdown button:hover {
     background-color: #454545;
+  }
+  
+  .credits {
+    margin-left: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    color: #888;
+    align-self: center;
   }
 </style>

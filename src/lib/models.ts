@@ -40,7 +40,7 @@ export async function fetchOpenRouterCredits(apiKey: string): Promise<OpenRouter
     }
     
     const data = await response.json();
-    return data as OpenRouterCredits;
+    return data.data as OpenRouterCredits;
 }
 
 export async function getModels(config: Config): Promise<Model[]> {
