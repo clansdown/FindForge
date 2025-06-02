@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Config, ConversationData } from './types';
+  import type { Config, ConversationData } from './lib/types';
   export let config: Config;
   export let conversations: ConversationData[];
   export let setCurrentConversation: (conversation: ConversationData) => void;

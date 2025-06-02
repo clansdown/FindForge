@@ -17,7 +17,7 @@
   let textarea: HTMLTextAreaElement;
   let models : Model[] = [];
   let showScrollToBottom = false;
-  let selectionRect: { top: number, left: number } | null = null;
+  let selectionRect: { top: number, left: number, bottom: number } | null = null;
   let selectedText = '';
 
   // Scroll to bottom when messages change
@@ -38,7 +38,8 @@
     
     selectionRect = {
       top: rect.top - parentRect.top + conversationDiv.scrollTop,
-      left: rect.left - parentRect.left
+      left: rect.left - parentRect.left,
+      bottom: rect.bottom - parentRect.top + conversationDiv.scrollTop
     };
     selectedText = selection.toString();
   }

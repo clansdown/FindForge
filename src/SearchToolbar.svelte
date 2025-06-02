@@ -1,5 +1,5 @@
 <script lang="ts">
-  export let position: { top: number, left: number };
+  export let position: { top: number, left: number, bottom: number };
   export let selectedText: string;
   export let onInternalSearch: (text: string) => void;
   export let searchEngine: string;
@@ -25,7 +25,7 @@
   }
 </script>
 
-<div class="search-toolbar" style="top: {position.top}px; left: {position.left}px">
+<div class="search-toolbar" style="top: {position.bottom}px; left: {position.left}px">
   <button on:click={() => onInternalSearch(selectedText)} title="Internal Search">🔍</button>
   <button on:click={searchWikipedia} title="Search Wikipedia">W</button>
   <button on:click={searchWeb} title="Web Search">🌐</button>
