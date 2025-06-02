@@ -18,6 +18,15 @@
       case 'google':
         url = `https://www.google.com/search?q=${encodeURIComponent(selectedText)}`;
         break;
+      case 'kagi':
+        url = `https://kagi.com/search?q=${encodeURIComponent(selectedText)}`;
+        break;
+      case 'brave':
+        url = `https://search.brave.com/search?q=${encodeURIComponent(selectedText)}`;
+        break;
+      case 'bing':
+        url = `https://www.bing.com/search?q=${encodeURIComponent(selectedText)}`;
+        break;
       default:
         url = `https://duckduckgo.com/?q=${encodeURIComponent(selectedText)}`;
     }
@@ -26,7 +35,7 @@
 </script>
 
 <div class="search-toolbar" style="top: {position.bottom}px; left: {position.left}px">
-  <button on:click={() => onInternalSearch(selectedText)} title="Internal Search">🔍</button>
+  <button on:click={() => onInternalSearch("what is " + selectedText)} title="Internal Search">🔍</button>
   <button on:click={searchWikipedia} title="Search Wikipedia">W</button>
   <button on:click={searchWeb} title="Web Search">🌐</button>
 </div>
@@ -36,7 +45,8 @@
     position: absolute;
     display: flex;
     background: #333;
-    border-radius: 4px;
+    border-radius: 8px;
+    border: 2px solid #ccc;
     padding: 4px;
     z-index: 1000;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
