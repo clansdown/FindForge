@@ -7,6 +7,7 @@
 
   export let config: Config;
   export let currentConversation : ConversationData;
+  export let saveConversation: (conversation: ConversationData) => void;
 
   let conversationDiv: HTMLDivElement;
   let userInput = '';
@@ -115,6 +116,7 @@
       currentConversation.messages = currentConversation.messages.map(msg => 
         msg.id === assistantMessage.id ? assistantMessage : msg
       );
+      saveConversation(currentConversation);
     }
   }
 

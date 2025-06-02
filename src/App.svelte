@@ -43,6 +43,11 @@
       updated: new Date().valueOf()
     };
   }
+
+  function saveConversation(conversation: ConversationData) {
+    // Implement saving logic here, e.g., to local storage or a database
+    console.log('Saving conversation:', conversation);
+  }
 </script>
 
 <main>
@@ -54,7 +59,7 @@
     </div>
     <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
     <div class="conversation-container">
-      <Conversation bind:currentConversation={currentConversation} {config} />
+      <Conversation bind:currentConversation={currentConversation} {config} saveConversation={saveConversation} />
     </div>
   </div>
 </main>
