@@ -4,6 +4,7 @@
   import { escapeHtml, generateID } from './lib/util';
   import type { MessageData, GenerationData, Model } from './lib/types';
   import type { Config, ConversationData } from './lib/types';
+  import SearchToolbar from './SearchToolbar.svelte';
 
   export let config: Config;
   export let currentConversation : ConversationData;
@@ -16,10 +17,43 @@
   let textarea: HTMLTextAreaElement;
   let models : Model[] = [];
   let showScrollToBottom = false;
+  let selectionRect: { top: number, left: number } | null = null;
+  let selectedText = '';
 
   // Scroll to bottom when messages change
   $: if (currentConversation.messages.length) {
     scrollToBottom();
+  }
+  
+  function handleTextSelection() {
+    const selection = window.getSelection();
+    if (!selection || selection.toString().trim() === '') {
+      selectionRect = null;
+      return;
+    }
+    
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const parentRect = conversationDiv.getBoundingClientRect();
+    
+    selectionRect = {
+      top: rect.top - parentRect.top + conversationDiv.scrollTop,
+      left: rect.left - parentRect.left
+    };
+    selectedText = selection.toString();
+  }
+  
+  function doInternalSearch(text: string) {
+    userInput = text;
+    textarea.focus();
+    clearSelection();
+  }
+  
+  function clearSelection() {
+    if (window.getSelection) {
+      window.getSelection()?.removeAllRanges();
+    }
+    selectionRect = null;
   }
   
 
@@ -27,6 +61,7 @@
     if (!conversationDiv) return;
     const { scrollTop, scrollHeight, clientHeight } = conversationDiv;
     showScrollToBottom = scrollTop + clientHeight < scrollHeight - 10; // 10px tolerance
+    clearSelection(); // Clear selection on scroll
   }
 
   getModels(config).then(m => {
@@ -177,7 +212,7 @@
 
   <!-- Conversation content will go here -->
   <div class="conversation-window">
-    <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll}>
+    <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
       {#each currentConversation.messages as message (message.id)}
         <div class="message {message.role}">
           {#if message.modelName}<div class="role">{message.modelName}</div>{/if}
@@ -192,6 +227,14 @@
         <button class="scroll-to-bottom" on:click={scrollToBottom}>
           ↓
         </button>
+      {/if}
+      {#if selectionRect}
+        <SearchToolbar 
+          position={selectionRect} 
+          selectedText={selectedText} 
+          onInternalSearch={doInternalSearch} 
+          searchEngine={config.searchEngine} 
+        />
       {/if}
   </div>
 
