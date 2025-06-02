@@ -15,7 +15,12 @@
 
 <div class="history">
   <h2>History</h2>
-  <input type="text" placeholder="Filter..." bind:value={filter} class="filter-input" />
+  <div class="filter-container">
+    <input type="text" placeholder="Filter..." bind:value={filter} class="filter-input" />
+    {#if filter}
+      <button class="clear-button" on:click={() => filter = ''}>✕</button>
+    {/if}
+  </div>
   <ul>
     {#each filteredConversations as conversation}
       <li>
@@ -35,13 +40,32 @@
     overflow-y: auto;
     padding: .2rem;
   }
-  .filter-input {
+  .filter-container {
+    position: relative;
     width: 90%;
-    padding: 0.5rem;
     margin-bottom: 0.5rem;
     margin-right: 1rem;
+  }
+  .filter-input {
+    width: 100%;
+    padding: 0.5rem;
     border: 1px solid #ccc;
     border-radius: 4px;
+    box-sizing: border-box;
+  }
+  .clear-button {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ccc;
+    width: 2rem;
+  }
+  .clear-button:hover {
+    color: #fff;
   }
   ul {
     border-top: 1px solid #fff;
