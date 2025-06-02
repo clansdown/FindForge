@@ -22,7 +22,7 @@
     {/if}
   </div>
   <ul>
-    {#each filteredConversations as conversation}
+    {#each filteredConversations.reverse() as conversation}
       <li>
         <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
         <h3>{conversation.title}</h3>
