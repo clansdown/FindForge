@@ -89,13 +89,13 @@
   .delete-button {
     background: none;
     border: none;
-    color: #ccc;
+    color: #aaa;
     cursor: pointer;
     padding: 0;
     width: 1.5rem;
     height: 1.5rem;
     font-size: 1rem;
-    line-height: 1;
+    margin-top: 0.3rem;
   }
   .delete-button:hover {
     color: #fff;
