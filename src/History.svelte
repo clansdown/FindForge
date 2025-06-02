@@ -9,10 +9,12 @@
   <h2>History</h2>
   <ul>
     {#each conversations as conversation}
-      <li on:click={() => setCurrentConversation(conversation)}>
+      <li>
+        <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
         <h3>{conversation.title}</h3>
         <p>{conversation.messages[0]?.content?.substring(0, 100) || 'No messages'}</p>
         <small>{new Date(conversation.created).toLocaleString()}</small>
+        </button>
       </li>
     {/each}
   </ul>
@@ -34,6 +36,20 @@
     cursor: pointer;
   }
   li:hover {
-    background-color: #f0f0f0;
+    background-color: #999;
+  }
+  button.conversation {
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    padding: 4px;
+  }
+  button.conversation:focus {
+    outline: none;
+  }
+  button.conversation:active {
+    border: none;
+    outline: none;
   }
 </style>
