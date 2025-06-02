@@ -78,6 +78,9 @@
   }
 
   function saveConversation(conversation: ConversationData) {
+    // Update the 'updated' timestamp to now
+    conversation.updated = Date.now();
+
     console.log('Saving conversation:', conversation);
     // Update the conversations list: if it exists, replace, else add
     const index = conversations.findIndex(c => c.id === conversation.id);
