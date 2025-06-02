@@ -1,6 +1,8 @@
-import { Config } from './types';
+import { Config, type ConversationData } from './types';
 
 const STORAGE_KEY = 'appConfig';
+const CONVERSATION_IDS_KEY = 'conversationIDs';
+let conversationsCache: ConversationData[] | null = null;
 
 export function saveConfig(config: Config): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
@@ -20,4 +22,57 @@ export function loadConfig(): Config {
   }
   
   return config;
+}
+
+export function storeConversation(conversation: ConversationData): void {
+    const ids = loadConversationIDs();
+    if (!ids.includes(conversation.id)) {
+        ids.push(conversation.id);
+        localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
+    }
+    localStorage.setItem(`conversation_${conversation.id}`, JSON.stringify(conversation));
+
+    if (conversationsCache) {
+        const index = conversationsCache.findIndex(c => c.id === conversation.id);
+        if (index >= 0) {
+            conversationsCache[index] = conversation;
+        } else {
+            conversationsCache.push(conversation);
+        }
+    }
+}
+
+export function loadConversations(): ConversationData[] {
+    if (conversationsCache) {
+        return conversationsCache;
+    }
+
+    const ids = loadConversationIDs();
+    const conversations: ConversationData[] = [];
+    for (const id of ids) {
+        const item = localStorage.getItem(`conversation_${id}`);
+        if (item) {
+            try {
+                const conv = JSON.parse(item) as ConversationData;
+                conversations.push(conv);
+            } catch (e) {
+                console.error(`Failed to parse conversation ${id}`, e);
+            }
+        }
+    }
+    conversationsCache = conversations;
+    return conversations;
+}
+
+function loadConversationIDs(): string[] {
+    const item = localStorage.getItem(CONVERSATION_IDS_KEY);
+    if (item) {
+        try {
+            return JSON.parse(item) as string[];
+        } catch (e) {
+            console.error('Failed to parse conversation IDs', e);
+            return [];
+        }
+    }
+    return [];
 }

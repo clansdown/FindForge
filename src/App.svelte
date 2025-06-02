@@ -3,7 +3,7 @@
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
     import type { Config, ConversationData } from './lib/types';
-    import { loadConfig, saveConfig } from './lib/storage';
+    import { loadConfig, saveConfig, storeConversation as saveConversationStorage } from './lib/storage';
     import { generateID } from './lib/util';
   
   let config : Config = loadConfig();
@@ -45,8 +45,8 @@
   }
 
   function saveConversation(conversation: ConversationData) {
-    // Implement saving logic here, e.g., to local storage or a database
     console.log('Saving conversation:', conversation);
+    saveConversationStorage(conversation);
   }
 </script>
 
