@@ -3,6 +3,7 @@
   import Settings from './Settings.svelte';
   
   export let config: Config;
+  export let newConversation: () => void;
   
   let activeMenu: string | null = null;
   let showSettings = false;
@@ -21,7 +22,7 @@
     <button on:click={() => toggleMenu('file')}>File</button>
     {#if activeMenu === 'file'}
       <div class="dropdown">
-        <button on:click={closeMenu}>New Conversation</button>
+        <button on:click={() => { newConversation(); closeMenu(); }}>New Conversation</button>
         <button on:click={() => { showSettings = true; closeMenu(); }}>
           Settings
         </button>

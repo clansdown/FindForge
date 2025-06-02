@@ -71,6 +71,7 @@ export interface MessageData {
 
 export interface ConversationData {
     id: string;
+    title: string;
     messages: MessageData[];
     created: number;
     updated: number;

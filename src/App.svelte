@@ -4,12 +4,14 @@
   import Conversation from './Conversation.svelte';
     import type { Config, ConversationData } from './lib/types';
     import { loadConfig, saveConfig } from './lib/storage';
+    import { generateID } from './lib/util';
   
   let config : Config = loadConfig();
   let isDragging = false;
   let splitContainer: HTMLDivElement;
   let currentConversation : ConversationData = {
-    id: '',
+    id: generateID(),
+    title: 'New Conversation',
     messages: [],
     created: new Date().valueOf(),
     updated: new Date().valueOf()
@@ -31,10 +33,20 @@
       config = config; // Trigger reactivity
     }
   }
+
+  function newConversation() {
+    currentConversation = {
+      id: generateID(),
+      title: 'New Conversation',
+      messages: [],
+      created: new Date().valueOf(),
+      updated: new Date().valueOf()
+    };
+  }
 </script>
 
 <main>
-  <MenuBar bind:config={config} />
+  <MenuBar bind:config={config} {newConversation} />
   <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
   <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
     <div class="history-container" style="width: {config.historyWidth}px">
