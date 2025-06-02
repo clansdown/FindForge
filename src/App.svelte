@@ -91,7 +91,7 @@
     </div>
     <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
     <div class="conversation-container">
-      <Conversation bind:currentConversation={currentConversation} {config} saveConversation={saveConversation} refreshAvailableCredits={refreshAvailableCredits} />
+      <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {refreshAvailableCredits} />
     </div>
   </div>
 </main>
