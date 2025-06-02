@@ -20,10 +20,10 @@
   let conversations: ConversationData[] = loadConversations();
   let availableOpenrouterCredits: OpenRouterCredits | undefined;
 
-  async function refreshAvailableCredits() {
+  async function refreshAvailableCredits(delay:number = 5000) {
     if (config.apiKey) {
       try {
-        await sleep(5000);
+        if(delay) await sleep(delay);
         availableOpenrouterCredits = await fetchOpenRouterCredits(config.apiKey);
       } catch (e) {
         console.error('Failed to fetch OpenRouter credits', e);
@@ -36,7 +36,7 @@
 
   // Refresh credits when the API key changes
   $: if (config.apiKey) {
-    refreshAvailableCredits();
+    refreshAvailableCredits(0);
   }
 
   function startDrag() {
