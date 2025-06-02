@@ -161,7 +161,7 @@
 
 
 <div class="conversation">
-  <h2>Conversation</h2>
+  <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
   <!-- Toolbar goes here -->
   
 
@@ -206,6 +206,23 @@
 
 
 <style>
+  .conversation-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0.83em 0;
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  
+  .conversation-title:focus {
+    outline: none;
+    border-bottom: 1px solid #666;
+  }
+
   .conversation {
     height: 99%;
     padding: 1rem;
