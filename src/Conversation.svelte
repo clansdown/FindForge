@@ -350,17 +350,17 @@
   .message {
     margin-bottom: 1rem;
     padding: 0.5rem;
-    border-radius: 16px;
+    border-radius: 20px;
     width: 80%;
   }
   
   .message.user {
-    background-color: #30577a;
+    background-color: #30778a;
     margin-left: auto;
   }
   
   .message.assistant {
-    background-color: #444;
+    background-color: #383828;
   }
   
   .role {

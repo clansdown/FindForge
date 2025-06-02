@@ -192,3 +192,12 @@ tr:hover {
     white-space: nowrap; /* Prevent text wrapping */
   }
 }
+
+ol ul {
+  padding-left: 1rem;
+}
+
+ul li {
+  text-indent: 0;
+}
+
