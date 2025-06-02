@@ -145,4 +145,50 @@ button:focus-visible {
 }
 
 
+/* Style the table */
+table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse; /* Merge borders for a clean look */
+  margin: 1rem 0; /* Vertical spacing around the table */
+  font-size: 16px; /* Readable font size */
+  background-color: #2a2a2a; /* Dark background for dark mode */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
+}
 
+/* Style table headers */
+th {
+  background-color: #3a3a3a; /* Slightly lighter dark shade for headers */
+  color: #e0e0e0; /* Light text for contrast */
+  font-weight: 600; /* Slightly bold headers */
+  padding: 12px 15px; /* Comfortable padding */
+  text-align: left; /* Left-align headers (adjust as needed) */
+  border-bottom: 2px solid #4a4a4a; /* Stronger border below headers */
+}
+
+/* Style table cells */
+td {
+  padding: 10px 15px; /* Consistent padding */
+  border-bottom: 1px solid #3a3a3a; /* Subtle border for rows */
+  color: #d0d0d0; /* Light text for readability */
+  vertical-align: top; /* Align text to top for multi-line content */
+}
+
+/* Alternating row colors for better readability */
+tr:nth-child(even) {
+  background-color: #323232; /* Subtle zebra striping for dark mode */
+}
+
+/* Hover effect for rows */
+tr:hover {
+  background-color: #3c3c3c; /* Slightly lighter on hover */
+}
+
+/* Responsive design: Make tables scrollable on small screens */
+@media screen and (max-width: 600px) {
+  table {
+    display: block;
+    overflow-x: auto; /* Horizontal scroll for small screens */
+    white-space: nowrap; /* Prevent text wrapping */
+  }
+}
