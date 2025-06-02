@@ -4,7 +4,7 @@
   import Conversation from './Conversation.svelte';
   import type { Config, ConversationData, OpenRouterCredits } from './lib/types';
   import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations } from './lib/storage';
-  import { generateID } from './lib/util';
+  import { generateID, sleep } from './lib/util';
   import { fetchOpenRouterCredits } from './lib/models';
   
   let config : Config = loadConfig();
@@ -23,6 +23,7 @@
   async function refreshAvailableCredits() {
     if (config.apiKey) {
       try {
+        await sleep(5000);
         availableOpenrouterCredits = await fetchOpenRouterCredits(config.apiKey);
       } catch (e) {
         console.error('Failed to fetch OpenRouter credits', e);

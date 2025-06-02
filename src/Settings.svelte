@@ -1,11 +1,12 @@
 <script lang="ts">
   import { saveConfig } from './lib/storage';
-  import { Config, type Model } from './lib/types';
+  import { Config, type Model, type OpenRouterCredits } from './lib/types';
   import { onDestroy, onMount } from 'svelte';
   import { getModels } from './lib/models';
 
   export let config: Config;
   export let isOpen: boolean = false;
+  export let credits: OpenRouterCredits | undefined;
 
   let localConfig: Config = new Config();
   let openrouterModels: Model[] = [];
@@ -14,11 +15,19 @@
   let currentTab : 'general' | 'model' = 'general';
   let modelFilter = '';
   
-  $: filteredModels = modelFilter ? openrouterModels.filter(model => 
+  $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
+  $: showOnlyFreeModels = remainingCredits === 0;
+
+  $: filteredModels = (modelFilter ? openrouterModels.filter(model => 
         model.name.toLowerCase().includes(modelFilter.toLowerCase()) ||
         model.id.toLowerCase().includes(modelFilter.toLowerCase())
-      )
-    : openrouterModels;
+      ) : openrouterModels)
+      .filter(model => {
+        if (showOnlyFreeModels) {
+          return parseFloat(model.pricing.prompt) === 0 && parseFloat(model.pricing.completion) === 0;
+        }
+        return true;
+      });
 
   function handleKeydown(event: KeyboardEvent) {
     if(isOpen) {

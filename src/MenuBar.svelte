@@ -4,7 +4,7 @@
   
   export let config: Config;
   export let newConversation: () => void;
-  export let credits: OpenRouterCredits | null = null;
+  export let credits: OpenRouterCredits | undefined;
   
   let activeMenu: string | null = null;
   let showSettings = false;
@@ -57,7 +57,7 @@
   </div>
 </div>
 
-<Settings bind:config bind:isOpen={showSettings} />
+<Settings bind:config bind:isOpen={showSettings} {credits} />
 
 <style>
   .menu-bar {
