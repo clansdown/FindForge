@@ -6,12 +6,13 @@
   export let removeConversation: (conversation: ConversationData) => void;
 
   let filter = '';
-  $: filteredConversations = filter
+  $: filteredConversations = (filter
     ? conversations.filter(convo => 
         convo.title.toLowerCase().includes(filter.toLowerCase()) ||
         convo.messages[0]?.content?.toLowerCase().includes(filter.toLowerCase())
       )
-    : conversations;
+    : conversations
+  ).sort((a, b) => b.updated - a.updated);
 </script>
 
 <div class="history">
@@ -23,7 +24,7 @@
     {/if}
   </div>
   <ul>
-    {#each filteredConversations.reverse() as conversation}
+    {#each filteredConversations as conversation}
       <li>
         <div class="conversation-header">
           <h3>{conversation.title}</h3>
@@ -31,7 +32,7 @@
         </div>
         <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
           <p>{conversation.messages[0]?.content?.substring(0, 100) || 'No messages'}</p>
-          <div style="text-align: right;"><small>{new Date(conversation.created).toLocaleString()}</small></div>
+          <div style="text-align: right;"><small>{new Date(conversation.updated).toLocaleString()}</small></div>
         </button>
       </li>
     {/each}
