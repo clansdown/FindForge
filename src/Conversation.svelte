@@ -129,7 +129,9 @@
     try {
       // Prepare messages for API
       const messagesForAPI = config.includePreviousMessagesAsContext
-        ? currentConversation.messages.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
+        ? currentConversation.messages.slice(0, -1)
+            .filter(m => !m.hidden)
+            .map(m => ({ role: m.role, content: m.content }))
         : [userMessage];
       
       if (config.systemPrompt) {
