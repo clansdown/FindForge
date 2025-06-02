@@ -39,7 +39,8 @@
 
   async function sendMessage() {
     if (!userInput.trim() || generating) return;
-    
+    scrollToBottom();
+  
     // Create user message
     const userMessage: MessageData = {
       id: generateID(),
