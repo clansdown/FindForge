@@ -58,6 +58,12 @@
     selectionRect = null;
   }
   
+  function toggleMessageHidden(message: MessageData) {
+    message.hidden = !message.hidden;
+    currentConversation.messages = currentConversation.messages;
+    saveConversation(currentConversation);
+  }
+  
 
   function handleScroll() {
     if (!conversationDiv) return;
@@ -221,8 +227,18 @@
     <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
       {#each currentConversation.messages as message (message.id)}
         <div class="message {message.role}">
-          {#if message.modelName}<div class="role">{message.modelName}</div>{/if}
-          <div class="content">{@html formatMessage(message.content)}</div>
+          <div class="message-header">
+            {#if message.role === 'assistant'}
+            <div class="role">{#if message.modelName}{message.modelName}{/if}
+              <button class="toggle-button hide-button" on:click={() => toggleMessageHidden(message)}>
+                {message.hidden ? 'Show' : 'Hide'}
+              </button>
+              </div>
+            {/if}
+          </div>
+          {#if !message.hidden}
+            <div class="content">{@html formatMessage(message.content)}</div>
+          {/if}
           {#if message.totalCost}
             <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
           {/if}
@@ -347,6 +363,8 @@
   .role {
     font-weight: bold;
     margin-bottom: 0.25rem;
+    display: flex;
+    justify-content: space-between;
   }
   
   .cost {
@@ -378,5 +396,10 @@
   .chat-input button {
     margin-left: 0.5rem;
     padding: 0.5rem 1rem;
+  }
+
+  .hide-button {
+    padding: .25rem;
+    color: #aaa;
   }
 </style>
