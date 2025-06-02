@@ -3,7 +3,7 @@
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
     import type { Config, ConversationData } from './lib/types';
-    import { loadConfig, saveConfig, storeConversation as saveConversationStorage } from './lib/storage';
+    import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations } from './lib/storage';
     import { generateID } from './lib/util';
   
   let config : Config = loadConfig();
@@ -16,6 +16,7 @@
     created: new Date().valueOf(),
     updated: new Date().valueOf()
   };
+  let conversations: ConversationData[] = loadConversations();
 
   function startDrag() {
     isDragging = true;
@@ -44,8 +45,19 @@
     };
   }
 
+  function setCurrentConversation(conversation: ConversationData) {
+    currentConversation = conversation;
+  }
+
   function saveConversation(conversation: ConversationData) {
     console.log('Saving conversation:', conversation);
+    // Update the conversations list: if it exists, replace, else add
+    const index = conversations.findIndex(c => c.id === conversation.id);
+    if (index >= 0) {
+        conversations[index] = conversation;
+    } else {
+        conversations.push(conversation);
+    }
     saveConversationStorage(conversation);
   }
 </script>
@@ -55,7 +67,7 @@
   <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
   <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
     <div class="history-container" style="width: {config.historyWidth}px">
-      <History {config} />
+      <History {config} {conversations} setCurrentConversation={setCurrentConversation} />
     </div>
     <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
     <div class="conversation-container">
