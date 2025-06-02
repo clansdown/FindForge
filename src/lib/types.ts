@@ -62,11 +62,12 @@ export interface MessageData {
     content: string;
     timestamp?: number;
     totalCost?: number;
-    model?: string;
-    modelName?: string;
+    model?: string; // the model ID
+    modelName?: string; // the human readable model name
     generationData?: GenerationData;
     webSearchResults?: string[];
     requestID?: string;
+    hidden?: boolean; // hides the message in the UI and excludes it from being used as context
 }
 
 export interface ConversationData {
