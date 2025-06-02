@@ -24,10 +24,10 @@
   <ul>
     {#each filteredConversations.reverse() as conversation}
       <li>
-        <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
         <h3>{conversation.title}</h3>
-        <p>{conversation.messages[0]?.content?.substring(0, 100) || 'No messages'}</p>
-        <small>{new Date(conversation.created).toLocaleString()}</small>
+        <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
+          <p>{conversation.messages[0]?.content?.substring(0, 100) || 'No messages'}</p>
+          <div style="text-align: right;"><small>{new Date(conversation.created).toLocaleString()}</small></div>
         </button>
       </li>
     {/each}
@@ -70,15 +70,12 @@
   ul {
     border-top: 1px solid #fff;
     list-style: none;
-    padding: 0;
+    padding: 0 .1rem;
   }
   li {
     padding: 0.5rem;
     border-bottom: 1px solid #ccc;
     cursor: pointer;
-  }
-  li:hover {
-    background-color: #999;
   }
   button.conversation {
     background: none;
@@ -86,6 +83,10 @@
     width: 100%;
     text-align: left;
     padding: 4px;
+    margin-top: 0;
+  }
+  button.conversation:hover {
+    background-color: #999;
   }
   button.conversation:focus {
     outline: none;
@@ -93,5 +94,26 @@
   button.conversation:active {
     border: none;
     outline: none;
+  }
+  button.conversation p {
+    margin: 0.2rem 0;
+    font-size: 0.9rem;
+    color: #fff;
+  }
+  h2 {
+    margin: .5rem 0;
+  }
+  h3 {
+    padding: 0;
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+  }
+  small {
+    font-size: .7rem;
+    color: #ccc;
+  }
+  p {
+    margin: 0;
+    padding: 0;
   }
 </style>
