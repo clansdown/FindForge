@@ -282,7 +282,7 @@
         localConfig.defaultModel,
         8192, // maxTokens
         localConfig.allowWebSearch ? localConfig.webSearchMaxResults : 0,
-        messagesWithAttachments,
+        messagesForAPI,
         (chunk) => {
           assistantMessage.content += chunk;
           currentConversation.messages = currentConversation.messages.map(msg => 
