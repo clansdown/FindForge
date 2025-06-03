@@ -6,7 +6,7 @@
   import MarkdownIt from 'markdown-it';
   import markdownItLinkAttributes from 'markdown-it-link-attributes';
   import hljs from 'highlight.js';
-  import type { MessageData, GenerationData, Model, OpenRouterCredits } from './lib/types';
+  import type { MessageData, GenerationData, Model, OpenRouterCredits, Attachment } from './lib/types';
   import { Config, type ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
 
@@ -83,6 +83,34 @@
     const newConfig = new Config();
     Object.assign(newConfig, source);
     return newConfig;
+  }
+
+  function setTitle(message: MessageData) {
+    let title = message.content.trim();
+    // Strip initial phrases
+    title = title.replace(/^(what is|what are|how many)\s+/i, '');
+    // Strip trailing phrases
+    title = title.replace(/\s+(are there)$/i, '');
+    // Split into words
+    const words = title.split(/\s+/);
+    let result = '';
+    let currentLength = 0;
+    for (const word of words) {
+      const wordLength = word.length;
+      // For first word: no space prefix
+      // For subsequent words: add space (1 char) before word
+      const addLength = (currentLength === 0) ? wordLength : wordLength + 1;
+      if (currentLength + addLength > 50) {
+        break;
+      }
+      if (currentLength === 0) {
+        result = word;
+      } else {
+        result += ' ' + word;
+      }
+      currentLength += addLength;
+    }
+    currentConversation.title = result;
   }
 
   function handleTextSelection() {
@@ -189,6 +217,11 @@
     
     // Add to conversation
     currentConversation.messages.push(userMessage);
+    
+    // Set title if first message in new conversation
+    if (currentConversation.messages.length === 1 && currentConversation.title === "New Conversation") {
+      setTitle(userMessage);
+    }
     
     // Create assistant message placeholder
     const assistantMessage: MessageData = {
