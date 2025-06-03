@@ -58,6 +58,7 @@ button {
   font-weight: 500;
   font-family: inherit;
   background-color: #1a1a1a;
+  color: #eee;
   cursor: pointer;
   transition: border-color 0.25s;
 }
@@ -222,3 +223,12 @@ textarea {
   background-color: #333;
 }
 
+input {
+  color: #eee;
+  background-color: #333;
+}
+
+select {
+  color: #eee;
+  background-color: #333;
+}
