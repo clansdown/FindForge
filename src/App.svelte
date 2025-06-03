@@ -9,6 +9,7 @@
   import Intro from './Intro.svelte';
   
   let config : Config = loadConfig();
+  let showHistory = true;
   let isDragging = false;
   let splitContainer: HTMLDivElement;
   let currentConversation : ConversationData = {
@@ -101,14 +102,16 @@
 </script>
 
 <main>
-  <MenuBar bind:config={config} {newConversation} credits={availableOpenrouterCredits} />
+  <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} credits={availableOpenrouterCredits} />
   {#if config.apiKey}
     <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
     <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
-      <div class="history-container" style="width: {config.historyWidth}px">
-        <History {config} {conversations} {setCurrentConversation} {removeConversation} />
-      </div>
-      <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
+      {#if showHistory}
+        <div class="history-container" style="width: {config.historyWidth}px">
+          <History {config} {conversations} {setCurrentConversation} {removeConversation} />
+        </div>
+        <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
+      {/if}
       <div class="conversation-container">
         <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {refreshAvailableCredits} availableCredits={availableOpenrouterCredits} />
       </div>

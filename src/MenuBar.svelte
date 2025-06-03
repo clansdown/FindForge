@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   
   export let config: Config;
+  export let showHistory: boolean;
   export let newConversation: () => void;
   export let credits: OpenRouterCredits | undefined;
   
@@ -48,7 +49,9 @@
     <button on:click={() => toggleMenu('view')}>View</button>
     {#if activeMenu === 'view'}
       <div class="dropdown">
-        <button on:click={closeMenu}>History</button>
+        <button on:click={() => { showHistory = !showHistory; closeMenu(); }}>
+          {#if showHistory}✓{/if} History
+        </button>
       </div>
     {/if}
   </div>
