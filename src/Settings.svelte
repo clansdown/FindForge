@@ -253,6 +253,7 @@
   
   .modal-content {
     background: #222;
+    color: #fff;
     padding: 0 2rem 2rem 2rem;
     border: 2px solid #ddd;
     border-radius: 18px;
