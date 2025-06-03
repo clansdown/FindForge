@@ -228,7 +228,7 @@
       const messagesWithAttachments = [...messagesForAPI];
       if (userMessage.attachments) {
         for (const attachment of userMessage.attachments) {
-          messagesWithAttachments.push({ role: 'user', content: attachment });
+          messagesWithAttachments.push({ role: 'user', content: attachment.content });
         }
       }
       messagesWithAttachments.push({ role: 'user', content: userMessage.content });
@@ -345,14 +345,14 @@
           {#if !message.hidden}
             <div class="content">
               {#if message.role === 'user'}
+              {message.content}
                 <div class="attachments">
                   {#each message.attachments || [] as attachment, index}
                     <div class="attachment">
-                      <span title={attachment.filename}>{attachment.filename.slice(0, 30)}{attachment.filename.length > 30 ? '...' : ''}</span>
+                      <span title={attachment.filename}>{attachment?.filename?.slice(0, 30)}{attachment?.filename?.length > 30 ? '...' : ''}</span>
                     </div>
                   {/each}
                 </div>
-                {message.content}
               {:else}
                 {@html formatMessage(message.content)}
               {/if}
