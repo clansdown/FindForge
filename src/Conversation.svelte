@@ -4,6 +4,7 @@
   import ConversationToolbar from './ConversationToolbar.svelte';
   import { generateID } from './lib/util';
   import MarkdownIt from 'markdown-it';
+  import markdownItLinkAttributes from 'markdown-it-link-attributes';
   import hljs from 'highlight.js';
   import type { MessageData, GenerationData, Model } from './lib/types';
   import { Config, type ConversationData } from './lib/types';
@@ -22,6 +23,12 @@
         } catch (__) {}
       }
       return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+    }
+  });
+  md.use(markdownItLinkAttributes, {
+    attrs: {
+      target: '_blank',
+      rel: 'noopener'
     }
   });
 
@@ -222,10 +229,7 @@
   }
 
   function formatMessage(text: string): string {
-    let html = md.render(text);
-    // Replace all <a> tags with [source] links
-    // html = html.replace(/<a\s+[^>]*?href="([^"]*)"[^>]*>[\s\S]*?<\/a>/gi, '[<a href="$1" target="_blank">source</a>]');
-    return html;
+    return md.render(text);
   }
 </script>
 
