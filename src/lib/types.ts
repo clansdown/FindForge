@@ -56,6 +56,11 @@ export interface Model {
     allowed?: boolean;
 }
 
+export interface Attachment {
+    filename: string;
+    content: string;
+}
+
 export interface MessageData {
     id: string; // Add ID for message tracking
     role: 'user' | 'assistant' | 'system';
@@ -68,7 +73,7 @@ export interface MessageData {
     webSearchResults?: string[];
     requestID?: string;
     hidden?: boolean; // hides the message in the UI and excludes it from being used as context
-    attachments?: string[]; // array of file contents
+    attachments?: Attachment[]; // array of file attachments
 }
 
 export interface ConversationData {

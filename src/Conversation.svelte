@@ -35,7 +35,7 @@
   let selectionRect: { top: number, left: number, bottom: number } | null = null;
   let selectedText = '';
   let hoveredMessageId: string | null = null;
-  let currentMessageContext: string[] = []; // stores attached file contents
+  let currentMessageContext: Attachment[] = []; // stores attached files
 
   const md = new MarkdownIt({
     html: false,
@@ -289,13 +289,17 @@
       if (file) {
         try {
           const text = await file.text();
-          currentMessageContext = [...currentMessageContext, text];
+          currentMessageContext = [...currentMessageContext, { filename: file.name, content: text }];
         } catch (error) {
           console.error('Error reading file:', error);
         }
       }
     };
     input.click();
+  }
+  
+  function removeAttachment(index: number) {
+    currentMessageContext = currentMessageContext.filter((_, i) => i !== index);
   }
 
   // Placeholder cost calculation (implement based on your pricing model)
@@ -341,6 +345,13 @@
           {#if !message.hidden}
             <div class="content">
               {#if message.role === 'user'}
+                <div class="attachments">
+                  {#each message.attachments || [] as attachment, index}
+                    <div class="attachment">
+                      <span title={attachment.filename}>{attachment.filename.slice(0, 30)}{attachment.filename.length > 30 ? '...' : ''}</span>
+                    </div>
+                  {/each}
+                </div>
                 {message.content}
               {:else}
                 {@html formatMessage(message.content)}
@@ -376,21 +387,31 @@
 
   <!-- Chat Input goes here -->
   <div class="chat-input">
-    <button on:click={attachFile} class="attach-button">📎</button>
-    <textarea
-      bind:this={textarea}
-      bind:value={userInput}
-      on:keydown={handleKeydown}
-      rows="1"
-      placeholder="Type your message..."
-      disabled={generating}
-    ></textarea>
-    <button 
-      on:click={generating ? stopGeneration : sendMessage}
-      class={generating ? 'stop' : 'send'}
-    >
-      {generating ? 'Stop' : 'Send'}
-    </button>
+    <div class="attachments">
+      {#each currentMessageContext as attachment, index}
+        <div class="attachment">
+          <span title={attachment.filename}>{attachment.filename.slice(0, 30)}{attachment.filename.length > 30 ? '...' : ''}</span>
+          <button on:click={() => removeAttachment(index)}>X</button>
+        </div>
+      {/each}
+    </div>
+    <div class="input-row">
+      <button on:click={attachFile} class="attach-button">📎</button>
+      <textarea
+        bind:this={textarea}
+        bind:value={userInput}
+        on:keydown={handleKeydown}
+        rows="1"
+        placeholder="Type your message..."
+        disabled={generating}
+      ></textarea>
+      <button 
+        on:click={generating ? stopGeneration : sendMessage}
+        class={generating ? 'stop' : 'send'}
+      >
+        {generating ? 'Stop' : 'Send'}
+      </button>
+    </div>
   </div>
 </div>
 
@@ -507,8 +528,42 @@
   
   .chat-input {
     display: flex;
+    flex-direction: column;
     margin-bottom: 1rem;
     flex-grow: 0;
+  }
+  
+  .chat-input .attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .chat-input .attachment {
+    display: flex;
+    align-items: center;
+    background: #444;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+  }
+  
+  .chat-input .attachment button {
+    margin-left: 0.5rem;
+    padding: 0 0.25rem;
+    background: #666;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .chat-input .attachment button:hover {
+    background: #888;
+  }
+  
+  .chat-input .input-row {
+    display: flex;
   }
   
   .chat-input .attach-button {
@@ -523,9 +578,25 @@
     min-height: 50px;
   }
   
-  .chat-input button {
+  .chat-input button.send, .chat-input button.stop {
     margin-left: 0.5rem;
     padding: 0.5rem 1rem;
+  }
+  
+  .message .attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .message .attachment {
+    display: flex;
+    align-items: center;
+    background: #444;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
   }
 
   .hide-button {
