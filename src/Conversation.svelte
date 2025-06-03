@@ -6,7 +6,7 @@
   import MarkdownIt from 'markdown-it';
   import markdownItLinkAttributes from 'markdown-it-link-attributes';
   import hljs from 'highlight.js';
-  import type { MessageData, GenerationData, Model, OpenRouterCredits, Attachment } from './lib/types';
+  import type { MessageData, GenerationData, Model, OpenRouterCredits, Attachment, ApiCallMessage } from './lib/types';
   import { Config, type ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
 
@@ -247,24 +247,34 @@
     
     try {
       // Prepare messages for API
-      const messagesForAPI = localConfig.includePreviousMessagesAsContext
-        ? currentConversation.messages.slice(0, -1)
-            .filter(m => !m.hidden)
-            .map(m => ({ role: m.role, content: m.content }))
-        : [userMessage];
+      const messagesForAPI: ApiCallMessage[] = [];
       
       if (localConfig.systemPrompt) {
-        messagesForAPI.unshift({ role: 'user', content: localConfig.systemPrompt });
+        messagesForAPI.push({ role: 'user', content: localConfig.systemPrompt });
       }
       
-      // Prepare messages including attachments
-      const messagesWithAttachments = [...messagesForAPI];
-      if (userMessage.attachments) {
-        for (const attachment of userMessage.attachments) {
-          messagesWithAttachments.push({ role: 'user', content: attachment.content });
+      if (localConfig.includePreviousMessagesAsContext) {
+        for (const m of currentConversation.messages.slice(0, -1)) {
+          if (!m.hidden) {
+            messagesForAPI.push({ role: m.role, content: m.content });
+            if (m.attachments) {
+              for (const attachment of m.attachments) {
+                messagesForAPI.push({ role: 'user', content: attachment.content });
+              }
+            }
+          }
         }
+      } else {
+        if (userMessage.attachments) {
+          for (const attachment of userMessage.attachments) {
+            messagesForAPI.push({ role: 'user', content: attachment.content });
+          }
+        }
+        messagesForAPI.push({ role: userMessage.role, content: userMessage.content });
       }
-      messagesWithAttachments.push({ role: 'user', content: userMessage.content });
+      
+      // Add the current user message (without attachments since they were already added)
+      messagesForAPI.push({ role: userMessage.role, content: userMessage.content });
 
       /* Call streaming API */
       const result = await callOpenRouterStreaming(

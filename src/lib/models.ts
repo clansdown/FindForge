@@ -1,4 +1,4 @@
-import type { Config, Model, StreamingResult, GenerationData, OpenRouterCredits, ChatResult } from './types';
+import type { Config, Model, StreamingResult, GenerationData, OpenRouterCredits, ChatResult, ApiCallMessage } from './types';
 import { sleep } from './util';
 
 
@@ -61,7 +61,7 @@ export async function callOpenRouterStreaming(
   modelId: string,
   maxTokens: number,
   maxWebRequests: number,
-  messages: any[],
+  messages: ApiCallMessage[],
   callback: (chunk: string) => void,
   abortController?: AbortController
 ): Promise<StreamingResult> {
@@ -154,7 +154,7 @@ export async function callOpenRouterChat(
   modelId: string,
   maxTokens: number,
   maxWebRequests: number,
-  messages: any[],
+  messages: ApiCallMessage[],
   abortController?: AbortController
 ): Promise<ChatResult> {
   const url = 'https://openrouter.ai/api/v1/chat/completions';

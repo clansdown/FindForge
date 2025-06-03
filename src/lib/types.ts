@@ -1,3 +1,5 @@
+import type { Mode } from "highlight.js";
+
 export class Config {
   historyWidth!: number;
   apiKey!: string;
@@ -88,7 +90,24 @@ export interface ConversationData {
     updated: number;
 }
 
+export interface ApiCallMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
+
 export interface OpenRouterCredits {
   total_credits: number;
   total_usage: number;
+}
+
+export interface ModelsForResearch {
+  reasoning: string;
+  editor : string;
+}
+
+export interface DeepResearchResult {
+  id: string;
+  total_cost: number;
+  models: ModelsForResearch;
+  content : string;
 }

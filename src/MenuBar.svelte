@@ -98,10 +98,10 @@
     position: absolute;
     top: 100%;
     left: 0;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0,0,0.2,0.4);
     display: flex;
     flex-direction: column;
-    min-width: 150px;
+    min-width: 256px;
     z-index: 100;
     background: #000;
   }
