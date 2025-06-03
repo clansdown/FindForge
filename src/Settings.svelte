@@ -57,7 +57,12 @@
     getModels(config)
       .then(models => { 
         models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-        openrouterModels = models; 
+        openrouterModels = models.map(model => ({
+          ...model,
+          allowed: localConfig.availableModels.length === 0 
+            ? true 
+            : localConfig.availableModels.includes(model.id)
+        })); 
       })
       .catch(error => {
         modelFetchError = error.message;

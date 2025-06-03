@@ -143,8 +143,8 @@
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
-      model: config.defaultModel,
-      modelName: models.find(m => m.id === config.defaultModel)?.name || 'Unknown',
+      model: localConfig.defaultModel,
+      modelName: models.find(m => m.id === localConfig.defaultModel)?.name || 'Unknown',
       totalCost: 0,
     };
     currentConversation.messages.push(assistantMessage);
@@ -158,14 +158,14 @@
     
     try {
       // Prepare messages for API
-      const messagesForAPI = config.includePreviousMessagesAsContext
+      const messagesForAPI = localConfig.includePreviousMessagesAsContext
         ? currentConversation.messages.slice(0, -1)
             .filter(m => !m.hidden)
             .map(m => ({ role: m.role, content: m.content }))
         : [userMessage];
       
-      if (config.systemPrompt) {
-        messagesForAPI.unshift({ role: 'user', content: config.systemPrompt });
+      if (localConfig.systemPrompt) {
+        messagesForAPI.unshift({ role: 'user', content: localConfig.systemPrompt });
       }
       
       /* Call streaming API */
