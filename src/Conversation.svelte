@@ -35,6 +35,7 @@
   let selectionRect: { top: number, left: number, bottom: number } | null = null;
   let selectedText = '';
   let hoveredMessageId: string | null = null;
+  let currentMessageContext: string[] = []; // stores attached file contents
 
   const md = new MarkdownIt({
     html: false,
@@ -177,12 +178,13 @@
     if (!userInput.trim() || generating) return;
     scrollToBottom();
   
-    // Create user message
+    // Create user message with attachments
     const userMessage: MessageData = {
       id: generateID(),
       role: 'user',
       content: userInput.trim(),
       timestamp: Date.now(),
+      attachments: currentMessageContext.length > 0 ? [...currentMessageContext] : undefined,
     };
     
     // Add to conversation
@@ -202,6 +204,9 @@
     currentConversation.messages = currentConversation.messages; // Trigger reactivity
     await tick();
 
+    // Clear attachments after adding to message
+    currentMessageContext = [];
+
 
     // Start generation
     generating = true;
@@ -219,13 +224,22 @@
         messagesForAPI.unshift({ role: 'user', content: localConfig.systemPrompt });
       }
       
+      // Prepare messages including attachments
+      const messagesWithAttachments = [...messagesForAPI];
+      if (userMessage.attachments) {
+        for (const attachment of userMessage.attachments) {
+          messagesWithAttachments.push({ role: 'user', content: attachment });
+        }
+      }
+      messagesWithAttachments.push({ role: 'user', content: userMessage.content });
+
       /* Call streaming API */
       const result = await callOpenRouterStreaming(
         localConfig.apiKey,
         localConfig.defaultModel,
         8192, // maxTokens
         localConfig.allowWebSearch ? localConfig.webSearchMaxResults : 0,
-        messagesForAPI,
+        messagesWithAttachments,
         (chunk) => {
           assistantMessage.content += chunk;
           currentConversation.messages = currentConversation.messages.map(msg => 
@@ -264,6 +278,24 @@
     if (abortController) {
       abortController.abort();
     }
+  }
+
+  async function attachFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'text/plain';
+    input.onchange = async (e) => {
+      const file = input.files?.[0];
+      if (file) {
+        try {
+          const text = await file.text();
+          currentMessageContext = [...currentMessageContext, text];
+        } catch (error) {
+          console.error('Error reading file:', error);
+        }
+      }
+    };
+    input.click();
   }
 
   // Placeholder cost calculation (implement based on your pricing model)
@@ -344,6 +376,7 @@
 
   <!-- Chat Input goes here -->
   <div class="chat-input">
+    <button on:click={attachFile} class="attach-button">📎</button>
     <textarea
       bind:this={textarea}
       bind:value={userInput}
@@ -476,6 +509,11 @@
     display: flex;
     margin-bottom: 1rem;
     flex-grow: 0;
+  }
+  
+  .chat-input .attach-button {
+    margin-right: 0.5rem;
+    padding: 0.5rem;
   }
   
   .chat-input textarea {

@@ -68,6 +68,7 @@ export interface MessageData {
     webSearchResults?: string[];
     requestID?: string;
     hidden?: boolean; // hides the message in the UI and excludes it from being used as context
+    attachments?: string[]; // array of file contents
 }
 
 export interface ConversationData {
