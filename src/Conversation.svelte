@@ -365,6 +365,13 @@
 
 
 <style>
+  .conversation {
+    height: 99%;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+  }
+  
   .conversation-title {
     font-size: 1.5rem;
     font-weight: bold;
@@ -382,12 +389,7 @@
     border-bottom: 1px solid #666;
   }
 
-  .conversation {
-    height: 99%;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-  }
+
   .conversation-window {
     display: flex;
     flex-direction: column;
@@ -442,10 +444,12 @@
   .message.user {
     background-color: #30778a;
     padding-left: 1rem;
+    border: 1px solid #40889a;
   }
   
   .message.assistant {
-    background-color: #383828;
+    background-color: #303028;
+    border: 1px solid #554;
   }
   
   .role {

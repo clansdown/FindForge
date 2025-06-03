@@ -127,11 +127,15 @@
     flex-direction: column;
     height: 100vh;
     width: 100%;
+    max-width: 80rem;
+    margin: auto;
   }
   .split-container {
     display: flex;
     height: calc(100vh - 50px); /* Adjust based on menu bar height */
     width: 100%;
+    justify-content: center;
+    margin: auto;
   }
   
   .history-container {
