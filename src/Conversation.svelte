@@ -57,6 +57,7 @@
   let showScrollToBottom = false;
   let selectionRect: { top: number, left: number, bottom: number } | null = null;
   let selectedText = '';
+  let hoveredMessageId: string | null = null;
 
   // Scroll to bottom when messages change
   $: if (currentConversation.messages.length) {
@@ -98,6 +99,29 @@
   function toggleMessageHidden(message: MessageData) {
     message.hidden = !message.hidden;
     currentConversation.messages = currentConversation.messages;
+    saveConversation(currentConversation);
+  }
+  
+  function editUserMessage(message: MessageData) {
+    // Copy the message content to the input
+    userInput = message.content;
+    
+    // Set this user message and the next assistant message to hidden
+    message.hidden = true;
+    
+    // Find the next message (which should be an assistant message) and set it to hidden
+    const index = currentConversation.messages.findIndex(m => m.id === message.id);
+    if (index >= 0 && index < currentConversation.messages.length - 1) {
+      const nextMessage = currentConversation.messages[index+1];
+      if (nextMessage.role === 'assistant') {
+        nextMessage.hidden = true;
+      }
+    }
+    
+    // Update the conversation array to trigger reactivity
+    currentConversation.messages = currentConversation.messages;
+    
+    // Save the conversation
     saveConversation(currentConversation);
   }
   
@@ -246,7 +270,9 @@
   <div class="conversation-window">
     <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
       {#each currentConversation.messages as message (message.id)}
-        <div class="message {message.role}">
+        <div class="message {message.role}" class:active={hoveredMessageId === message.id} 
+          on:mouseover={() => hoveredMessageId = message.id} on:mouseout={() => hoveredMessageId = null}
+          on:focus={() => hoveredMessageId = message.id} on:blur={() => hoveredMessageId = null}>
           <div class="message-header">
             {#if message.role === 'assistant'}
             <div class="role">{#if message.modelName}{message.modelName}{/if}
@@ -257,7 +283,14 @@
             {/if}
           </div>
           {#if !message.hidden}
-            <div class="content">{@html formatMessage(message.content)}</div>
+            <div class="content">
+              {#if message.role === 'user'}
+                <button class="edit-button" on:click={() => editUserMessage(message)}>✏️</button>
+                {message.content}
+              {:else}
+                {@html formatMessage(message.content)}
+              {/if}
+              </div>
           {/if}
           {#if message.totalCost}
             <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
@@ -369,11 +402,13 @@
     padding: 0.5rem;
     border-radius: 20px;
     width: 80%;
+    padding-left: .75rem;
   }
   
   .message.user {
     background-color: #30778a;
     margin-left: auto;
+    padding-left: 1rem;
   }
   
   .message.assistant {
@@ -421,5 +456,21 @@
   .hide-button {
     padding: .25rem;
     color: #aaa;
+  }
+
+  .edit-button {
+    visibility: hidden;
+    margin-right: 0.5rem;
+    color: #aaa;
+    background: transparent;
+    background: rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    padding: 0.5rem .75rem;
+  }
+  div.active .edit-button {
+    visibility: visible;
+  }
+  .edit-button:hover {
+    background: rgba(0, 0, 0, 0.3);
   }
 </style>
