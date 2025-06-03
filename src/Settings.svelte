@@ -50,6 +50,11 @@
   });
 
   $: if (isOpen) {
+    opened();
+  }
+
+  function opened() {
+    console.log('Settings dialog opened');
     // Create a deep copy when dialog opens
     localConfig = JSON.parse(JSON.stringify(config));
     // Fetch models when dialog opens
@@ -74,6 +79,7 @@
       modelFetchError = 'API key is required to fetch models.';
     }
   }
+
 
   function calculateAvailableModelsFromConfig(list:string[], models: Model[]) : Model[] {
     let am : Model[] = [];
