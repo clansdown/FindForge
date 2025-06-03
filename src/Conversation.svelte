@@ -10,7 +10,32 @@
   import { Config, type ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
 
-  const md = new MarkdownIt({
+  /***************/
+  /* Propertiess */
+  /***************/
+  export let currentConversation : ConversationData;
+  export let saveConversation: (conversation: ConversationData) => void;
+  export let refreshAvailableCredits: () => Promise<void>;
+  export let config: Config;
+
+
+
+  /*******************/
+  /* Local Variables */
+  /*******************/
+  let localConfig = createConfigCopy(config);
+  let conversationDiv: HTMLDivElement;
+  let userInput = '';
+  let generating = false;
+  let abortController: AbortController | null = null;
+  let textarea: HTMLTextAreaElement;
+  let models : Model[] = [];
+  let showScrollToBottom = false;
+  let selectionRect: { top: number, left: number, bottom: number } | null = null;
+  let selectedText = '';
+  let hoveredMessageId: string | null = null;
+
+    const md = new MarkdownIt({
     html: false,
     breaks: true,
     linkify: true,
@@ -32,38 +57,24 @@
     }
   });
 
-  export let config: Config;
-  let localConfig = createConfigCopy(config);
-
-  $: {
-    localConfig = createConfigCopy(config);
+  /**************/
+  /* Reactivity */
+  /**************/
+  $: localConfig = createConfigCopy(config);
+  // Scroll to bottom when messages change
+  $: if (currentConversation.messages.length) {
+    scrollToBottom();
   }
 
+  /*************/
+  /* Functions */
+  /*************/
   function createConfigCopy(source: Config): Config {
     const newConfig = new Config();
     Object.assign(newConfig, source);
     return newConfig;
   }
-  export let currentConversation : ConversationData;
-  export let saveConversation: (conversation: ConversationData) => void;
-  export let refreshAvailableCredits: () => Promise<void>;
 
-  let conversationDiv: HTMLDivElement;
-  let userInput = '';
-  let generating = false;
-  let abortController: AbortController | null = null;
-  let textarea: HTMLTextAreaElement;
-  let models : Model[] = [];
-  let showScrollToBottom = false;
-  let selectionRect: { top: number, left: number, bottom: number } | null = null;
-  let selectedText = '';
-  let hoveredMessageId: string | null = null;
-
-  // Scroll to bottom when messages change
-  $: if (currentConversation.messages.length) {
-    scrollToBottom();
-  }
-  
   function handleTextSelection() {
     const selection = window.getSelection();
     if (!selection || selection.toString().trim() === '') {
@@ -258,7 +269,7 @@
 </script>
 
 
-
+<!---------------------------------------------------------------------------------------------------------------------------------------------------->
 
 <div class="conversation">
   <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
@@ -341,7 +352,7 @@
   </div>
 </div>
 
-
+<!------------------------------------------------------------------------------------------------------------------------------------------------->
 
 
 <style>
