@@ -270,9 +270,13 @@
   <div class="conversation-window">
     <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
       {#each currentConversation.messages as message (message.id)}
-        <div class="message {message.role}" class:active={hoveredMessageId === message.id} 
+        <div class="message-container {message.role}" class:active={hoveredMessageId === message.id} 
           on:mouseover={() => hoveredMessageId = message.id} on:mouseout={() => hoveredMessageId = null}
           on:focus={() => hoveredMessageId = message.id} on:blur={() => hoveredMessageId = null}>
+          {#if message.role === 'user'}
+            <button class="edit-button" on:click={() => editUserMessage(message)}>✏️</button>
+          {/if}
+        <div class="message {message.role}" >
           <div class="message-header">
             {#if message.role === 'assistant'}
             <div class="role">{#if message.modelName}{message.modelName}{/if}
@@ -285,16 +289,16 @@
           {#if !message.hidden}
             <div class="content">
               {#if message.role === 'user'}
-                <button class="edit-button" on:click={() => editUserMessage(message)}>✏️</button>
                 {message.content}
               {:else}
                 {@html formatMessage(message.content)}
               {/if}
               </div>
-          {/if}
-          {#if message.totalCost}
-            <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
-          {/if}
+              {/if}
+              {#if message.totalCost}
+                <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
+              {/if}
+            </div>
         </div>
       {/each}
       </div>
@@ -397,6 +401,16 @@
     background: #5a5;
   }
   
+  .message-container {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .message-container.user {
+    justify-content: flex-end;
+  }
+
   .message {
     margin-bottom: 1rem;
     padding: 0.5rem;
@@ -407,7 +421,6 @@
   
   .message.user {
     background-color: #30778a;
-    margin-left: auto;
     padding-left: 1rem;
   }
   
@@ -460,15 +473,17 @@
 
   .edit-button {
     visibility: hidden;
-    margin-right: 0.5rem;
     color: #aaa;
     background: transparent;
-    background: rgba(0, 0, 0, 0.1);
     cursor: pointer;
-    padding: 0.5rem .75rem;
+    padding: 0;
+    margin: 0 .25rem;
+    font-size: 1.2rem;    
+    border: none;
   }
   div.active .edit-button {
     visibility: visible;
+    background: transparent;
   }
   .edit-button:hover {
     background: rgba(0, 0, 0, 0.3);
