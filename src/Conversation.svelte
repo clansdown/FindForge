@@ -88,9 +88,9 @@
   function setTitle(message: MessageData) {
     let title = message.content.trim();
     // Strip initial phrases
-    title = title.replace(/^(what is|what are|how many)\s+/i, '');
+    title = title.replace(/^(what is|what are|how many|what kinds? of|are there|are there any)\s+/i, '');
     // Strip trailing phrases
-    title = title.replace(/\s+(are there)$/i, '');
+    title = title.replace(/\s+(are there|in it|in them)$/i, '');
     // Split into words
     const words = title.split(/\s+/);
     let result = '';

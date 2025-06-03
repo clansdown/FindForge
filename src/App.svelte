@@ -90,6 +90,7 @@
         conversations[index] = conversation;
     } else {
         conversations.push(conversation);
+        conversations = conversations; // Trigger reactivity
     }
     saveConversationStorage(conversation);
   }
