@@ -215,3 +215,8 @@ ul li {
   text-indent: 0;
 }
 
+textarea {
+  color: #eee;
+  background-color: #333;
+}
+
