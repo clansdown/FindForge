@@ -6,7 +6,7 @@
   import MarkdownIt from 'markdown-it';
   import markdownItLinkAttributes from 'markdown-it-link-attributes';
   import hljs from 'highlight.js';
-  import type { MessageData, GenerationData, Model } from './lib/types';
+  import type { MessageData, GenerationData, Model, OpenRouterCredits } from './lib/types';
   import { Config, type ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
 
@@ -17,6 +17,7 @@
   export let saveConversation: (conversation: ConversationData) => void;
   export let refreshAvailableCredits: () => Promise<void>;
   export let config: Config;
+  export let availableCredits: OpenRouterCredits | undefined;
 
 
 
@@ -35,7 +36,7 @@
   let selectedText = '';
   let hoveredMessageId: string | null = null;
 
-    const md = new MarkdownIt({
+  const md = new MarkdownIt({
     html: false,
     breaks: true,
     linkify: true,
@@ -64,6 +65,14 @@
   // Scroll to bottom when messages change
   $: if (currentConversation.messages.length) {
     scrollToBottom();
+  }
+
+  // Disable web search if no credits available
+  $: if (availableCredits) {
+    const remaining = availableCredits.total_credits - availableCredits.total_usage;
+    if (remaining <= 0 && localConfig.allowWebSearch) {
+      localConfig.allowWebSearch = false;
+    }
   }
 
   /*************/
