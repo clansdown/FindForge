@@ -1,4 +1,4 @@
-import type { Config, Model, StreamingResult, GenerationData, OpenRouterCredits } from './types';
+import type { Config, Model, StreamingResult, GenerationData, OpenRouterCredits, ChatResult } from './types';
 import { sleep } from './util';
 
 
@@ -143,6 +143,59 @@ export async function callOpenRouterStreaming(
 
   result.done = true;
   return result;
+}
+
+/**
+ * Calls the OpenRouter Chat API to generate a response based on the provided messages.
+ * Returns a promise that resolves to a ChatResult object containing the response.
+ */
+export async function callOpenRouterChat(
+  apiKey: string,
+  modelId: string,
+  maxTokens: number,
+  maxWebRequests: number,
+  messages: any[],
+  abortController?: AbortController
+): Promise<ChatResult> {
+  const url = 'https://openrouter.ai/api/v1/chat/completions';
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  const body = {
+    model: modelId,
+    messages : messages,
+    max_tokens: maxTokens,
+    stream: false,
+    plugins: maxWebRequests > 0 ? [{ id: "web", max_results: maxWebRequests }] : [],
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: abortController?.signal
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  const requestID = data.id;
+  const model = data.model;
+  const totalTokens = data.usage?.total_tokens;
+
+  return {
+    requestID,
+    model,
+    created: Date.now(),
+    done: true,
+    totalTokens,
+    content
+  };
 }
 
 // Fetch generation data from OpenRouter Generation API

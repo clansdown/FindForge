@@ -54,20 +54,25 @@
     localConfig = JSON.parse(JSON.stringify(config));
     // Fetch models when dialog opens
     modelFetchError = null;
-    getModels(config)
-      .then(models => { 
-        models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-        openrouterModels = models.map(model => ({
-          ...model,
-          allowed: localConfig.availableModels.length === 0 
-            ? true 
-            : localConfig.availableModels.includes(model.id)
-        })); 
-      })
-      .catch(error => {
-        modelFetchError = error.message;
-        console.error('Model fetch failed:', error);
-      });
+    if(config.apiKey) {
+      getModels(config)
+        .then(models => { 
+          models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+          openrouterModels = models.map(model => ({
+            ...model,
+            allowed: localConfig.availableModels.length === 0 
+              ? true 
+              : localConfig.availableModels.includes(model.id)
+          })); 
+        })
+        .catch(error => {
+          modelFetchError = error.message;
+          console.error('Model fetch failed:', error);
+        });
+    } else {
+      openrouterModels = [];
+      modelFetchError = 'API key is required to fetch models.';
+    }
   }
 
   function calculateAvailableModelsFromConfig(list:string[], models: Model[]) : Model[] {

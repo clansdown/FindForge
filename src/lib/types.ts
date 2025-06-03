@@ -30,6 +30,10 @@ export interface StreamingResult {
   totalTokens?: number;
 }
 
+export interface ChatResult extends StreamingResult {
+    content: string;
+}
+
 export interface GenerationData {
     id: string;
     total_cost: number;
