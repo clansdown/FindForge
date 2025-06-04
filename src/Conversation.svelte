@@ -125,9 +125,9 @@
     const parentRect = conversationDiv.getBoundingClientRect();
     
     selectionRect = {
-      top: rect.top - parentRect.top + conversationDiv.scrollTop,
+      top: rect.top - parentRect.top,
       left: rect.left - parentRect.left,
-      bottom: rect.bottom - parentRect.top + conversationDiv.scrollTop
+      bottom: rect.bottom - parentRect.top
     };
     selectedText = selection.toString();
   }
