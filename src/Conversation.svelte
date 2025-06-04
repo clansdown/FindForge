@@ -6,7 +6,7 @@
   import MarkdownIt from 'markdown-it';
   import markdownItLinkAttributes from 'markdown-it-link-attributes';
   import hljs from 'highlight.js';
-  import type { MessageData, GenerationData, Model, OpenRouterCredits, Attachment, ApiCallMessage } from './lib/types';
+  import type { MessageData, GenerationData, Model, OpenRouterCredits, Attachment, ApiCallMessage, ApiCallMessageContent } from './lib/types';
   import { Config, type ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
 
@@ -250,31 +250,65 @@
       const messagesForAPI: ApiCallMessage[] = [];
       
       if (localConfig.systemPrompt) {
-        messagesForAPI.push({ role: 'user', content: localConfig.systemPrompt });
+        messagesForAPI.push({ 
+          role: 'user', 
+          content: [{ type: 'text', text: localConfig.systemPrompt }] 
+        });
       }
       
       if (localConfig.includePreviousMessagesAsContext) {
         for (const m of currentConversation.messages.slice(0, -1)) {
           if (!m.hidden) {
-            messagesForAPI.push({ role: m.role, content: m.content });
+            const contentParts: ApiCallMessageContent[] = [
+              { type: 'text', text: m.content }
+            ];
             if (m.attachments) {
               for (const attachment of m.attachments) {
-                messagesForAPI.push({ role: 'user', content: attachment.content });
+                contentParts.push({
+                  type: 'file',
+                  file: {
+                    filename: attachment.filename,
+                    file_data: attachment.content
+                  }
+                });
               }
             }
+            messagesForAPI.push({ role: m.role, content: contentParts });
           }
         }
       } else {
+        const contentParts: ApiCallMessageContent[] = [];
         if (userMessage.attachments) {
           for (const attachment of userMessage.attachments) {
-            messagesForAPI.push({ role: 'user', content: attachment.content });
+            contentParts.push({
+              type: 'file',
+              file: {
+                filename: attachment.filename,
+                file_data: attachment.content
+              }
+            });
           }
         }
-        messagesForAPI.push({ role: userMessage.role, content: userMessage.content });
+        contentParts.push({ type: 'text', text: userMessage.content });
+        messagesForAPI.push({ role: userMessage.role, content: contentParts });
       }
       
-      // Add the current user message (without attachments since they were already added)
-      messagesForAPI.push({ role: userMessage.role, content: userMessage.content });
+      // Add the current user message with its content and attachments
+      const userContentParts: ApiCallMessageContent[] = [
+        { type: 'text', text: userMessage.content }
+      ];
+      if (userMessage.attachments) {
+        for (const attachment of userMessage.attachments) {
+          userContentParts.push({
+            type: 'file',
+            file: {
+              filename: attachment.filename,
+              file_data: attachment.content
+            }
+          });
+        }
+      }
+      messagesForAPI.push({ role: userMessage.role, content: userContentParts });
 
       /* Call streaming API */
       const result = await callOpenRouterStreaming(

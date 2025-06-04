@@ -90,9 +90,18 @@ export interface ConversationData {
     updated: number;
 }
 
+export interface ApiCallMessageContent {
+  type: 'text' | 'image' | 'file';
+  text?: string; // for type 'text'
+  file? : {
+    filename: string; 
+    file_data: string; // base64 encoded file data
+  };
+}
+
 export interface ApiCallMessage {
     role: 'user' | 'assistant' | 'system';
-    content: string;
+    content: ApiCallMessageContent[];
 }
 
 export interface OpenRouterCredits {
