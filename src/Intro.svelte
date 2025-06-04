@@ -49,8 +49,16 @@
     text-align: center;
     max-width: 860px;
     margin: auto;
+    overflow-y: auto;
   }
   
+  @media (max-width: 600px) {
+    .intro {
+      padding: 1rem;
+      max-width: 100%;
+    }
+  }
+
   h1 {
     margin-bottom: 1.5rem;
   }
