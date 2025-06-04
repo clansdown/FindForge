@@ -396,6 +396,10 @@
     currentMessageContext = currentMessageContext.filter((_, i) => i !== index);
   }
 
+  function copyMessageContent(message: MessageData) {
+    navigator.clipboard.writeText(message.content);
+  }
+
   // Placeholder cost calculation (implement based on your pricing model)
   function calculateCost(promptTokens: number, completionTokens: number, modelId: string): number {
     // Add actual pricing calculation logic here
@@ -429,7 +433,11 @@
         <div class="message {message.role}" >
           <div class="message-header">
             {#if message.role === 'assistant'}
-            <div class="role">{#if message.modelName}{message.modelName}{/if}
+            <div class="role">
+              <div>
+                {#if message.modelName}{message.modelName}{/if}
+                <button class="copy-button" on:click={() => copyMessageContent(message)} title="Copy raw markdown to system clipboard">📋</button>
+              </div>
               <button class="toggle-button hide-button" on:click={() => toggleMessageHidden(message)}>
                 {message.hidden ? 'Show' : 'Hide'}
               </button>
@@ -714,5 +722,18 @@
   }
   .edit-button:hover {
     background: rgba(0, 0, 0, 0.3);
+  }
+
+  .copy-button {
+    padding: .25rem;
+    color: #aaa;
+    background: transparent;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  
+  .copy-button:hover {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #ddd;
   }
 </style>
