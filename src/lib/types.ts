@@ -14,10 +14,19 @@ export class Config {
   constructor() {
     this.historyWidth = 400;
     this.apiKey = '';
-    this.defaultModel = '';
-    this.availableModels = [];
-    this.systemPrompt = '';
-    this.allowWebSearch = false;
+    this.defaultModel = 'deepseek/deepseek-chat-v3-0324:free';
+    this.availableModels = [
+      'deepseek/deepseek-chat-v3-0324:free',
+      'deepseek/deepseek-chat-v3-0324',
+      'google/gemini-2.5-pro-preview',
+      'google/gemini-2.5-flash-preview-05-20',
+      'openai/gpt-4.1',
+      'openai/o3',
+      'anthropic/claude-sonnet-4',
+      'anthropic/claude-opus-4'
+    ];
+    this.systemPrompt = 'You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
+    this.allowWebSearch = true;
     this.webSearchMaxResults = 5;
     this.includePreviousMessagesAsContext = true;
     this.searchEngine = 'duckduckgo';
