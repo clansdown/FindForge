@@ -293,23 +293,6 @@
         messagesForAPI.push({ role: userMessage.role, content: contentParts });
       }
       
-      // Add the current user message with its content and attachments
-      const userContentParts: ApiCallMessageContent[] = [
-        { type: 'text', text: userMessage.content }
-      ];
-      if (userMessage.attachments) {
-        for (const attachment of userMessage.attachments) {
-          userContentParts.push({
-            type: 'file',
-            file: {
-              filename: attachment.filename,
-              file_data: attachment.content
-            }
-          });
-        }
-      }
-      messagesForAPI.push({ role: userMessage.role, content: userContentParts });
-
       /* Call streaming API */
       const result = await callOpenRouterStreaming(
         localConfig.apiKey,
