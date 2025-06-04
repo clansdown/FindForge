@@ -3,6 +3,7 @@
   import { Config, type Model, type OpenRouterCredits } from './lib/types';
   import { onDestroy, onMount } from 'svelte';
   import { getModels } from './lib/models';
+  import ModalDialog from './lib/ModalDialog.svelte';
 
   export let config: Config;
   export let isOpen: boolean = false;
@@ -29,25 +30,7 @@
         return true;
       });
 
-  function handleKeydown(event: KeyboardEvent) {
-    if(isOpen) {
-      if (event.key === 'Escape') {
-        isOpen = false;
-      }
-    }
-  }
-
-  let removeKeydown: () => void;
-  $: if (isOpen) {
-    window.addEventListener('keydown', handleKeydown);
-    removeKeydown = () => window.removeEventListener('keydown', handleKeydown);
-  }
-
   $: availableModels = calculateAvailableModelsFromConfig(localConfig.availableModels, openrouterModels);
-
-  onDestroy(() => {
-    if (removeKeydown) removeKeydown();
-  });
 
   $: if (isOpen) {
     opened();
@@ -119,12 +102,8 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-{#if isOpen}
-<div class="modal-background" on:click|stopPropagation on:keydown={handleKeydown} role="dialog" aria-modal="true" tabindex="0">
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="modal-content" on:click|stopPropagation>
-    <h2>Settings</h2>
+<ModalDialog on:close={() => isOpen = false} {isOpen}>
+  <h2>Settings</h2>
     
     <ul class="nav nav-tabs">
       <li class="nav-item" class:active={currentTab === 'general'}><a class="nav-link" href="#" on:click={() => currentTab = 'general'}>Research</a></li>
@@ -233,35 +212,9 @@
       <button on:click={() => isOpen = false}>Cancel</button>
       <button on:click={save}>Save</button>
     </div>
-  </div>
-</div>
-{/if}
+</ModalDialog>
 
 <style>
-  .modal-background {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  
-  .modal-content {
-    background: #222;
-    color: #fff;
-    padding: 0 2rem 2rem 2rem;
-    border: 2px solid #ddd;
-    border-radius: 18px;
-    box-shadow: 0 4px 10px rgba(1,1,1,0.3);
-    width: 80%;
-    max-width: 860px;
-  }
-  
   .form-group {
     margin-bottom: 1rem;
   }
