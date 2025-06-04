@@ -367,18 +367,16 @@
         try {
           if (file.type === 'application/pdf') {
             // Use FileReader to create base64-encoded data URL
-            const base64 = await new Promise<string>((resolve, reject) => {
+            const data_url = await new Promise<string>((resolve, reject) => {
               const reader = new FileReader();
               reader.onload = () => {
                 const dataURL = reader.result as string;
-                // Extract base64 part after comma
-                const base64Data = dataURL.split(',')[1];
-                resolve(base64Data);
+                resolve(dataURL); // Resolve with the full data URL
               };
               reader.onerror = reject;
               reader.readAsDataURL(file);
             });
-            currentMessageContext = [...currentMessageContext, { filename: file.name, content: base64 }];
+            currentMessageContext = [...currentMessageContext, { filename: file.name, content: data_url }];
           } else {
             // For text files, read as text
             const text = await file.text();
