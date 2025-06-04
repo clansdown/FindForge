@@ -4,6 +4,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { getModels } from './lib/models';
   import ModalDialog from './lib/ModalDialog.svelte';
+  import { generateID } from './lib/util';
 
   export let config: Config;
   export let isOpen: boolean = false;
@@ -116,32 +117,32 @@
     {#if currentTab === 'general'}
 
       <div class="form-group">
-        <label>System Prompt:</label>
-        <textarea bind:value={localConfig.systemPrompt} rows="4" />
+        <label for="system-prompt">System Prompt:</label>
+        <textarea id="system-prompt" bind:value={localConfig.systemPrompt} rows="4" ></textarea>
       </div>
       
       <div class="form-group">
-        <label>
-          <input type="checkbox" bind:checked={localConfig.allowWebSearch} />
+        <label for="allow-web-search">
+          <input type="checkbox" id="allow-web-search" bind:checked={localConfig.allowWebSearch} />
           Allow Web Search
         </label>
       </div>
       
       <div class="form-group">
-        <label>Web Search Max Results:</label>
-        <input type="number" bind:value={localConfig.webSearchMaxResults} min="1" />
+        <label for="web-search-max-results">Web Search Max Results:</label>
+        <input type="number" id="web-search-max-results" bind:value={localConfig.webSearchMaxResults} min="1" />
       </div>
       
       <div class="form-group">
-        <label>
-          <input type="checkbox" bind:checked={localConfig.includePreviousMessagesAsContext} />
+        <label for="include-previous-messages">
+          <input type="checkbox" id="include-previous-messages" bind:checked={localConfig.includePreviousMessagesAsContext} />
           Include Previous Messages as Context
         </label>
       </div>
       
       <div class="form-group">
-        <label>Search Engine:</label>
-        <select bind:value={localConfig.searchEngine}>
+        <label for="search-engine">Search Engine:</label>
+        <select id="search-engine" bind:value={localConfig.searchEngine}>
           <option value="duckduckgo">DuckDuckGo</option>
           <option value="kagi">Kagi</option>
           <option value="brave">Brave</option>
@@ -155,13 +156,13 @@
     <!------------------------->
     {:else if currentTab === 'model'}
       <div class="form-group">
-        <label>API Key:</label>
-        <input type="password" bind:value={localConfig.apiKey} />
+        <label for="api-key">API Key:</label>
+        <input type="password" id="api-key" bind:value={localConfig.apiKey} />
       </div>
       
       <div class="form-group">
-        <label>Default Model:</label>
-        <select bind:value={localConfig.defaultModel}>
+        <label for="default-model">Default Model:</label>
+        <select id="default-model" bind:value={localConfig.defaultModel}>
           {#each availableModels as model}
             <option value={model.id}>
               {model.name}
@@ -175,8 +176,7 @@
       </div>
 
       <div class="form-group">
-        <label>Available Models</label>
-        <div class="form-group">
+        <h4>Available Models:</h4>
           <div class="filter-container">
             <input 
               type="text" 
@@ -190,14 +190,14 @@
               </button>
             {/if}
           </div>
-        </div>
         <div class="model-list">
           {#each filteredModels as model}
             <div class="row">
               <div class="col">
-                <input type="checkbox" bind:checked={model.allowed} />
-                <span style="margin-right: 1rem;">{model.name} </span>
+                <input type="checkbox" id={model.id} bind:checked={model.allowed} />
+                <label for={model.id} style="margin-right: 1rem;">{model.name}
                 (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+                </label>
               </div>
             </div>
           {/each}
@@ -266,6 +266,7 @@
   .filter-container {
     position: relative;
     display: flex;
+    margin-bottom: 4px;
   }
   
   .clear-button {
@@ -293,6 +294,10 @@
     border-radius: 4px;
     background-color: #333;
     color: white;
+  }
+
+  h4 {
+    margin-bottom: .3rem;
   }
 
 </style>

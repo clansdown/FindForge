@@ -116,6 +116,11 @@ button:focus-visible {
 }
 
 .col {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
   flex: 1 0 0%;
   max-width: 100%;
   padding-right: calc(var(--bs-gutter-x) * 0.5);
@@ -124,6 +129,8 @@ button:focus-visible {
 }
 
 .col-1 {
+  display: flex;
+  flex-direction: row;
   flex: 0 0 auto;
   width: 8.33333333%;
   padding-right: calc(var(--bs-gutter-x) * 0.5);
@@ -132,6 +139,8 @@ button:focus-visible {
 }
 
 .col-2 {
+  display: flex;
+  flex-direction: row;
   flex: 0 0 auto;
   width: 16.66666667%;
   padding-right: calc(var(--bs-gutter-x) * 0.5);
@@ -140,6 +149,8 @@ button:focus-visible {
 }
 
 .col-3 {
+  display: flex;
+  flex-direction: row;
   flex: 0 0 auto;
   width: 25%;
   padding-right: calc(var(--bs-gutter-x) * 0.5);
