@@ -251,7 +251,7 @@
       
       if (localConfig.systemPrompt) {
         messagesForAPI.push({ 
-          role: 'user', 
+          role: 'system', 
           content: [{ type: 'text', text: localConfig.systemPrompt }] 
         });
       }
