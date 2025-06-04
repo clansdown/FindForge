@@ -360,13 +360,30 @@
   async function attachFile() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'text/plain';
+    input.accept = 'text/plain,application/pdf';
     input.onchange = async (e) => {
       const file = input.files?.[0];
       if (file) {
         try {
-          const text = await file.text();
-          currentMessageContext = [...currentMessageContext, { filename: file.name, content: text }];
+          if (file.type === 'application/pdf') {
+            // Use FileReader to create base64-encoded data URL
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const dataURL = reader.result as string;
+                // Extract base64 part after comma
+                const base64Data = dataURL.split(',')[1];
+                resolve(base64Data);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            currentMessageContext = [...currentMessageContext, { filename: file.name, content: base64 }];
+          } else {
+            // For text files, read as text
+            const text = await file.text();
+            currentMessageContext = [...currentMessageContext, { filename: file.name, content: text }];
+          }
         } catch (error) {
           console.error('Error reading file:', error);
         }
