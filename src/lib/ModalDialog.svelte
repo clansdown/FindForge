@@ -66,4 +66,12 @@
     width: 80%;
     max-width: 860px;
   }
+
+  @media (max-width: 600px) {
+    .modal-content {
+      width: 95%;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+  }
 </style>

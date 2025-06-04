@@ -54,8 +54,8 @@
   
   @media (max-width: 600px) {
     .intro {
-      padding: 1rem;
-      max-width: 100%;
+      padding: 2rem;
+      max-width: 98%;
     }
   }
 
