@@ -2,8 +2,10 @@
   import { getModels } from './lib/models';
   import type { Config, Model } from './lib/types';
   import { onMount } from 'svelte';
+  import PushButton from './lib/PushButton.svelte';
 
   export let config: Config;
+  export let deepSearch = false; // bound from parent
 
   let allModels: Model[] = [];
   let modelFilter = '';
@@ -50,7 +52,19 @@
       <label for="previous-messages" title="Include previous messages as context. This uses more tokens and thus costs more.">Send Context</label>
     </label>
   </div>
+
+  <div class="toolbar-group">
+    <PushButton title="Enable deep searching" bind:pushed={deepSearch}>⛏️</PushButton>
+  </div>
 </div>
+
+{#if deepSearch}
+<div class="toolbar deep-search-toolbar">
+  <div class="toolbar-group">
+    <label>Deep Search Controls (coming soon)</label>
+  </div>
+</div>
+{/if}
 
 <style>
   .toolbar {
@@ -79,5 +93,11 @@
     border: 1px solid #666;
     border-radius: 4px;
     padding: 0.25rem;
+  }
+
+  .deep-search-toolbar {
+    border-top: 1px solid #888;
+    margin-top: -0.5rem;
+    padding-top: 0.5rem;
   }
 </style>

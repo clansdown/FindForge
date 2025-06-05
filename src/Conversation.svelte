@@ -36,6 +36,7 @@
   let selectedText = '';
   let hoveredMessageId: string | null = null;
   let currentMessageContext: Attachment[] = []; // stores attached files
+  let deepSearch = false; // controls deep search mode
 
   const md = new MarkdownIt({
     html: false,
@@ -398,7 +399,7 @@
 <div class="conversation">
   <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
   <!-- Toolbar goes here -->
-  <ConversationToolbar bind:config={localConfig} />
+  <ConversationToolbar bind:config={localConfig} bind:deepSearch={deepSearch} />
   
 
   <!-- Conversation content will go here -->
