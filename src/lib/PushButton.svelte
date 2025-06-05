@@ -1,8 +1,9 @@
 <script lang="ts">
     export let pushed = false;
+    export let title: string;
 </script>
 
-<button class="push-button" class:pressed={pushed} on:click={() => pushed = !pushed} aria-pressed={pushed}>
+<button class="push-button" class:pressed={pushed} on:click={() => pushed = !pushed} aria-pressed={pushed} {title}>
     <slot></slot>
 </button>
 
