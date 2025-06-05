@@ -4,6 +4,7 @@ export class Config {
   historyWidth!: number;
   apiKey!: string;
   defaultModel!: string; // model ID
+  defaultReasoningModel!: string; // model ID for reasoning
   availableModels!: string[]; // model IDs
   systemPrompt!: string;
   allowWebSearch!: boolean;
@@ -15,6 +16,7 @@ export class Config {
     this.historyWidth = 400;
     this.apiKey = '';
     this.defaultModel = 'deepseek/deepseek-chat-v3-0324:free';
+    this.defaultReasoningModel = 'deepseek/deepseek-chat-v3-0324:free';
     this.availableModels = [
       'deepseek/deepseek-chat-v3-0324:free',
       'deepseek/deepseek-chat-v3-0324',

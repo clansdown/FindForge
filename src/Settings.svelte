@@ -176,6 +176,18 @@
       </div>
 
       <div class="form-group">
+        <label for="default-reasoning-model">Default Reasoning Model:</label>
+        <select id="default-reasoning-model" bind:value={localConfig.defaultReasoningModel}>
+          {#each availableModels as model}
+            <option value={model.id}>
+              {model.name}
+              (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+            </option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="form-group">
         <h4>Available Models:</h4>
           <div class="filter-container">
             <input 
