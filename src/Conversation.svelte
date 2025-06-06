@@ -46,6 +46,7 @@
     let hoveredMessageId: string | null = null;
     let currentMessageContext: Attachment[] = []; // stores attached files
     let deepSearch = false; // controls deep search mode
+    let deepSearchStrategy: 'auto' | 'deep' | 'broad' = 'auto'; // strategy for deep research
 
     const md = new MarkdownIt({
         html: false,
@@ -268,9 +269,9 @@
                 const deepResult = await doDeepResearch(
                     localConfig.apiKey,
                     8192, // maxTokens
-                    localConfig.webSearchMaxResults, // maxWebRequests
+                    50, // maxWebRequests
                     modelsForResearch,
-                    "auto", // strategy
+                    deepSearchStrategy, // strategy
                     apiCallMessages,
                     (status) => {
                         const escapedStatus = escapeHtml(status);
@@ -393,7 +394,7 @@
 <div class="conversation">
     <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
     <!-- Toolbar goes here -->
-    <ConversationToolbar bind:config={localConfig} bind:deepSearch />
+    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy />
 
     <!-- Conversation content will go here -->
     <div class="conversation-window">
@@ -443,14 +444,14 @@
                                     </div>
                                 {:else}
                                     {#if message.isGenerating}
+                                        {#if message.status}
+                                            <div class="status">{@html message.status}</div>
+                                        {/if}
                                         <div class="bouncing-dots">
                                             <span>●</span><span>●</span><span>●</span>
                                         </div>
                                     {:else}
                                         {@html formatMessage(message.content)}
-                                    {/if}
-                                    {#if message.status}
-                                        <div class="status">{@html message.status}</div>
                                     {/if}
                                 {/if}
                             </div>

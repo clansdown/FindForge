@@ -14,6 +14,7 @@
 
   export let config: Config;
   export let deepSearch = false; // bound from parent
+  export let deepSearchStrategy: 'auto' | 'deep' | 'broad' = 'auto'; // bound from parent
 
   let allModels: Model[] = [];
   let modelFilter = '';
@@ -77,6 +78,14 @@
           (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
         </option>
       {/each}
+    </select>
+  </div>
+  <div class="toolbar-group">
+    <label for="search-strategy">Strategy:</label>
+    <select id="search-strategy" bind:value={deepSearchStrategy}>
+      <option value="auto">Auto</option>
+      <option value="deep">Deep</option>
+      <option value="broad">Broad</option>
     </select>
   </div>
 </div>
