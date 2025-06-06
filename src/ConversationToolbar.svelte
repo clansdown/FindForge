@@ -3,15 +3,8 @@
   import type { Config, Model } from './lib/types';
   import { onMount } from 'svelte';
   import PushButton from './lib/PushButton.svelte';
-
-  function formatModelName(name: string): string {
-    const colonIndex = name.indexOf(': ');
-    if (colonIndex !== -1) {
-      return name.substring(colonIndex + 2);
-    }
-    return name;
-  }
-
+    import { formatModelName } from './lib/util';
+  
   export let config: Config;
   export let deepSearch = false; // bound from parent
   export let deepSearchStrategy: 'auto' | 'deep' | 'broad' = 'auto'; // bound from parent

@@ -4,7 +4,7 @@
     import { doStandardResearch, convertMessageToApiCallMessage } from "./lib/research";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
-    import { generateID, escapeHtml } from "./lib/util";
+    import { generateID, escapeHtml, formatModelName } from "./lib/util";
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
@@ -424,8 +424,8 @@
                         <div class="message-header">
                             {#if message.role === "assistant"}
                                 <div class="role">
-                                    <div>
-                                        {#if message.modelName}{message.modelName}{/if}
+                                    <div class="role-name">
+                                        {#if message.modelName}{formatModelName(message.modelName)}{/if}
                                         <button
                                             class="copy-button"
                                             on:click={() => copyMessageContent(message)}
@@ -451,7 +451,7 @@
                                             </div>
                                         {/each}
                                     </div>
-                                {:else}
+                                {:else} 
                                     {#if message.isGenerating}
                                         {#if message.status}
                                             <div class="status">{@html message.status}</div>

@@ -16,3 +16,11 @@ export function escapeHtml(unsafe : string) : string {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+export function formatModelName(name: string): string {
+    const colonIndex = name.indexOf(': ');
+    if (colonIndex !== -1) {
+      return name.substring(colonIndex + 2);
+    }
+    return name;
+  }

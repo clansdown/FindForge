@@ -27,7 +27,7 @@
     {#each filteredConversations as conversation}
       <li>
         <div class="conversation-header">
-          <h3>{conversation.title}</h3>
+          <h3><button on:click={() => setCurrentConversation(conversation)}>{conversation.title}</button></h3>
           <button class="delete-button" on:click|stopPropagation={() => removeConversation(conversation)}>✕</button>
         </div>
         <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
@@ -85,7 +85,7 @@
   .conversation-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: top;
   }
   .delete-button {
     background: none;
@@ -96,7 +96,7 @@
     width: 1.5rem;
     height: 1.5rem;
     font-size: 1rem;
-    margin-top: 0.3rem;
+    margin-top: 0.6rem;
   }
   .delete-button:hover {
     color: #fff;
@@ -133,6 +133,15 @@
     padding: 0;
     margin-top: 0.5rem;
     margin-bottom: 0;
+    font-size: 1rem;
+  }
+  h3 button {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: .2rem;
+    text-align: left;
   }
   small {
     font-size: .7rem;
@@ -141,5 +150,6 @@
   p {
     margin: 0;
     padding: 0;
+    font-size: .8rem;
   }
 </style>
