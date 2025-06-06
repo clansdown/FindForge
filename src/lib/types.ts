@@ -156,5 +156,6 @@ export interface DeepResearchResult {
   plan_prompt : string;
   research_plan : string;
   sub_results : string[];
+  refined_sub_results: string[];
   annotations?: Annotation[];
 }

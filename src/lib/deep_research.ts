@@ -133,25 +133,59 @@ export async function doDeepResearch(
             }
         }
 
+
         /*********************/
-        /* Get the synthesis */
+        /* Refine the results */
         /*********************/
-        const synthesis_system_prompt = createSystemApiCallMessage(
-            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the results of the research plan and synthesize them into a final answer to the user's question or goal. The synthesis should be clear, concise, and should address the user's question or goal directly. The synthesis should be based on the information gathered in the previous prompts, and should not include any unnecessary or irrelevant information. Cite all sources.`
+        statusCallback("Refining research results.");
+
+        // Get the last user message to use as the query for refinement
+        const userMessages = messages.filter(m => m.role === 'user');
+        const lastUserMessage = userMessages[userMessages.length - 1];
+        if (!lastUserMessage) {
+            throw new Error("No user message found for refinement");
+        }
+        const userQuery = lastUserMessage.content
+            .filter(part => part.type === 'text')
+            .map(part => part.text)
+            .join('\n');
+
+        // Calculate the remaining web requests and allocate per refinement
+        const remainingAfterSubResults = web_requests();
+        const perRefineWebRequests = sub_results.length > 0 ? Math.max(0, Math.floor(remainingAfterSubResults / sub_results.length)) : 0;
+
+        // Refine each sub-result in parallel
+        const refinePromises = sub_results.map(sub_result => 
+            refine_result(apiKey, models.editor, sub_result, userQuery, maxTokens, perRefineWebRequests)
         );
-        // TODO: allow the user to supply text to be added on to the synthesis prompt like the regular system prompt.
+
+        const refinedResults = await Promise.all(refinePromises);
+
+        // Extract the refined content and collect generation data
+        const refined_sub_results: string[] = [];
+        for (const result of refinedResults) {
+            refined_sub_results.push(result.chatResult.content);
+            if (result.generationData) {
+                total_cost += result.generationData.total_cost || 0;
+                total_web_requests += result.generationData.num_search_results || 0;
+            }
+        }
 
         /*********************/
         /* Do the synthesis */
         /*********************/
         statusCallback("Synthesizing research results.");
+        const synthesis_system_prompt = createSystemApiCallMessage(
+            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the results of the research plan and synthesize them into a final answer to the user's question or goal. The synthesis should be clear, concise, and should address the user's question or goal directly. The synthesis should be based on the information gathered in the previous prompts, and should not include any unnecessary or irrelevant information. Cite all sources.`
+        );
+        // TODO: allow the user to supply text to be added on to the synthesis prompt like the regular system prompt.
 
         // Construct the messages for synthesis
         const messages_for_synthesis: ApiCallMessage[] = [
             synthesis_system_prompt,
             ...messages.filter(m => m.role !== 'system'),   // remove system messages from the original conversation
             createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
-            ...sub_results.map((result, index) => createAssistantApiCallMessage(`Research Result ${index+1}:\n${result}`))
+            ...refined_sub_results.map((result, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${result}`))
         ];
 
         const synthesisResponse = await callOpenRouterChat(
@@ -180,6 +214,7 @@ export async function doDeepResearch(
             plan_prompt,
             research_plan,
             sub_results,
+            refined_sub_results,
             content: answer_content
         };
 }
@@ -231,8 +266,7 @@ export async function refine_result(
     subQueryContent: string,
     userQuery: string,
     maxTokens: number,
-    maxWebRequests: number,
-    abortController?: AbortController
+    maxWebRequests: number
 ): Promise<{ chatResult: ChatResult, generationData: GenerationData | undefined }> {
     const systemPrompt = createSystemApiCallMessage(
         `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details.`
@@ -260,9 +294,8 @@ export async function refine_result(
         apiKey,
         modelId,
         maxTokens,
-        maxWebRequests,
-        messages,
-        abortController
+        0,
+        messages
     );
 
     const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
