@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { callOpenRouterStreaming, fetchGenerationData, getModels } from './lib/models';
+  import { fetchGenerationData, getModels } from './lib/models';
+  import { doStandardResearch } from './lib/research';
   import ConversationToolbar from './ConversationToolbar.svelte';
   import { generateID } from './lib/util';
   import MarkdownIt from 'markdown-it';
@@ -294,19 +295,19 @@
         messagesForAPI.push({ role: userMessage.role, content: contentParts });
       }
       
-      /* Call streaming API */
-      const result = await callOpenRouterStreaming(
-        localConfig.apiKey,
-        localConfig.defaultModel,
+      /* Call standard research */
+      const result = await doStandardResearch(
         8192, // maxTokens
-        localConfig.allowWebSearch ? localConfig.webSearchMaxResults : 0,
-        messagesForAPI,
+        localConfig,
+        userMessage,
+        currentConversation.messages.slice(0, -2), // history (all messages except current user and assistant)
         (chunk) => {
           assistantMessage.content += chunk;
           currentConversation.messages = currentConversation.messages.map(msg => 
             msg.id === assistantMessage.id ? assistantMessage : msg
           );
         },
+        (status) => { console.log(status); }, // updateStatus callback
         abortController
       );
       userInput = ''; // Clear input after sending
