@@ -441,7 +441,7 @@
                                 {:else}
                                     {#if message.isGenerating}
                                         <div class="bouncing-dots">
-                                            <span>.</span><span>.</span><span>.</span>
+                                            <span>●</span><span>●</span><span>●</span>
                                         </div>
                                     {:else}
                                         {@html formatMessage(message.content)}
