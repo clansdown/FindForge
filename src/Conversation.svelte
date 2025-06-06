@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { fetchGenerationData, getModels } from './lib/models';
+  import { getModels } from './lib/models';
   import { doStandardResearch } from './lib/research';
   import ConversationToolbar from './ConversationToolbar.svelte';
   import { generateID } from './lib/util';
@@ -207,6 +207,7 @@
   async function sendMessage() {
     if (!userInput.trim() || generating) return;
     scrollToBottom();
+    await tick();
   
     // Create user message with attachments
     const userMessage: MessageData = {
@@ -249,7 +250,7 @@
     
     try {
       /* Call standard research */
-      const result = await doStandardResearch(
+      const { streamingResult, generationData } = await doStandardResearch(
         8192, // maxTokens
         localConfig,
         userMessage,
@@ -265,14 +266,12 @@
       );
       userInput = ''; // Clear input after sending
       
-      /* Fetch generation data */
-      if (result.requestID) {
-        assistantMessage.requestID = result.requestID;
-        const generationData = await fetchGenerationData(localConfig.apiKey, result.requestID);
-        if (generationData) {
-          assistantMessage.generationData = generationData;
-          assistantMessage.totalCost = generationData?.total_cost || 0;
-        }
+      if (streamingResult.requestID) {
+        assistantMessage.requestID = streamingResult.requestID;
+      }
+      if (generationData) {
+        assistantMessage.generationData = generationData;
+        assistantMessage.totalCost = generationData.total_cost || 0;
       }
     } catch (error : any) {
       if (error.name !== 'AbortError') {

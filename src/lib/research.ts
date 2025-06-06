@@ -1,5 +1,5 @@
-import { callOpenRouterStreaming } from './models';
-import type { ApiCallMessage, StreamingResult, MessageData, Config } from './types';
+import { callOpenRouterStreaming, fetchGenerationData } from './models';
+import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData } from './types';
 
 function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -44,7 +44,7 @@ export async function doStandardResearch(
     callback: (chunk: string) => void,
     updateStatus: (status: string) => void,
     abortController?: AbortController
-): Promise<StreamingResult> {
+): Promise<{ streamingResult: StreamingResult, generationData: GenerationData | undefined }> {
     updateStatus('Starting research...');
     
     // Prepare messages for API
@@ -75,7 +75,7 @@ export async function doStandardResearch(
     console.log('Messages for API:', messagesForAPI);
 
     try {
-        const result = await callOpenRouterStreaming(
+        const streamingResult = await callOpenRouterStreaming(
             config.apiKey,
             config.defaultModel,
             maxTokens,
@@ -84,8 +84,12 @@ export async function doStandardResearch(
             callback,
             abortController
         );
+        let generationData: GenerationData | undefined = undefined;
+        if (streamingResult.requestID) {
+            generationData = await fetchGenerationData(config.apiKey, streamingResult.requestID);
+        }
         updateStatus('Research completed');
-        return result;
+        return { streamingResult, generationData };
     } catch (error) {
         updateStatus('Research failed');
         throw error;
