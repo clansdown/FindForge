@@ -107,7 +107,8 @@ export async function callOpenRouterStreaming(
     requestID,
     model: modelId,
     created: Date.now(),
-    done: false
+    done: false,
+    annotations: []
   };
 
   if (!reader) {
@@ -137,6 +138,9 @@ export async function callOpenRouterStreaming(
             }
             if (json.choices?.[0]?.delta?.content) {
               callback(json.choices[0].delta.content);
+            }
+            if (json.choices?.[0]?.delta?.annotations) {
+              result.annotations = [...result.annotations, ...json.choices[0].delta.annotations];
             }
             if (json.usage) {
               result.totalTokens = json.usage.total_tokens;
@@ -194,6 +198,7 @@ export async function callOpenRouterChat(
 
   const data = await response.json();
   const content = data.choices[0].message.content;
+  const annotations = data.choices[0].message.annotations || [];
   const requestID = data.id;
   const model = data.model;
   const totalTokens = data.usage?.total_tokens;
@@ -204,7 +209,8 @@ export async function callOpenRouterChat(
     created: Date.now(),
     done: true,
     totalTokens,
-    content
+    content,
+    annotations
   };
 }
 

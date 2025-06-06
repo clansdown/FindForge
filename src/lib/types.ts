@@ -41,6 +41,7 @@ export interface StreamingResult {
   created: number;
   done: boolean;
   totalTokens?: number;
+  annotations?: Annotation[];
 }
 
 export interface ChatResult extends StreamingResult {
@@ -78,6 +79,17 @@ export interface Attachment {
     content: string;
 }
 
+export interface UrlCitation {
+    url: string;
+    title: string;
+    content: string;
+    start_index: number;
+    end_index: number;
+}
+
+export type Annotation = 
+    | { type: 'url_citation', url_citation: UrlCitation };
+
 export interface MessageData {
     id: string; // Add ID for message tracking
     role: 'user' | 'assistant' | 'system';
@@ -94,6 +106,7 @@ export interface MessageData {
     isGenerating?: boolean; // true when the message is being generated
     status?: string; // status text for deep research
     deepResearchResult?: DeepResearchResult; // result of deep research, if it was done
+    annotations?: Annotation[];
 }
 
 export interface ConversationData {
