@@ -16,10 +16,11 @@ export async function doDeepResearch(
         let total_web_requests = 0;
         let actualStrategy: 'deep' | 'broad' = 'deep'; // default
         let chat_results: ChatResult[] = [];
+        let answer_content : string = "";
 
         statusCallback("Starting deep research.");
 
-
+        /* First, ensure that we have a strategy */
         if (strategy === 'auto') {
             statusCallback("Determining research strategy.");
             try {
@@ -37,6 +38,13 @@ export async function doDeepResearch(
             actualStrategy = strategy;
         }
 
+        if(actualStrategy === 'deep') {
+
+
+        } else {
+
+            
+        }
 
 
 
@@ -46,7 +54,7 @@ export async function doDeepResearch(
             id: generateID(),
             total_cost,
             models: models,
-            content: ""
+            content: answer_content
         };
 }
 
