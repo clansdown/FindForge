@@ -91,6 +91,8 @@ export interface MessageData {
     requestID?: string;
     hidden?: boolean; // hides the message in the UI and excludes it from being used as context
     attachments?: Attachment[]; // array of file attachments
+    isGenerating?: boolean; // true when the message is being generated
+    status?: string; // status text for deep research
 }
 
 export interface ConversationData {
