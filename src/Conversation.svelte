@@ -242,14 +242,13 @@
             modelName: models.find((m) => m.id === localConfig.defaultModel)?.name || "Unknown",
             totalCost: 0,
             isGenerating: true, // true for standard research, false for deep
-            status: deepSearch ? '<div class="status-message">Starting deep research...</div>' : undefined,
+            status: deepSearch ? '' : undefined,
         };
         currentConversation.messages.push(assistantMessage);
         currentConversation.messages = currentConversation.messages; // Trigger reactivity
         await tick(); // Ensure DOM updates before scrolling
         scrollToBottom();
         await tick();
-        console.log("The messages should be showing now.");
 
         // Clear attachments after adding to message
         currentMessageContext = [];
@@ -260,6 +259,7 @@
 
         try {
             if (deepSearch) {
+                console.log("Starting deep research...");
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
                 const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
                 const modelsForResearch: ModelsForResearch = {
@@ -274,6 +274,7 @@
                     deepSearchStrategy, // strategy
                     apiCallMessages,
                     (status) => {
+                        console.log(status);
                         const escapedStatus = escapeHtml(status);
                         const newStatusDiv = `<div class="status-message">${escapedStatus}</div>`;
                         assistantMessage.status = (assistantMessage.status || '') + newStatusDiv;
