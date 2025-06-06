@@ -17,9 +17,14 @@
         ApiCallMessage,
         ApiCallMessageContent,
         ModelsForResearch,
+        DeepResearchResult,
+        StreamingResult,
+        Annotation,
     } from "./lib/types";
     import { Config, type ConversationData } from "./lib/types";
     import SearchToolbar from "./SearchToolbar.svelte";
+    import Resources from "./lib/Resources.svelte";
+    import MessageInfo from "./lib/MessageInfo.svelte";
 
     /***************/
     /* Propertiess */
@@ -47,6 +52,8 @@
     let currentMessageContext: Attachment[] = []; // stores attached files
     let deepSearch = false; // controls deep search mode
     let deepSearchStrategy: 'auto' | 'deep' | 'broad' = 'auto'; // strategy for deep research
+    let showResourcesFor: string | null = null; // message ID for which to show resources
+    let showInfoFor: string | null = null; // message ID for which to show info
 
     const md = new MarkdownIt({
         html: false,
@@ -429,8 +436,17 @@
                                         <button
                                             class="copy-button"
                                             on:click={() => copyMessageContent(message)}
-                                            title="Copy raw markdown to system clipboard">📋</button
-                                        >
+                                            title="Copy raw markdown to system clipboard">📋</button>
+                                        {#if message.annotations && message.annotations.length > 0}
+                                            <button
+                                                class="resources-button"
+                                                on:click={() => showResourcesFor = message.id}
+                                                title="View resources">🌐</button>
+                                        {/if}
+                                        <button
+                                            class="info-button"
+                                            on:click={() => showInfoFor = message.id}
+                                            title="View message info">ℹ️</button>
                                     </div>
                                     <button class="toggle-button hide-button" on:click={() => toggleMessageHidden(message)}>
                                         {message.hidden ? "Show" : "Hide"}
@@ -511,6 +527,21 @@
         </div>
     </div>
 </div>
+
+{#if showResourcesFor}
+    <Resources 
+        annotations={currentConversation.messages.find(m => m.id === showResourcesFor)?.annotations || []} 
+        onClose={() => showResourcesFor = null} 
+    />
+{/if}
+
+{#if showInfoFor}
+    <MessageInfo 
+        info={currentConversation.messages.find(m => m.id === showInfoFor)?.deepResearchResult || null}
+        generationData={currentConversation.messages.find(m => m.id === showInfoFor)?.generationData}
+        onClose={() => showInfoFor = null} 
+    />
+{/if}
 
 <!------------------------------------------------------------------------------------------------------------------------------------------------->
 
@@ -718,15 +749,16 @@
         background: rgba(0, 0, 0, 0.3);
     }
 
-    .copy-button {
+    .copy-button, .resources-button, .info-button {
         padding: 0.25rem;
         color: #aaa;
         background: transparent;
         cursor: pointer;
         border: 1px solid transparent;
+        margin-left: 0.25rem;
     }
 
-    .copy-button:hover {
+    .copy-button:hover, .resources-button:hover, .info-button:hover {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid #ddd;
     }
