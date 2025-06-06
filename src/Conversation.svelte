@@ -321,6 +321,7 @@
                     }, // updateStatus callback
                     abortController,
                 );
+                assistantMessage.researchResult = result;
                 if (result.streamingResult.requestID) {
                     assistantMessage.requestID = result.streamingResult.requestID;
                 }
@@ -537,8 +538,8 @@
 
 {#if showInfoFor}
     <MessageInfo 
-        info={currentConversation.messages.find(m => m.id === showInfoFor)?.deepResearchResult || null}
-        generationData={currentConversation.messages.find(m => m.id === showInfoFor)?.generationData}
+        researchResult={currentConversation.messages.find(m => m.id === showInfoFor)?.researchResult}
+        deepResearchResult={currentConversation.messages.find(m => m.id === showInfoFor)?.deepResearchResult}
         onClose={() => showInfoFor = null} 
     />
 {/if}

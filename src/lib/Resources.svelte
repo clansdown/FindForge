@@ -6,7 +6,7 @@
     export let onClose: () => void;
 </script>
 
-<ModalDialog title="Resources" onClose={onClose}>
+<ModalDialog isOpen={true} onClose={onClose}>
     <div class="resources">
         {#if annotations.length === 0}
             <p>No resources found</p>

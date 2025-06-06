@@ -106,6 +106,7 @@ export interface MessageData {
     isGenerating?: boolean; // true when the message is being generated
     status?: string; // status text for deep research
     deepResearchResult?: DeepResearchResult; // result of deep research, if it was done
+    researchResult?: ResearchResult; // result of standard research, if it was done
     annotations?: Annotation[];
 }
 
@@ -140,6 +141,11 @@ export interface ModelsForResearch {
   reasoning: string;
   editor : string;
   researcher: string;
+}
+
+export interface ResearchResult {
+    streamingResult: StreamingResult;
+    generationData?: GenerationData;
 }
 
 export interface DeepResearchResult {

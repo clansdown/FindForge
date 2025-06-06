@@ -44,7 +44,7 @@ export async function doStandardResearch(
     callback: (chunk: string) => void,
     updateStatus: (status: string) => void,
     abortController?: AbortController
-): Promise<{ streamingResult: StreamingResult, generationData: GenerationData | undefined }> {
+): Promise<ResearchResult> {
     updateStatus('Starting research...');
     
     // Prepare messages for API

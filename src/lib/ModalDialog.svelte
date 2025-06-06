@@ -1,19 +1,22 @@
 <script lang="ts">
   import { onDestroy, createEventDispatcher } from 'svelte';
 
-  export let isOpen: boolean = false;
+  export let isOpen: boolean;
+  export let onClose: (() => void) | undefined = undefined;
   
   const dispatch = createEventDispatcher();
 
   function handleBackgroundClick(e: MouseEvent) {
     if (e.target === e.currentTarget) {
       dispatch('close');
+      onClose?.();
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       dispatch('close');
+      onClose?.();
       event.preventDefault();
     }
   }

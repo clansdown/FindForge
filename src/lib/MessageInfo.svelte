@@ -1,9 +1,9 @@
 <script lang="ts">
     import ModalDialog from "./ModalDialog.svelte";
-    import type { DeepResearchResult, StreamingResult, GenerationData } from "./types";
+    import type { DeepResearchResult, ResearchResult, GenerationData } from "./types";
 
-    export let info: DeepResearchResult | StreamingResult | null = null;
-    export let generationData: GenerationData | undefined = undefined;
+    export let researchResult: ResearchResult | undefined = undefined;
+    export let deepResearchResult: DeepResearchResult | undefined = undefined;
     export let onClose: () => void;
 
     function formatCost(cost: number | undefined): string {
@@ -12,42 +12,42 @@
     }
 </script>
 
-<ModalDialog title="Message Information" onClose={onClose}>
+<ModalDialog isOpen={true} onClose={onClose}>
     <div class="message-info">
-        {#if info}
+        {#if deepResearchResult}
             <div class="info-section">
-                <h3>Research Details</h3>
-                <p><strong>Total Cost:</strong> {formatCost(info.total_cost)}</p>
+                <h3>Deep Research Details</h3>
+                <p><strong>Total Cost:</strong> {formatCost(deepResearchResult.total_cost)}</p>
                 
-                {#if 'models' in info}
-                    <p><strong>Reasoning Model:</strong> {info.models.reasoning}</p>
-                    <p><strong>Editor Model:</strong> {info.models.editor}</p>
-                    <p><strong>Researcher Model:</strong> {info.models.researcher}</p>
-                {/if}
+                <p><strong>Reasoning Model:</strong> {deepResearchResult.models.reasoning}</p>
+                <p><strong>Editor Model:</strong> {deepResearchResult.models.editor}</p>
+                <p><strong>Researcher Model:</strong> {deepResearchResult.models.researcher}</p>
                 
-                {#if 'plan_prompt' in info && info.plan_prompt}
+                {#if deepResearchResult.plan_prompt}
                     <div class="info-block">
                         <h4>Plan Prompt</h4>
-                        <pre>{info.plan_prompt}</pre>
+                        <pre>{deepResearchResult.plan_prompt}</pre>
                     </div>
                 {/if}
                 
-                {#if 'research_plan' in info && info.research_plan}
+                {#if deepResearchResult.research_plan}
                     <div class="info-block">
                         <h4>Research Plan</h4>
-                        <pre>{info.research_plan}</pre>
+                        <pre>{deepResearchResult.research_plan}</pre>
                     </div>
                 {/if}
             </div>
-        {:else if generationData}
+        {:else if researchResult}
             <div class="info-section">
-                <h3>Generation Details</h3>
-                <p><strong>Model:</strong> {generationData.model}</p>
-                <p><strong>Total Cost:</strong> {formatCost(generationData.total_cost)}</p>
-                <p><strong>Created:</strong> {new Date(generationData.created * 1000).toLocaleString()}</p>
-                <p><strong>Streamed:</strong> {generationData.streamed ? 'Yes' : 'No'}</p>
-                <p><strong>Canceled:</strong> {generationData.canceled ? 'Yes' : 'No'}</p>
-                <p><strong>Finish Reason:</strong> {generationData.finish_reason}</p>
+                <h3>Research Details</h3>
+                <p><strong>Model:</strong> {researchResult.streamingResult.model}</p>
+                <p><strong>Created:</strong> {new Date(researchResult.streamingResult.created * 1000).toLocaleString()}</p>
+                {#if researchResult.generationData}
+                    <p><strong>Total Cost:</strong> {formatCost(researchResult.generationData.total_cost)}</p>
+                    <p><strong>Streamed:</strong> {researchResult.generationData.streamed ? 'Yes' : 'No'}</p>
+                    <p><strong>Canceled:</strong> {researchResult.generationData.canceled ? 'Yes' : 'No'}</p>
+                    <p><strong>Finish Reason:</strong> {researchResult.generationData.finish_reason}</p>
+                {/if}
             </div>
         {/if}
     </div>
