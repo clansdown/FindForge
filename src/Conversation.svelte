@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { getModels } from './lib/models';
-  import { doStandardResearch } from './lib/research';
+  import { doStandardResearch, convertMessageToApiCallMessage } from './lib/research';
+  import { doDeepResearch } from './lib/deep_research';
   import ConversationToolbar from './ConversationToolbar.svelte';
   import { generateID } from './lib/util';
   import MarkdownIt from 'markdown-it';
   import markdownItLinkAttributes from 'markdown-it-link-attributes';
   import hljs from 'highlight.js';
-  import type { MessageData, GenerationData, Model, OpenRouterCredits, Attachment, ApiCallMessage, ApiCallMessageContent } from './lib/types';
+  import type { MessageData, GenerationData, Model, OpenRouterCredits, Attachment, ApiCallMessage, ApiCallMessageContent, ModelsForResearch } from './lib/types';
   import { Config, type ConversationData } from './lib/types';
   import SearchToolbar from './SearchToolbar.svelte';
 
@@ -249,30 +250,48 @@
     abortController = new AbortController();
     
     try {
-      /* Call standard research */
-      const { streamingResult, generationData } = await doStandardResearch(
-        8192, // maxTokens
-        localConfig,
-        userMessage,
-        currentConversation.messages.slice(0, -2), // history (all messages except current user and assistant)
-        (chunk) => {
-          assistantMessage.content += chunk;
-          currentConversation.messages = currentConversation.messages.map(msg => 
-            msg.id === assistantMessage.id ? assistantMessage : msg
-          );
-        },
-        (status) => { console.log(status); }, // updateStatus callback
-        abortController
-      );
+      if (deepSearch) {
+        // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
+        const apiCallMessages = currentConversation.messages.slice(0, -1).map(msg => convertMessageToApiCallMessage(msg));
+        const modelsForResearch: ModelsForResearch = {
+            reasoning: localConfig.defaultReasoningModel,
+            editor: localConfig.defaultModel
+        };
+        const deepResult = await doDeepResearch(
+            localConfig.apiKey,
+            8192, // maxTokens
+            localConfig.webSearchMaxResults, // maxWebRequests
+            modelsForResearch,
+            'auto', // strategy
+            apiCallMessages,
+            (status) => { console.log(status); } // statusCallback
+        );
+        assistantMessage.content = deepResult.content;
+        assistantMessage.totalCost = deepResult.total_cost;
+      } else {
+        const result = await doStandardResearch(
+            8192, // maxTokens
+            localConfig,
+            userMessage,
+            currentConversation.messages.slice(0, -2), // history (all messages except current user and assistant)
+            (chunk) => {
+                assistantMessage.content += chunk;
+                currentConversation.messages = currentConversation.messages.map(msg => 
+                    msg.id === assistantMessage.id ? assistantMessage : msg
+                );
+            },
+            (status) => { console.log(status); }, // updateStatus callback
+            abortController
+        );
+        if (result.streamingResult.requestID) {
+            assistantMessage.requestID = result.streamingResult.requestID;
+        }
+        if (result.generationData) {
+            assistantMessage.generationData = result.generationData;
+            assistantMessage.totalCost = result.generationData.total_cost || 0;
+        }
+      }
       userInput = ''; // Clear input after sending
-      
-      if (streamingResult.requestID) {
-        assistantMessage.requestID = streamingResult.requestID;
-      }
-      if (generationData) {
-        assistantMessage.generationData = generationData;
-        assistantMessage.totalCost = generationData.total_cost || 0;
-      }
     } catch (error : any) {
       if (error.name !== 'AbortError') {
         assistantMessage.content += '\n\n[Error: Generation failed]';

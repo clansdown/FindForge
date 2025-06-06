@@ -1,7 +1,7 @@
 import { callOpenRouterStreaming, fetchGenerationData } from './models';
 import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData } from './types';
 
-function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
+export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
     
     // Add text content if present
