@@ -4,6 +4,14 @@
   import { onMount } from 'svelte';
   import PushButton from './lib/PushButton.svelte';
 
+  function formatModelName(name: string): string {
+    const colonIndex = name.indexOf(': ');
+    if (colonIndex !== -1) {
+      return name.substring(colonIndex + 2);
+    }
+    return name;
+  }
+
   export let config: Config;
   export let deepSearch = false; // bound from parent
 
@@ -28,7 +36,7 @@
     <select bind:value={config.defaultModel}>
       {#each filteredModels as model}
         <option value={model.id}>
-          {model.name}
+          {formatModelName(model.name)}
           (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
         </option>
       {/each}
@@ -61,7 +69,15 @@
 {#if deepSearch}
 <div class="toolbar deep-search-toolbar">
   <div class="toolbar-group">
-    <label>Deep Search Controls (coming soon)</label>
+    <label>Reasoning Model:</label>
+    <select bind:value={config.defaultReasoningModel}>
+      {#each filteredModels as model}
+        <option value={model.id}>
+          {formatModelName(model.name)}
+          (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+        </option>
+      {/each}
+    </select>
   </div>
 </div>
 {/if}
