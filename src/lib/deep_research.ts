@@ -150,13 +150,9 @@ export async function doDeepResearch(
             .map(part => part.text)
             .join('\n');
 
-        // Calculate the remaining web requests and allocate per refinement
-        const remainingAfterSubResults = web_requests();
-        const perRefineWebRequests = sub_results.length > 0 ? Math.max(0, Math.floor(remainingAfterSubResults / sub_results.length)) : 0;
-
         // Refine each sub-result in parallel
         const refinePromises = sub_results.map(sub_result => 
-            refine_result(apiKey, models.editor, sub_result, userQuery, maxTokens, perRefineWebRequests)
+            refine_result(apiKey, models.editor, sub_result, userQuery, maxTokens, 0)
         );
 
         const refinedResults = await Promise.all(refinePromises);
