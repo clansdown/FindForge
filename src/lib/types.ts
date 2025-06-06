@@ -132,4 +132,7 @@ export interface DeepResearchResult {
   total_cost: number;
   models: ModelsForResearch;
   content : string;
+  plan_prompt : string;
+  research_plan : string;
+  sub_results : string[];
 }

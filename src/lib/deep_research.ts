@@ -19,6 +19,8 @@ export async function doDeepResearch(
         let answer_content : string = "";
         let max_subsets = Math.max(2, (maxWebRequests / 10)-1);
         const web_requests = () => { return Math.max(0, maxWebRequests - total_web_requests); };
+        let plan_prompt : string = '';
+        let sub_results : string[] = [];
 
         statusCallback("Starting deep research.");
 
@@ -46,9 +48,9 @@ export async function doDeepResearch(
         /* Create the plan */
         /*******************/
         statusCallback("Creating research plan.");
-        let research_plan : string;
+        let research_plan : string = '';
         if(actualStrategy === 'deep') {
-            const system_prompt = createSystemApiCallMessage(
+            const system_prompt = createSystemApiCallMessage(plan_prompt =
                 `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
@@ -62,7 +64,7 @@ export async function doDeepResearch(
             });
             research_plan = response.content.trim();
         } else if (actualStrategy === 'broad') {
-            const system_prompt = createSystemApiCallMessage(
+            const system_prompt = createSystemApiCallMessage(plan_prompt =
                 `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>"`
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
@@ -80,7 +82,7 @@ export async function doDeepResearch(
         /*****************************/
         /* Execute the research plan */
         /*****************************/
-        const synthesis_system_prompt = createSystemApiCallMessage(
+        const subquery_system_prompt = createSystemApiCallMessage(
             `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. `
         );
         // TODO: execute the research plan
@@ -95,6 +97,9 @@ export async function doDeepResearch(
             id: generateID(),
             total_cost,
             models: models,
+            plan_prompt,
+            research_plan,
+            sub_results,
             content: answer_content
         };
 }
