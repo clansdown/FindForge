@@ -1,5 +1,5 @@
 import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData } from "./models";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult } from "./types";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData } from "./types";
 import { generateID } from "./util";
 
 
@@ -223,4 +223,49 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
     }
 
     return { strategy, chatResult: response };
+}
+
+export async function refine_result(
+    apiKey: string,
+    modelId: string,
+    subQueryContent: string,
+    userQuery: string,
+    maxTokens: number,
+    maxWebRequests: number,
+    abortController?: AbortController
+): Promise<{ chatResult: ChatResult, generationData: GenerationData | undefined }> {
+    const systemPrompt = createSystemApiCallMessage(
+        `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details.`
+    );
+
+    const userMessage: ApiCallMessage = {
+        role: 'user',
+        content: [{
+            type: 'text',
+            text: userQuery
+        }]
+    };
+
+    const assistantMessage: ApiCallMessage = {
+        role: 'assistant',
+        content: [{
+            type: 'text',
+            text: `Research result to refine:\n${subQueryContent}`
+        }]
+    };
+
+    const messages: ApiCallMessage[] = [systemPrompt, userMessage, assistantMessage];
+
+    const chatResult = await callOpenRouterChat(
+        apiKey,
+        modelId,
+        maxTokens,
+        maxWebRequests,
+        messages,
+        abortController
+    );
+
+    const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
+
+    return { chatResult, generationData };
 }
