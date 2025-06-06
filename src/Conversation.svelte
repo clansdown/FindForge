@@ -265,6 +265,7 @@
                 const modelsForResearch: ModelsForResearch = {
                     reasoning: localConfig.defaultReasoningModel,
                     editor: localConfig.defaultModel,
+                    researcher: localConfig.defaultModel,
                 };
                 const deepResult = await doDeepResearch(
                     localConfig.apiKey,

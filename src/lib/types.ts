@@ -125,6 +125,7 @@ export interface OpenRouterCredits {
 export interface ModelsForResearch {
   reasoning: string;
   editor : string;
+  researcher: string;
 }
 
 export interface DeepResearchResult {

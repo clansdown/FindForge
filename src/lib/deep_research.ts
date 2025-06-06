@@ -1,4 +1,4 @@
-import { callOpenRouterChat, createSystemApiCallMessage, fetchGenerationData } from "./models";
+import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData } from "./models";
 import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult } from "./types";
 import { generateID } from "./util";
 
@@ -109,7 +109,7 @@ export async function doDeepResearch(
                     content: [{ type: 'text', text: prompt }]
                 }
             ];
-            return callOpenRouterChat(apiKey, models.reasoning, maxTokens, perPromptWebRequests, messages_for_subquery);
+            return callOpenRouterChat(apiKey, models.researcher, maxTokens, perPromptWebRequests, messages_for_subquery);
         });
 
         const responses = await Promise.all(promises);
@@ -136,7 +136,42 @@ export async function doDeepResearch(
         /*********************/
         /* Get the synthesis */
         /*********************/
-        
+        const synthesis_system_prompt = createSystemApiCallMessage(
+            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the results of the research plan and synthesize them into a final answer to the user's question or goal. The synthesis should be clear, concise, and should address the user's question or goal directly. The synthesis should be based on the information gathered in the previous prompts, and should not include any unnecessary or irrelevant information. Cite all sources.`
+        );
+        // TODO: allow the user to supply text to be added on to the synthesis prompt like the regular system prompt.
+
+        /*********************/
+        /* Do the synthesis */
+        /*********************/
+        statusCallback("Synthesizing research results.");
+
+        // Construct the messages for synthesis
+        const messages_for_synthesis: ApiCallMessage[] = [
+            synthesis_system_prompt,
+            ...messages.filter(m => m.role !== 'system'),   // remove system messages from the original conversation
+            createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
+            ...sub_results.map((result, index) => createAssistantApiCallMessage(`Research Result ${index+1}:\n${result}`))
+        ];
+
+        const synthesisResponse = await callOpenRouterChat(
+            apiKey,
+            models.reasoning,
+            maxTokens,
+            web_requests(),   // use the remaining web requests
+            messages_for_synthesis
+        );
+
+        // Fetch the generation data for the synthesis step
+        const synthesisGenerationData = await fetchGenerationData(apiKey, synthesisResponse.requestID);
+        if (synthesisGenerationData) {
+            total_cost += synthesisGenerationData.total_cost || 0;
+            total_web_requests += synthesisGenerationData.num_search_results || 0;
+        }
+
+        answer_content = synthesisResponse.content;
+
+        statusCallback("Research synthesis complete.");
 
         return {
             id: generateID(),

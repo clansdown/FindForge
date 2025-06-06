@@ -230,3 +230,13 @@ export async function fetchGenerationData(apiKey : string, requestId : string): 
         return undefined;
     }
 }
+
+export function createAssistantApiCallMessage(text: string): ApiCallMessage {
+    return {
+        role: 'assistant',
+        content: [{
+            type: 'text',
+            text: text
+        }]
+    };
+}
