@@ -240,7 +240,7 @@
             model: localConfig.defaultModel,
             modelName: models.find((m) => m.id === localConfig.defaultModel)?.name || "Unknown",
             totalCost: 0,
-            isGenerating: !deepSearch, // true for standard research, false for deep
+            isGenerating: true, // true for standard research, false for deep
             status: deepSearch ? "Starting deep research..." : undefined,
         };
         currentConversation.messages.push(assistantMessage);
@@ -279,6 +279,7 @@
                         );
                     }, // statusCallback
                 );
+                assistantMessage.isGenerating = false;
                 assistantMessage.content = deepResult.content;
                 assistantMessage.totalCost = deepResult.total_cost;
                 assistantMessage.status = undefined; // clear status when done
