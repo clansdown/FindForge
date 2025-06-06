@@ -85,8 +85,53 @@ export async function doDeepResearch(
         const subquery_system_prompt = createSystemApiCallMessage(
             `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. `
         );
-        // TODO: execute the research plan
 
+        // Extract the prompts from the research_plan
+        const promptRegex = /<prompt>(.*?)<\/prompt>/gs;
+        const prompts: string[] = [];
+        let match;
+        while ((match = promptRegex.exec(research_plan)) !== null) {
+            prompts.push(match[1].trim());
+        }
+
+        statusCallback(`Executing research plan: ${prompts.length} prompts in parallel.`);
+
+        // Calculate the remaining web requests and allocate per prompt
+        const remaining = web_requests();
+        const perPromptWebRequests = prompts.length > 0 ? Math.max(0, Math.floor(remaining / prompts.length)) : 0;
+
+        // Execute all prompts in parallel
+        const promises = prompts.map(prompt => {
+            const messages_for_subquery: ApiCallMessage[] = [
+                subquery_system_prompt,
+                {
+                    role: 'user',
+                    content: [{ type: 'text', text: prompt }]
+                }
+            ];
+            return callOpenRouterChat(apiKey, models.reasoning, maxTokens, perPromptWebRequests, messages_for_subquery);
+        });
+
+        const responses = await Promise.all(promises);
+
+        // Collect the responses
+        responses.forEach(response => {
+            sub_results.push(response.content);
+        });
+
+        // Fetch generation data for each response in parallel
+        const generationDataPromises = responses.map(response => 
+            fetchGenerationData(apiKey, response.requestID)
+        );
+        const generationDatas = await Promise.all(generationDataPromises);
+
+        // Update total_cost and total_web_requests
+        for (const data of generationDatas) {
+            if (data) {
+                total_cost += data.total_cost || 0;
+                total_web_requests += data.num_search_results || 0;
+            }
+        }
 
         /*********************/
         /* Get the synthesis */
