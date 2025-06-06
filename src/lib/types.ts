@@ -93,6 +93,7 @@ export interface MessageData {
     attachments?: Attachment[]; // array of file attachments
     isGenerating?: boolean; // true when the message is being generated
     status?: string; // status text for deep research
+    deepResearchResult?: DeepResearchResult; // result of deep research, if it was done
 }
 
 export interface ConversationData {

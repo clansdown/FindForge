@@ -288,6 +288,7 @@
                 assistantMessage.content = deepResult.content;
                 assistantMessage.totalCost = deepResult.total_cost;
                 assistantMessage.status = undefined; // clear status when done
+                assistantMessage.deepResearchResult = deepResult; // Store the full result
             } else {
                 let firstChunk = true;
                 const result = await doStandardResearch(
