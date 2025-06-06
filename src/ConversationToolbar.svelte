@@ -69,8 +69,8 @@
 {#if deepSearch}
 <div class="toolbar deep-search-toolbar">
   <div class="toolbar-group">
-    <label>Reasoning Model:</label>
-    <select bind:value={config.defaultReasoningModel}>
+    <label for="reasoning-model">Reasoning Model:</label>
+    <select id="reasoning-model" bind:value={config.defaultReasoningModel}>
       {#each filteredModels as model}
         <option value={model.id}>
           {formatModelName(model.name)}
