@@ -17,11 +17,11 @@ export async function doDeepResearch(
         let actualStrategy: 'deep' | 'broad' = 'deep'; // default
         let chat_results: ChatResult[] = [];
 
-        statusCallback("Starting deep research...");
+        statusCallback("Starting deep research.");
 
 
         if (strategy === 'auto') {
-            statusCallback("Determining research strategy...");
+            statusCallback("Determining research strategy.");
             try {
                 const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, messages);
                 actualStrategy = determinedStrategy;
@@ -32,9 +32,13 @@ export async function doDeepResearch(
                 statusCallback('Error determining strategy, using deep research');
                 actualStrategy = 'deep';
             }
+            statusCallback(`Using research strategy: ${actualStrategy}`);
         } else {
             actualStrategy = strategy;
         }
+
+
+
 
         // TODO: Implement the research using actualStrategy
 

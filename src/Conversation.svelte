@@ -4,7 +4,7 @@
     import { doStandardResearch, convertMessageToApiCallMessage } from "./lib/research";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
-    import { generateID } from "./lib/util";
+    import { generateID, escapeHtml } from "./lib/util";
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
@@ -241,7 +241,7 @@
             modelName: models.find((m) => m.id === localConfig.defaultModel)?.name || "Unknown",
             totalCost: 0,
             isGenerating: true, // true for standard research, false for deep
-            status: deepSearch ? "Starting deep research..." : undefined,
+            status: deepSearch ? '<div class="status-message">Starting deep research...</div>' : undefined,
         };
         currentConversation.messages.push(assistantMessage);
         currentConversation.messages = currentConversation.messages; // Trigger reactivity
@@ -273,7 +273,9 @@
                     "auto", // strategy
                     apiCallMessages,
                     (status) => {
-                        assistantMessage.status = status;
+                        const escapedStatus = escapeHtml(status);
+                        const newStatusDiv = `<div class="status-message">${escapedStatus}</div>`;
+                        assistantMessage.status = (assistantMessage.status || '') + newStatusDiv;
                         currentConversation.messages = currentConversation.messages.map((msg) =>
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
@@ -448,7 +450,7 @@
                                         {@html formatMessage(message.content)}
                                     {/if}
                                     {#if message.status}
-                                        <div class="status">{message.status}</div>
+                                        <div class="status">{@html message.status}</div>
                                     {/if}
                                 {/if}
                             </div>
