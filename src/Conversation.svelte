@@ -289,6 +289,9 @@
                 assistantMessage.totalCost = deepResult.total_cost;
                 assistantMessage.status = undefined; // clear status when done
                 assistantMessage.deepResearchResult = deepResult; // Store the full result
+                if (deepResult.annotations) {
+                    assistantMessage.annotations = deepResult.annotations;
+                }
             } else {
                 let firstChunk = true;
                 const result = await doStandardResearch(
@@ -317,6 +320,9 @@
                 if (result.generationData) {
                     assistantMessage.generationData = result.generationData;
                     assistantMessage.totalCost = result.generationData.total_cost || 0;
+                }
+                if (result.streamingResult.annotations) {
+                    assistantMessage.annotations = result.streamingResult.annotations;
                 }
             }
             userInput = ""; // Clear input after sending
