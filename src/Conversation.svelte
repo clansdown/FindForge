@@ -248,53 +248,6 @@
     abortController = new AbortController();
     
     try {
-      // Prepare messages for API
-      const messagesForAPI: ApiCallMessage[] = [];
-      
-      if (localConfig.systemPrompt) {
-        messagesForAPI.push({ 
-          role: 'system', 
-          content: [{ type: 'text', text: localConfig.systemPrompt }] 
-        });
-      }
-      
-      if (localConfig.includePreviousMessagesAsContext) {
-        for (const m of currentConversation.messages.slice(0, -1)) {
-          if (!m.hidden) {
-            const contentParts: ApiCallMessageContent[] = [
-              { type: 'text', text: m.content }
-            ];
-            if (m.attachments) {
-              for (const attachment of m.attachments) {
-                contentParts.push({
-                  type: 'file',
-                  file: {
-                    filename: attachment.filename,
-                    file_data: attachment.content
-                  }
-                });
-              }
-            }
-            messagesForAPI.push({ role: m.role, content: contentParts });
-          }
-        }
-      } else {
-        const contentParts: ApiCallMessageContent[] = [];
-        if (userMessage.attachments) {
-          for (const attachment of userMessage.attachments) {
-            contentParts.push({
-              type: 'file',
-              file: {
-                filename: attachment.filename,
-                file_data: attachment.content
-              }
-            });
-          }
-        }
-        contentParts.push({ type: 'text', text: userMessage.content });
-        messagesForAPI.push({ role: userMessage.role, content: contentParts });
-      }
-      
       /* Call standard research */
       const result = await doStandardResearch(
         8192, // maxTokens
