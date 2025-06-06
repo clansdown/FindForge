@@ -18,11 +18,13 @@ export async function doDeepResearch(
         let chat_results: ChatResult[] = [];
         let answer_content : string = "";
         let max_subsets = Math.max(2, (maxWebRequests / 10)-1);
-        let web_requests_remaining = maxWebRequests;
+        const web_requests = () => { return Math.max(0, maxWebRequests - total_web_requests); };
 
         statusCallback("Starting deep research.");
 
-        /* First, ensure that we have a strategy */
+        /**********************************/
+        /* Ensure that we have a strategy */
+        /**********************************/
         if (strategy === 'auto') {
             statusCallback("Determining research strategy.");
             try {
@@ -40,31 +42,54 @@ export async function doDeepResearch(
             actualStrategy = strategy;
         }
 
+        /*******************/
         /* Create the plan */
+        /*******************/
+        statusCallback("Creating research plan.");
+        let research_plan : string;
         if(actualStrategy === 'deep') {
             const system_prompt = createSystemApiCallMessage(
                 `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
-            statusCallback("Creating research plan.");
 
-            const response = await callOpenRouterChat(apiKey, models.reasoning, maxTokens, Math.min(10, web_requests_remaining), messages_for_api);
+            const response = await callOpenRouterChat(apiKey, models.reasoning, maxTokens, web_requests(), messages_for_api);
             fetchGenerationData(apiKey, response.requestID).then(data => {
                 if(data) {
                     total_cost += data.total_cost || 0;
                     total_web_requests += data.num_search_results || 0;
                 }
             });
-            answer_content = response.content.trim();
-        } else {
+            research_plan = response.content.trim();
+        } else if (actualStrategy === 'broad') {
+            const system_prompt = createSystemApiCallMessage(
+                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>"`
+            );
+            const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-
-            
+            const response = await callOpenRouterChat(apiKey, models.reasoning, maxTokens, web_requests(), messages_for_api);
+            fetchGenerationData(apiKey, response.requestID).then(data => {
+                if(data) {
+                    total_cost += data.total_cost || 0;
+                    total_web_requests += data.num_search_results || 0;
+                }
+            });
+            research_plan = response.content.trim();
         }
 
+        /*****************************/
+        /* Execute the research plan */
+        /*****************************/
+        const synthesis_system_prompt = createSystemApiCallMessage(
+            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. `
+        );
+        // TODO: execute the research plan
 
 
-        // TODO: Implement the research using actualStrategy
+        /*********************/
+        /* Get the synthesis */
+        /*********************/
+        
 
         return {
             id: generateID(),
