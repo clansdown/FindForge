@@ -14,7 +14,7 @@
   let openrouterModels: Model[] = [];
   let availableModels : Model[] = [];
   let modelFetchError: string | null = null;
-  let currentTab : 'general' | 'model' =  config.apiKey ? 'general' : 'model';
+  let currentTab : 'general' | 'model' | 'deep-research' =  config.apiKey ? 'general' : 'model';
   let modelFilter = '';
   
   $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
@@ -162,14 +162,20 @@
       </div>
       
       <div class="form-group">
-        <label for="deep-research-web-search-max-results">Deep Research Web Search Max Results:</label>
-        <input type="number" id="deep-research-web-search-max-results" bind:value={localConfig.deepResearchWebSearchMaxResults} min="1" />
+        <label for="deep-research-web-search-max-results">Deep Research Planning Max Web Search Results:</label>
+        <input type="number" id="deep-research-web-search-max-results" bind:value={localConfig.deepResearchWebSearchMaxPlanningResults} min="1" />
+      </div>
+
+      <div class="form-group">
+        <label for="deep-research-max-subqrequests">Maximum Research Threads:</label>
+        <input type="number" id="deep-research-max-subqrequests" bind:value={localConfig.deepResearchMaxSubqrequests} min="1" />
       </div>
 
       <div class="form-group">
         <label for="deep-research-web-requests-per-subrequest">Web Requests Per Research Thread:</label>
         <input type="number" id="deep-research-web-requests-per-subrequest" bind:value={localConfig.deepResearchWebRequestsPerSubrequest} min="1" />
       </div>
+
 
     <!------------------------->
     <!-- Model Configuration -->
