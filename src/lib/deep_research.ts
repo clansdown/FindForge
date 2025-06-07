@@ -371,7 +371,7 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     const researcherModel = config.defaultModel;
     const pricingResearcher = modelPricing[researcherModel];
     const numSubqueries = config.deepResearchMaxSubqrequests;
-    const perSubqueryInputTokens = 5000; // system (100) + prompt (100) + estimated tokens from web searches
+    const perSubqueryInputTokens = 200 + config.deepResearchWebRequestsPerSubrequest*600; // system (100) + prompt (100) + estimated tokens from web searches
     const perSubqueryOutputTokens = 1000;
     const executionCost = numSubqueries * (perSubqueryInputTokens * pricingResearcher.prompt + perSubqueryOutputTokens * pricingResearcher.completion);
 
