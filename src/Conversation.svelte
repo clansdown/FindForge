@@ -443,12 +443,12 @@
                                             <button
                                                 class="resources-button"
                                                 on:click={() => showResourcesFor = message.id}
-                                                title="View resources">🌐</button>
+                                                title="View web resources used to generate this message (links).">🌐</button>
                                         {/if}
                                         <button
                                             class="info-button"
                                             on:click={() => showInfoFor = message.id}
-                                            title="View message info">ℹ️</button>
+                                            title="View information about the generation of this message">ℹ️</button>
                                     </div>
                                     <button class="toggle-button hide-button" on:click={() => toggleMessageHidden(message)}>
                                         {message.hidden ? "Show" : "Hide"}

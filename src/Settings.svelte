@@ -109,7 +109,7 @@
     <ul class="nav nav-tabs">
       <li class="nav-item" class:active={currentTab === 'general'}><a class="nav-link" href="#" on:click={() => currentTab = 'general'}>Research</a></li>
       <li class="nav-item" class:active={currentTab === 'deep-research'}><a class="nav-link" href="#" on:click={() => currentTab = 'deep-research'}>Deep Research</a></li>
-      <li class="nav-item" class:active={currentTab === 'model'}><a class="nav-link" href="#" on:click={() => currentTab = 'model'}>Model</a></li>
+      <li class="nav-item" class:active={currentTab === 'model'}><a class="nav-link" href="#" on:click={() => currentTab = 'model'}>Models</a></li>
     </ul>
 
     <!---------------------------->
@@ -158,7 +158,8 @@
     {:else if currentTab === 'deep-research'}
       <div class="form-group">
         <label for="deep-research-system-prompt">Deep Research System Prompt:</label>
-        <textarea id="deep-research-system-prompt" bind:value={localConfig.deepResearchSystemPrompt} rows="4" ></textarea>
+        <textarea id="deep-research-system-prompt" bind:value={localConfig.deepResearchSystemPrompt} rows="4" 
+          placeholder="Optional. Specify special instructions for the LLM..."></textarea>
       </div>
       
       <div class="form-group">
@@ -226,16 +227,12 @@
       <div class="form-group">
         <h4>Available Models:</h4>
           <div class="filter-container">
-            <input 
-              type="text" 
-              placeholder="Filter models..." 
-              bind:value={modelFilter}
-              class="filter-input"
-            />
+            <!-- price filters -->
+            
+            <!-- price filters -->
+            <input  type="text" placeholder="Filter by name..." bind:value={modelFilter} class="filter-input" />
             {#if modelFilter}
-              <button class="clear-button" on:click={() => modelFilter = ''} aria-label="Clear filter">
-                ×
-              </button>
+              <button class="clear-button" on:click={() => modelFilter = ''} aria-label="Clear filter">×</button>
             {/if}
           </div>
         <div class="model-list">
