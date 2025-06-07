@@ -1,5 +1,5 @@
-import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData } from "./models";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config } from "./types";
+import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData, getModels } from "./models";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model } from "./types";
 import { generateID } from "./util";
 
 
@@ -315,4 +315,65 @@ export async function refine_result(
     const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
 
     return { chatResult, generationData };
+}
+
+export async function estimateDeepResearchCost(config: Config): Promise<number> {
+    // Fetch the models to get pricing
+    const modelsList = await getModels(config);
+    const modelPricing: Record<string, { prompt: number, completion: number }> = {};
+    for (const model of modelsList) {
+        // Convert the pricing strings to numbers (remove the dollar sign)
+        modelPricing[model.id] = {
+            prompt: parseFloat(model.pricing.prompt.replace('$', '')),
+            completion: parseFloat(model.pricing.completion.replace('$', ''))
+        };
+    }
+
+    // If the model is not found, use a default (gpt-4 pricing as fallback)
+    const defaultPricing = { prompt: 0.00003, completion: 0.00006 };
+
+    function getPricing(modelId: string) {
+        return modelPricing[modelId] || defaultPricing;
+    }
+
+    // Step 1: Strategy determination (if auto) - we always include it for estimation
+    const reasoningModel = config.defaultReasoningModel;
+    const pricingStrategy = getPricing(reasoningModel);
+    const strategyInputTokens = 1100; // 1000 (user) + 100 (system)
+    const strategyOutputTokens = 10;  // just the word
+    const strategyCost = (strategyInputTokens * pricingStrategy.prompt + strategyOutputTokens * pricingStrategy.completion) / 1e6;
+
+    // Step 2: Planning
+    const pricingPlanning = getPricing(reasoningModel);
+    const planningInputTokens = 1200; // 1000 (user) + 200 (system)
+    const planningOutputTokens = 500;
+    const planningCost = (planningInputTokens * pricingPlanning.prompt + planningOutputTokens * pricingPlanning.completion) / 1e6;
+
+    // Step 3: Execution of subqueries
+    const researcherModel = config.defaultModel;
+    const pricingResearcher = getPricing(researcherModel);
+    const numSubqueries = config.deepResearchMaxSubqrequests;
+    const perSubqueryInputTokens = 500; // system (100) + prompt (100)
+    const perSubqueryOutputTokens = 1000;
+    const executionCost = numSubqueries * (perSubqueryInputTokens * pricingResearcher.prompt + perSubqueryOutputTokens * pricingResearcher.completion) / 1e6;
+
+    // Step 4: Refinement
+    const editorModel = config.defaultReasoningModel; // using reasoning model for refinement
+    const pricingEditor = getPricing(editorModel);
+    const perRefinementInputTokens = 2100; // system (100) + user query (1000) + subquery result (1000)
+    const perRefinementOutputTokens = 1000;
+    const refinementCost = numSubqueries * (perRefinementInputTokens * pricingEditor.prompt + perRefinementOutputTokens * pricingEditor.completion) / 1e6;
+
+    // Step 5: Synthesis
+    const synthesisInputTokens = 200 + 1000 + strategyOutputTokens + (perRefinementOutputTokens * numSubqueries); // system (200) + user messages (1000)
+    const synthesisOutputTokens = 2000;
+    const synthesisCost = (synthesisInputTokens * pricingPlanning.prompt + synthesisOutputTokens * pricingPlanning.completion) / 1e6;
+
+    // Web search cost
+    const webSearchCost = (config.deepResearchWebSearchMaxPlanningResults + (config.deepResearchWebRequestsPerSubrequest * numSubqueries)) * 0.004;
+
+    // Total cost
+    const totalCost = strategyCost + planningCost + executionCost + refinementCost + synthesisCost + webSearchCost;
+
+    return totalCost;
 }

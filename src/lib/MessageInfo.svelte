@@ -23,7 +23,7 @@
     <div class="message-info">
         {#if deepResearchResult}
             <div class="info-section">
-                <h3>Deep Research Details</h3>
+                <h2>Deep Research Details</h2>
                 <p><strong>Total Cost:</strong> {formatCost(deepResearchResult.total_cost)}</p>
                 
                 <p><strong>Reasoning Model:</strong> {deepResearchResult.models.reasoning}</p>
@@ -46,10 +46,10 @@
 
                 {#if deepResearchResult.sub_results && deepResearchResult.sub_results.length > 0}
                     <div class="info-block">
-                        <h4>Sub Results (Raw)</h4>
+                        <h2>Sub Results (Raw)</h2>
                         {#each deepResearchResult.sub_results as result, index}
                             <div class="result-block">
-                                <h5>Result {index + 1}</h5>
+                                <h4>Result {index + 1}</h4>
                                 <pre>{result}</pre>
                             </div>
                         {/each}
@@ -58,10 +58,10 @@
 
                 {#if deepResearchResult.refined_sub_results && deepResearchResult.refined_sub_results.length > 0}
                     <div class="info-block">
-                        <h4>Refined Sub Results</h4>
+                        <h2>Refined Sub Results</h2>
                         {#each deepResearchResult.refined_sub_results as result, index}
                             <div class="result-block">
-                                <h5>Result {index + 1}</h5>
+                                <h4>Refined Result {index + 1}</h4>
                                 <pre>{result}</pre>
                             </div>
                         {/each}
@@ -137,6 +137,7 @@
     pre {
         background: #222;
         padding: 0.5rem;
+        margin-left: 0.6rem;
         border-radius: 4px;
         overflow-x: auto;
         white-space: pre-wrap;
