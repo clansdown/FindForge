@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Config, OpenRouterCredits } from './lib/types';
   import Settings from './Settings.svelte';
+  import About from './About.svelte';
   import { onMount } from 'svelte';
   
   export let config: Config;
@@ -10,6 +11,7 @@
   
   let activeMenu: string | null = null;
   let showSettings = false;
+  let showAbout = false;
   
   function toggleMenu(menu: string) {
     activeMenu = activeMenu === menu ? null : menu;
@@ -61,7 +63,7 @@
     {#if activeMenu === 'help'}
       <div class="dropdown">
         <button on:click={() => { window.open('https://github.com/clansdown/MachineLearner', '_blank'); closeMenu(); }}>Source Code</button>
-        <button on:click={closeMenu}>About</button>
+        <button on:click={() => { showAbout = true; closeMenu(); }}>About</button>
       </div>
     {/if}
   </div>
@@ -74,6 +76,7 @@
 </div>
 
 <Settings bind:config bind:isOpen={showSettings} {credits} />
+<About bind:isOpen={showAbout} onClose={() => showAbout = false} />
 
 <style>
   .menu-bar {
