@@ -45,7 +45,7 @@
     </label>
     <label title="The maximum number of results to allow the LLM to request. At time of writing, they cost $.004 per result.">
       Max:
-      <input type="number" bind:value={config.webSearchMaxResults} min="1" max="10" />
+      <input style="width: 2rem;" type="number" bind:value={config.webSearchMaxResults} min="1" max="10" />
     </label>
   </div>
 
@@ -62,27 +62,37 @@
 </div>
 
 {#if deepSearch}
-<div class="toolbar deep-search-toolbar">
-  <div class="toolbar-group">
-    <label for="reasoning-model">"Reasoning" Model:</label>
-    <select id="reasoning-model" bind:value={config.defaultReasoningModel}>
-      {#each filteredModels as model}
-        <option value={model.id}>
-          {formatModelName(model.name)}
-          (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
-        </option>
-      {/each}
-    </select>
+<div class="toolbar deep-search-toolbar flex flex-row flex-between">
+  <div class="flex flex-row flex-wrap gap-2">
+    <div class="toolbar-group" title='"Reasoning" model to use for deep searching'>
+      <select id="reasoning-model" bind:value={config.defaultReasoningModel}>
+        {#each filteredModels as model}
+          <option value={model.id}>
+            {formatModelName(model.name)}
+            (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+          </option>
+        {/each}
+      </select>
+    </div>
+    <div class="toolbar-group" title="Research strategy">
+      <select id="search-strategy" bind:value={deepSearchStrategy}>
+        <option value="auto">Auto</option>
+        <option value="deep">Deep</option>
+        <option value="broad">Broad</option>
+      </select>
+    </div>
+    
+    <div class="toolbar-group" title="Maximum number of research threads to use for researching the question.">
+      <label for="max-subqueries">🧵</label>
+      <input style="width: 2rem;" id="max-subqueries" type="number" bind:value={config.deepResearchMaxSubqrequests} min="1" max="16" />
+    </div>
+    
+    <div class="toolbar-group" title="Maximum number of web requests to make per research thread.">
+      <label for="web-reqs-per-subquery">🌐/🧵</label>
+      <input style="width: 2rem;" id="web-reqs-per-subquery" type="number" bind:value={config.deepResearchWebRequestsPerSubrequest} min="1" max="32" />
+    </div>
   </div>
-  <div class="toolbar-group">
-    <label for="search-strategy">Strategy:</label>
-    <select id="search-strategy" bind:value={deepSearchStrategy}>
-      <option value="auto">Auto</option>
-      <option value="deep">Deep</option>
-      <option value="broad">Broad</option>
-    </select>
-  </div>
-  <div class="text-end">
+  <div class="px-2 text-secondary" title="Estimated cost of the deep research operation.">
     {#await estimateDeepResearchCost(config) then cost}
       Est: ${cost.toFixed(2)}
     {/await}
