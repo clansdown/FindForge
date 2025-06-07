@@ -45,7 +45,7 @@
         opened();
     }
 
-    $: estimateDeepResearchCost(localConfig).then((cost) => {
+    $: if(isOpen) estimateDeepResearchCost(localConfig).then((cost) => {
         estimatedDeepResearchCost = cost;
     }).catch((error) => {
         console.error('Failed to estimate deep research cost', error);
@@ -254,7 +254,7 @@
         </div>
 
         <div class="form-group">
-            <label for="default-reasoning-model">Default Reasoning Model:</label>
+            <label for="default-reasoning-model">Default "Reasoning" Model:</label>
             <select id="default-reasoning-model" bind:value={localConfig.defaultReasoningModel}>
                 {#each availableModels as model}
                     <option value={model.id}>

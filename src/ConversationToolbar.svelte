@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import PushButton from './lib/PushButton.svelte';
     import { formatModelName } from './lib/util';
+    import { estimateDeepResearchCost } from './lib/deep_research';
   
   export let config: Config;
   export let deepSearch = false; // bound from parent
@@ -63,7 +64,7 @@
 {#if deepSearch}
 <div class="toolbar deep-search-toolbar">
   <div class="toolbar-group">
-    <label for="reasoning-model">Reasoning Model:</label>
+    <label for="reasoning-model">"Reasoning" Model:</label>
     <select id="reasoning-model" bind:value={config.defaultReasoningModel}>
       {#each filteredModels as model}
         <option value={model.id}>
@@ -80,6 +81,11 @@
       <option value="deep">Deep</option>
       <option value="broad">Broad</option>
     </select>
+  </div>
+  <div class="text-end">
+    {#await estimateDeepResearchCost(config) then cost}
+      Est: ${cost.toFixed(2)}
+    {/await}
   </div>
 </div>
 {/if}

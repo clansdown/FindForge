@@ -13,7 +13,7 @@
 
     function formatCost(cost: number | undefined): string {
         if (cost === undefined) return "N/A";
-        return `$${cost.toFixed(6)}`;
+        return `$${cost.toFixed(4)}`;
     }
 
     function formatAnnotation(annotation: Annotation): string {
@@ -39,7 +39,7 @@
 
     function formatGenerationData(data: GenerationData | undefined): string {
         if (!data) return "N/A";
-        return `Cost: ${formatCost(data.total_cost)}, Tokens: ${data.tokens_prompt || 0}+${data.tokens_completion || 0}`;
+        return `Cost: ${formatCost(data.total_cost)}, Tokens: ${data.tokens_prompt || 0} in, ${data.tokens_completion || 0} out. Generation time: ${((data.generation_time || 0)/1000).toFixed(1)}s.`;
     }
 </script>
 
@@ -47,7 +47,7 @@
     <div class="message-info">
         {#if deepResearchResult}
             <div class="info-section">
-                <h2>Deep Research Details</h2>
+                <h1>Deep Research Details</h1>
                 <p><strong>Total Cost:</strong> {formatCost(deepResearchResult.total_cost)}</p>
                 
                 <p><strong>Reasoning Model:</strong> {deepResearchResult.models.reasoning}</p>
@@ -55,7 +55,7 @@
                 <p><strong>Researcher Model:</strong> {deepResearchResult.models.researcher}</p>
                 
                 <div class="info-block">
-                    <h3>Plan Result</h3>
+                    <h1>Research Plan</h1>
                     <div class="chat-result">
                         <div class="chat-header">
                             <h4>Plan Prompt</h4>
@@ -63,29 +63,22 @@
                                 📋
                             </button>
                         </div>
-                        <pre>{deepResearchResult.plan_prompt}</pre>
-                        <p><strong>Generation Data:</strong> {formatGenerationData(deepResearchResult.plan_result.generationData)}</p>
-                        <h4>Plan Content</h4>
+                        <div style="text-align: justify; padding: 0 1rem;">{deepResearchResult.plan_prompt}</div>
+                        <p>{formatGenerationData(deepResearchResult.plan_result.generationData)}</p>
+                        <h3>Plan Content</h3>
                         <div class="chat-content">
                             {@html formatChatContent(deepResearchResult.plan_result.content)}
                         </div>
                     </div>
                 </div>
-                
-                {#if deepResearchResult.research_plan}
-                    <div class="info-block">
-                        <h4>Research Plan</h4>
-                        <pre>{deepResearchResult.research_plan}</pre>
-                    </div>
-                {/if}
 
                 <div class="info-block">
-                    <h3>Research Threads</h3>
+                    <h1>Research Threads</h1>
                     {#each deepResearchResult.research_threads as thread, index}
                         <div class="thread-block">
-                            <h4>Thread {index + 1}</h4>
+                            <h3>Thread {index + 1}</h3>
                             <div class="chat-header">
-                                <h5>Prompt</h5>
+                                <h4>Prompt</h4>
                                 <button on:click={() => copyToClipboard(thread.prompt, `thread ${index+1} prompt`)} class="copy-button">
                                     📋
                                 </button>
@@ -95,12 +88,12 @@
                             {#if thread.firstPass}
                                 <div class="chat-result">
                                     <div class="chat-header">
-                                        <h5>First Pass</h5>
+                                        <h4>First Pass</h4>
                                         <button on:click={() => copyToClipboard(thread.firstPass?.content||'', `thread ${index+1} first pass`)} class="copy-button">
                                             📋
                                         </button>
                                     </div>
-                                    <p><strong>Generation Data:</strong> {formatGenerationData(thread.firstPass.generationData)}</p>
+                                    <p>{formatGenerationData(thread.firstPass.generationData)}</p>
                                     <div class="chat-content">
                                         {@html formatChatContent(thread.firstPass.content)}
                                     </div>
@@ -115,7 +108,7 @@
                                             📋
                                         </button>
                                     </div>
-                                    <p><strong>Generation Data:</strong> {formatGenerationData(thread.refined.generationData)}</p>
+                                    <p>{formatGenerationData(thread.refined.generationData)}</p>
                                     <div class="chat-content">
                                         {@html formatChatContent(thread.refined.content)}
                                     </div>

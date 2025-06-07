@@ -363,7 +363,7 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
 
     // Step 2: Planning
     const pricingPlanning = modelPricing[reasoningModel];
-    const planningInputTokens = 1200; // 1000 (user) + 200 (system)
+    const planningInputTokens = 4300; // 300 (system) + 1000 (user) + 3000 (research)
     const planningOutputTokens = config.deepResearchMaxPlanningTokens;
     const planningCost = (planningInputTokens * pricingPlanning.prompt + planningOutputTokens * pricingPlanning.completion);
 
@@ -371,14 +371,14 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     const researcherModel = config.defaultModel;
     const pricingResearcher = modelPricing[researcherModel];
     const numSubqueries = config.deepResearchMaxSubqrequests;
-    const perSubqueryInputTokens = 30000; // system (100) + prompt (100) + estimated tokens from web searches
-    const perSubqueryOutputTokens = 1500;
+    const perSubqueryInputTokens = 5000; // system (100) + prompt (100) + estimated tokens from web searches
+    const perSubqueryOutputTokens = 1000;
     const executionCost = numSubqueries * (perSubqueryInputTokens * pricingResearcher.prompt + perSubqueryOutputTokens * pricingResearcher.completion);
 
     // Step 4: Refinement
     const editorModel = config.defaultReasoningModel; // using reasoning model for refinement
     const pricingEditor = modelPricing[editorModel];
-    const perRefinementInputTokens = 2100; // system (100) + user query (1000) + subquery result (1000)
+    const perRefinementInputTokens = 100 + 1000 + perSubqueryOutputTokens; // system (100) + user query (1000) + subquery result (1000)
     const perRefinementOutputTokens = 1000;
     const refinementCost = numSubqueries * (perRefinementInputTokens * pricingEditor.prompt + perRefinementOutputTokens * pricingEditor.completion);
 
@@ -393,6 +393,13 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     // Total cost
     const totalCost = strategyCost + planningCost + executionCost + refinementCost + synthesisCost + webSearchCost;
 
+    // Log all of the costs that went into total cost:
+    console.log(`Strategy cost: $${strategyCost.toFixed(3)}`);
+    console.log(`Planning cost: $${planningCost.toFixed(3)}`);
+    console.log(`Execution cost: $${executionCost.toFixed(3)}`);
+    console.log(`Refinement cost: $${refinementCost.toFixed(3)}`);
+    console.log(`Synthesis cost: $${synthesisCost.toFixed(3)}`);
+    console.log(`Web search cost: $${webSearchCost.toFixed(3)}`);
     console.log(`Estimated deep research cost: $${totalCost.toFixed(3)}`);
     return totalCost;
 }
