@@ -13,7 +13,7 @@
 
     function formatAnnotation(annotation: Annotation): string {
         if (annotation.type === 'url_citation') {
-            return `URL Citation: ${annotation.url_citation.url} (${annotation.url_citation.title})`;
+            return `URL Citation: <a href="${annotation.url_citation.url}" target="_blank" rel="noopener">${annotation.url_citation.url}</a> (${annotation.url_citation.title})`;
         }
         return `Unknown annotation type: ${annotation.type}`;
     }
@@ -71,11 +71,11 @@
                 {#if deepResearchResult.annotations && deepResearchResult.annotations.length > 0}
                     <div class="info-block">
                         <h4>Annotations</h4>
-                        <ul>
+                        <ol>
                             {#each deepResearchResult.annotations as annotation}
-                                <li>{formatAnnotation(annotation)}</li>
+                                <li>{@html formatAnnotation(annotation)}</li>
                             {/each}
-                        </ul>
+                        </ol>
                     </div>
                 {/if}
             </div>
@@ -94,11 +94,11 @@
                 {#if researchResult.streamingResult.annotations && researchResult.streamingResult.annotations.length > 0}
                     <div class="info-block">
                         <h4>Annotations</h4>
-                        <ul>
+                        <ol>
                             {#each researchResult.streamingResult.annotations as annotation}
-                                <li>{formatAnnotation(annotation)}</li>
+                                <li>{@html formatAnnotation(annotation)}</li>
                             {/each}
-                        </ul>
+                        </ol>
                     </div>
                 {/if}
             </div>
