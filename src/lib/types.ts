@@ -1,61 +1,62 @@
 import type { Mode } from "highlight.js";
 
 export class Config {
-  historyWidth!: number;
-  apiKey!: string;
-  defaultModel!: string; // model ID
-  defaultReasoningModel!: string; // model ID for reasoning
-  defaultReasoningEffort: 'low' | 'medium' | 'high' = 'medium'; // default thinking effort for reasoning
-  availableModels!: string[]; // model IDs
-  systemPrompt!: string;
-  allowWebSearch!: boolean;
-  webSearchMaxResults!: number;
-  includePreviousMessagesAsContext!: boolean;
-  searchEngine!: string;
-  deepResearchWebSearchMaxPlanningResults!: number;
-  deepResearchSystemPrompt!: string;
-  deepResearchWebRequestsPerSubrequest!: number;
-  deepResearchMaxSubqrequests!: number;
-  deepResearchMaxPlanningTokens!: number;
-  deepResearchMaxSynthesisTokens!: number;
+    historyWidth!: number;
+    apiKey!: string;
+    defaultModel!: string; // model ID
+    defaultReasoningModel!: string; // model ID for reasoning
+    defaultReasoningEffort: 'low' | 'medium' | 'high' = 'medium'; // default thinking effort for reasoning
+    availableModels!: string[]; // model IDs
+    systemPrompt!: string;
+    allowWebSearch!: boolean;
+    webSearchMaxResults!: number;
+    includePreviousMessagesAsContext!: boolean;
+    searchEngine!: string;
+    deepResearchWebSearchMaxPlanningResults!: number;
+    deepResearchSystemPrompt!: string;
+    deepResearchWebRequestsPerSubrequest!: number;
+    deepResearchMaxSubqrequests!: number;
+    deepResearchMaxPlanningTokens!: number;
+    deepResearchMaxSynthesisTokens!: number;
 
-  constructor() {
-    this.historyWidth = 400;
-    this.apiKey = '';
-    this.defaultModel = 'deepseek/deepseek-chat-v3-0324:free';
-    this.defaultReasoningModel = 'deepseek/deepseek-chat-v3-0324:free';
-    this.defaultReasoningEffort = 'low'; // default thinking effort for reasoning
-    this.availableModels = [
-      'deepseek/deepseek-chat-v3-0324:free',
-      'deepseek/deepseek-chat-v3-0324',
-      'google/gemini-2.5-pro-preview',
-      'google/gemini-2.5-flash-preview-05-20',
-      'openai/gpt-4.1',
-      'openai/o3',
-      'anthropic/claude-sonnet-4',
-      'anthropic/claude-opus-4'
-    ];
-    this.systemPrompt = 'You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
-    this.allowWebSearch = true;
-    this.webSearchMaxResults = 5;
-    this.includePreviousMessagesAsContext = true;
-    this.searchEngine = 'duckduckgo';
-    this.deepResearchWebSearchMaxPlanningResults = 10;
-    this.deepResearchSystemPrompt = ''; // appended to the internal system prompt
-    this.deepResearchWebRequestsPerSubrequest = 8;
-    this.deepResearchMaxSubqrequests = 8;
-    this.deepResearchMaxPlanningTokens = 16384;
-    this.deepResearchMaxSynthesisTokens = 16384;
-  }
+    constructor() {
+        this.historyWidth = 400;
+        this.apiKey = '';
+        this.defaultModel = 'deepseek/deepseek-chat-v3-0324:free';
+        this.defaultReasoningModel = 'deepseek/deepseek-chat-v3-0324:free';
+        this.defaultReasoningEffort = 'low'; // default thinking effort for reasoning
+        this.availableModels = [
+            'deepseek/deepseek-chat-v3-0324:free',
+            'deepseek/deepseek-chat-v3-0324',
+            'google/gemini-2.5-pro-preview',
+            'google/gemini-2.5-flash-preview-05-20',
+            'openai/gpt-4.1',
+            'openai/o3',
+            'anthropic/claude-sonnet-4',
+            'anthropic/claude-opus-4'
+        ];
+        this.systemPrompt = 'You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
+        this.allowWebSearch = true;
+        this.webSearchMaxResults = 5;
+        this.includePreviousMessagesAsContext = true;
+        this.searchEngine = 'duckduckgo';
+        this.deepResearchWebSearchMaxPlanningResults = 10;
+        this.deepResearchSystemPrompt = ''; // appended to the internal system prompt
+        this.deepResearchWebRequestsPerSubrequest = 8;
+        this.deepResearchMaxSubqrequests = 8;
+        this.deepResearchMaxPlanningTokens = 16384;
+        this.deepResearchMaxSynthesisTokens = 16384;
+    }
 }
 
 export interface StreamingResult {
-  requestID: string;
-  model: string;
-  created: number;
-  done: boolean;
-  totalTokens?: number;
-  annotations?: Annotation[];
+    requestID: string;
+    model: string;
+    created: number;
+    done: boolean;
+    totalTokens?: number;
+    annotations?: Annotation[];
+    generationData?: GenerationData;
 }
 
 export interface ChatResult extends StreamingResult {
@@ -68,11 +69,16 @@ export interface GenerationData {
     model: string;
     created: number;
     usage?: number;
-    cache_discount? : boolean;
-    streamed : boolean;
-    canceled : boolean;
-    finish_reason : string;
-    num_search_results? : number;
+    cache_discount?: boolean;
+    streamed: boolean;
+    canceled: boolean;
+    finish_reason: string;
+    num_search_results?: number;
+    tokens_prompt?: number;
+    tokens_completion?: number;
+    native_tokens_prompt?: number;
+    native_tokens_completion?: number;
+    native_tokens_reasoning?: number;
     // Add other fields as needed
 }
 
@@ -101,7 +107,7 @@ export interface UrlCitation {
     end_index: number;
 }
 
-export type Annotation = 
+export type Annotation =
     | { type: 'url_citation', url_citation: UrlCitation };
 
 export interface MessageData {
@@ -133,12 +139,12 @@ export interface ConversationData {
 }
 
 export interface ApiCallMessageContent {
-  type: 'text' | 'image' | 'file';
-  text?: string; // for type 'text'
-  file? : {
-    filename: string; 
-    file_data: string; // base64 encoded file data
-  };
+    type: 'text' | 'image' | 'file';
+    text?: string; // for type 'text'
+    file?: {
+        filename: string;
+        file_data: string; // base64 encoded file data
+    };
 }
 
 export interface ApiCallMessage {
@@ -147,14 +153,14 @@ export interface ApiCallMessage {
 }
 
 export interface OpenRouterCredits {
-  total_credits: number;
-  total_usage: number;
+    total_credits: number;
+    total_usage: number;
 }
 
 export interface ModelsForResearch {
-  reasoning: string;
-  editor : string;
-  researcher: string;
+    reasoning: string;
+    editor: string;
+    researcher: string;
 }
 
 export interface ResearchResult {
@@ -162,14 +168,22 @@ export interface ResearchResult {
     generationData?: GenerationData;
 }
 
+/** Used in deep research for doing sub-queries */
+export interface ResearchThread {
+    prompt: string; // the prompt for the sub-query
+    firstPass? : ChatResult;
+    refined? : ChatResult;
+}
+
 export interface DeepResearchResult {
-  id: string;
-  total_cost: number;
-  models: ModelsForResearch;
-  content : string;
-  plan_prompt : string;
-  research_plan : string;
-  sub_results : string[];
-  refined_sub_results: string[];
-  annotations?: Annotation[];
+    id: string;
+    total_cost: number;
+    models: ModelsForResearch;
+    content: string;
+    plan_prompt: string;
+    research_plan: string;
+    research_threads : ResearchThread[];
+    sub_results: string[];
+    refined_sub_results: string[];
+    annotations?: Annotation[];
 }
