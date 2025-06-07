@@ -108,6 +108,7 @@
     
     <ul class="nav nav-tabs">
       <li class="nav-item" class:active={currentTab === 'general'}><a class="nav-link" href="#" on:click={() => currentTab = 'general'}>Research</a></li>
+      <li class="nav-item" class:active={currentTab === 'deep-research'}><a class="nav-link" href="#" on:click={() => currentTab = 'deep-research'}>Deep Research</a></li>
       <li class="nav-item" class:active={currentTab === 'model'}><a class="nav-link" href="#" on:click={() => currentTab = 'model'}>Model</a></li>
     </ul>
 
@@ -149,6 +150,25 @@
           <option value="bing">Bing</option>
           <option value="google">Google</option>
         </select>
+      </div>
+
+    <!------------------------------>
+    <!-- Deep Research Configuration -->
+    <!------------------------------>
+    {:else if currentTab === 'deep-research'}
+      <div class="form-group">
+        <label for="deep-research-system-prompt">Deep Research System Prompt:</label>
+        <textarea id="deep-research-system-prompt" bind:value={localConfig.deepResearchSystemPrompt} rows="4" ></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label for="deep-research-web-search-max-results">Deep Research Web Search Max Results:</label>
+        <input type="number" id="deep-research-web-search-max-results" bind:value={localConfig.deepResearchWebSearchMaxResults} min="1" />
+      </div>
+
+      <div class="form-group">
+        <label for="deep-research-web-requests-per-subrequest">Web Requests Per Research Thread:</label>
+        <input type="number" id="deep-research-web-requests-per-subrequest" bind:value={localConfig.deepResearchWebRequestsPerSubrequest} min="1" />
       </div>
 
     <!------------------------->

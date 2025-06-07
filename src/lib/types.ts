@@ -11,6 +11,9 @@ export class Config {
   webSearchMaxResults!: number;
   includePreviousMessagesAsContext!: boolean;
   searchEngine!: string;
+  deepResearchWebSearchMaxResults!: number;
+  deepResearchSystemPrompt!: string;
+  deepResearchWebRequestsPerSubrequest!: number;
 
   constructor() {
     this.historyWidth = 400;
@@ -32,6 +35,9 @@ export class Config {
     this.webSearchMaxResults = 5;
     this.includePreviousMessagesAsContext = true;
     this.searchEngine = 'duckduckgo';
+    this.deepResearchWebSearchMaxResults = 64;
+    this.deepResearchSystemPrompt = '';
+    this.deepResearchWebRequestsPerSubrequest = 8;
   }
 }
 
