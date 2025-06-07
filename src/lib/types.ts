@@ -181,9 +181,10 @@ export interface DeepResearchResult {
     models: ModelsForResearch;
     content: string;
     plan_prompt: string;
+    plan_result: ChatResult;
     research_plan: string;
     research_threads : ResearchThread[];
-    sub_results: string[];
-    refined_sub_results: string[];
+    synthesis_prompt: string;
+    synthesis_result: ChatResult;
     annotations?: Annotation[];
 }

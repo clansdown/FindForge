@@ -1,5 +1,5 @@
 import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData, getModels } from "./models";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model } from "./types";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread } from "./types";
 import { generateID } from "./util";
 
 
@@ -20,7 +20,8 @@ export async function doDeepResearch(
         let answer_content : string = "";
         let max_subsets = config.deepResearchMaxSubqrequests;
         let plan_prompt : string = '';
-        let sub_results : string[] = [];
+        let planResult: ChatResult | null = null;
+        let research_threads: ResearchThread[] = [];
         let allAnnotations: Annotation[] = []; // to collect all annotations
         const max_planning_requests = config.deepResearchWebSearchMaxPlanningResults;
 
@@ -61,16 +62,17 @@ export async function doDeepResearch(
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            const response = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api);
-            fetchGenerationData(apiKey, response.requestID).then(data => {
+            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api);
+            fetchGenerationData(apiKey, planResult.requestID).then(data => {
                 if(data) {
                     total_cost += data.total_cost || 0;
                     total_web_requests += data.num_search_results || 0;
+                    planResult!.generationData = data; // attach generation data to the response
                 }
             });
-            research_plan = response.content.trim();
-            if (response.annotations) {
-                allAnnotations.push(...response.annotations);
+            research_plan = planResult.content.trim();
+            if (planResult.annotations) {
+                allAnnotations.push(...planResult.annotations);
             }
         } else if (actualStrategy === 'broad') {
             const system_prompt = createSystemApiCallMessage(plan_prompt =
@@ -78,14 +80,15 @@ export async function doDeepResearch(
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            const response = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api);
-            fetchGenerationData(apiKey, response.requestID).then(data => {
+            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api);
+            fetchGenerationData(apiKey, planResult.requestID).then(data => {
                 if(data) {
                     total_cost += data.total_cost || 0;
                     total_web_requests += data.num_search_results || 0;
+                    planResult!.generationData = data; // attach generation data to the response
                 }
             });
-            research_plan = response.content.trim();
+            research_plan = planResult.content.trim();
         }
 
         /*****************************/
@@ -123,12 +126,17 @@ export async function doDeepResearch(
         const responses = await Promise.all(promises);
 
         // Collect the responses
-        responses.forEach(response => {
-            sub_results.push(response.content);
+        responses.forEach((response, index) => {
+            research_threads.push({
+                prompt: prompts[index],
+                firstPass: response
+            });
             if (response.annotations) {
                 allAnnotations.push(...response.annotations);
             }
         });
+
+        statusCallback(`Research plan executed. Fetching generation data.`);
 
         // Fetch generation data for each response in parallel
         const generationDataPromises = responses.map(response => 
@@ -141,6 +149,10 @@ export async function doDeepResearch(
             if (data) {
                 total_cost += data.total_cost || 0;
                 total_web_requests += data.num_search_results || 0;
+                const response = responses.find(r => r.requestID === data.id);
+                if (response) {
+                    response.generationData = data; // attach generation data to the response
+                }
             }
         }
 
@@ -162,16 +174,16 @@ export async function doDeepResearch(
             .join('\n');
 
         // Refine each sub-result in parallel
-        const refinePromises = sub_results.map(sub_result => 
-            refine_result(apiKey, models.editor, sub_result, userQuery, maxTokens, 0)
+        const refinePromises = research_threads.map(thread => 
+            refine_result(apiKey, models.editor, thread, userQuery, maxTokens, 0)
         );
 
         const refinedResults = await Promise.all(refinePromises);
 
-        // Extract the refined content and collect generation data
-        const refined_sub_results: string[] = [];
-        for (const result of refinedResults) {
-            refined_sub_results.push(result.chatResult.content);
+        // Update the research_threads with the refined results and collect generation data
+        for (let i = 0; i < refinedResults.length; i++) {
+            const result = refinedResults[i];
+            // The thread.refined is already set by refine_result
             if (result.chatResult.annotations) {
                 allAnnotations.push(...result.chatResult.annotations);
             }
@@ -185,17 +197,15 @@ export async function doDeepResearch(
         /* Do the synthesis */
         /*********************/
         statusCallback("Synthesizing research results.");
-        const synthesis_system_prompt = createSystemApiCallMessage(
-            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the results of the research plan and synthesize them into a final answer to the user's question or goal. The synthesis should be clear, concise, and should address the user's question or goal directly. The synthesis should be based on the information gathered in the previous prompts, and should not include any unnecessary or irrelevant information. Cite all sources.` + config.deepResearchSystemPrompt
-        );
-        // TODO: allow the user to supply text to be added on to the synthesis prompt like the regular system prompt.
+        const synthesis_prompt_string = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the results of the research plan and synthesize them into a final answer to the user's question or goal. The synthesis should be clear, concise, and should address the user's question or goal directly. The synthesis should be based on the information gathered in the previous prompts, and should not include any unnecessary or irrelevant information. Cite all sources.` + config.deepResearchSystemPrompt;
+        const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
 
         // Construct the messages for synthesis
         const messages_for_synthesis: ApiCallMessage[] = [
             synthesis_system_prompt,
             ...messages.filter(m => m.role !== 'system'),   // remove system messages from the original conversation
             createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
-            ...refined_sub_results.map((result, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${result}`))
+            ...research_threads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined?.content}`))
         ];
 
         const synthesisResponse = await callOpenRouterChat(
@@ -206,11 +216,15 @@ export async function doDeepResearch(
             messages_for_synthesis
         );
 
+        statusCallback("Research synthesis complete.");
+        statusCallback("Fetching synthesis generation data.");
+
         // Fetch the generation data for the synthesis step
         const synthesisGenerationData = await fetchGenerationData(apiKey, synthesisResponse.requestID);
         if (synthesisGenerationData) {
             total_cost += synthesisGenerationData.total_cost || 0;
             total_web_requests += synthesisGenerationData.num_search_results || 0;
+            synthesisResponse.generationData = synthesisGenerationData; // attach generation data to the response
         }
 
         answer_content = synthesisResponse.content;
@@ -218,16 +232,18 @@ export async function doDeepResearch(
             allAnnotations.push(...synthesisResponse.annotations);
         }
 
-        statusCallback("Research synthesis complete.");
+        statusCallback("Deep research completed successfully.");
 
         return {
             id: generateID(),
             total_cost,
             models: models,
             plan_prompt,
+            plan_result: planResult!,
             research_plan,
-            sub_results,
-            refined_sub_results,
+            research_threads,
+            synthesis_prompt: synthesis_prompt_string,
+            synthesis_result: synthesisResponse,
             content: answer_content,
             annotations: allAnnotations
         };
@@ -277,7 +293,7 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
 export async function refine_result(
     apiKey: string,
     modelId: string,
-    subQueryContent: string,
+    thread: ResearchThread,
     userQuery: string,
     maxTokens: number,
     maxWebRequests: number
@@ -298,7 +314,7 @@ export async function refine_result(
         role: 'assistant',
         content: [{
             type: 'text',
-            text: `Research result to refine:\n${subQueryContent}`
+            text: `Research result to refine:\n${thread.firstPass?.content || ''}`
         }]
     };
 
@@ -313,6 +329,10 @@ export async function refine_result(
     );
 
     const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
+    if (generationData) {
+        chatResult.generationData = generationData;
+    }
+    thread.refined = chatResult;
 
     return { chatResult, generationData };
 }
