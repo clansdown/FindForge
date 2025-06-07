@@ -5,6 +5,7 @@
     import { getModels } from "./lib/models";
     import ModalDialog from "./lib/ModalDialog.svelte";
     import { generateID } from "./lib/util";
+    import { estimateDeepResearchCost } from "./lib/deep_research";
 
     export let config: Config;
     export let isOpen: boolean = false;
@@ -19,6 +20,7 @@
     let currentTab: "general" | "model" | "deep-research" = config.apiKey ? "general" : "model";
     let modelFilter = "";
     let showFreeModels = false;
+    let estimatedDeepResearchCost: number | string | null = null;
 
     $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
 
@@ -42,6 +44,13 @@
     $: if (isOpen) {
         opened();
     }
+
+    $: estimateDeepResearchCost(localConfig).then((cost) => {
+        estimatedDeepResearchCost = cost;
+    }).catch((error) => {
+        console.error('Failed to estimate deep research cost', error);
+        estimatedDeepResearchCost = 'Error: ' + error.message;
+    });
 
     function opened() {
         console.log("Settings dialog opened");
@@ -67,6 +76,8 @@
             modelFetchError = "API key is required to fetch models.";
         }
     }
+
+
 
     function calculateAvailableModelsFromConfig(list: string[], models: Model[]): Model[] {
         let am: Model[] = [];
@@ -202,6 +213,18 @@
         <div class="form-group">
             <label for="deep-research-max-synthesis-tokens">Max Synthesis Tokens:</label>
             <input type="number" id="deep-research-max-synthesis-tokens" bind:value={localConfig.deepResearchMaxSynthesisTokens} min="1" />
+        </div>
+
+        <div class="form-group">
+            <div class="text-end" title="The estimated cost per deep research message">Estimated Cost:
+                {#if estimatedDeepResearchCost === null}
+                    Calculating...
+                {:else if typeof estimatedDeepResearchCost === 'number'}
+                    ${(estimatedDeepResearchCost + 0.005).toFixed(2)}
+                {:else}
+                    {estimatedDeepResearchCost}
+                {/if}
+            </div>
         </div>
 
         <!------------------------->

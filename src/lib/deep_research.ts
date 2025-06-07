@@ -247,7 +247,7 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
     const response = await callOpenRouterChat(
         apiKey,
         models.reasoning,
-        32, // maxTokens: we only need a single word
+        500, // maxTokens: we only need a single word
         0,  // maxWebRequests: none for this step
         messages_for_api
     );
@@ -318,6 +318,11 @@ export async function refine_result(
 }
 
 export async function estimateDeepResearchCost(config: Config): Promise<number> {
+    console.log("Estimating deep research cost. ", config.defaultModel, config.defaultReasoningModel);
+    if(!config.apiKey) {
+        console.warn("No API key provided, returning cost as $0.");
+        return 0; // Without an API key you can't do research, and no queries costs $0
+    }
     // Fetch the models to get pricing
     const modelsList = await getModels(config);
     const modelPricing: Record<string, { prompt: number, completion: number }> = {};
@@ -329,45 +334,38 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
         };
     }
 
-    // If the model is not found, use a default (gpt-4 pricing as fallback)
-    const defaultPricing = { prompt: 0.00003, completion: 0.00006 };
-
-    function getPricing(modelId: string) {
-        return modelPricing[modelId] || defaultPricing;
-    }
-
     // Step 1: Strategy determination (if auto) - we always include it for estimation
     const reasoningModel = config.defaultReasoningModel;
-    const pricingStrategy = getPricing(reasoningModel);
+    const pricingStrategy = modelPricing[reasoningModel];
     const strategyInputTokens = 1100; // 1000 (user) + 100 (system)
-    const strategyOutputTokens = 10;  // just the word
-    const strategyCost = (strategyInputTokens * pricingStrategy.prompt + strategyOutputTokens * pricingStrategy.completion) / 1e6;
+    const strategyOutputTokens = 500;  // just the word
+    const strategyCost = (strategyInputTokens * pricingStrategy.prompt + strategyOutputTokens * pricingStrategy.completion);
 
     // Step 2: Planning
-    const pricingPlanning = getPricing(reasoningModel);
+    const pricingPlanning = modelPricing[reasoningModel];
     const planningInputTokens = 1200; // 1000 (user) + 200 (system)
-    const planningOutputTokens = 500;
-    const planningCost = (planningInputTokens * pricingPlanning.prompt + planningOutputTokens * pricingPlanning.completion) / 1e6;
+    const planningOutputTokens = config.deepResearchMaxPlanningTokens;
+    const planningCost = (planningInputTokens * pricingPlanning.prompt + planningOutputTokens * pricingPlanning.completion);
 
     // Step 3: Execution of subqueries
     const researcherModel = config.defaultModel;
-    const pricingResearcher = getPricing(researcherModel);
+    const pricingResearcher = modelPricing[researcherModel];
     const numSubqueries = config.deepResearchMaxSubqrequests;
-    const perSubqueryInputTokens = 500; // system (100) + prompt (100)
-    const perSubqueryOutputTokens = 1000;
-    const executionCost = numSubqueries * (perSubqueryInputTokens * pricingResearcher.prompt + perSubqueryOutputTokens * pricingResearcher.completion) / 1e6;
+    const perSubqueryInputTokens = 30000; // system (100) + prompt (100) + estimated tokens from web searches
+    const perSubqueryOutputTokens = 1500;
+    const executionCost = numSubqueries * (perSubqueryInputTokens * pricingResearcher.prompt + perSubqueryOutputTokens * pricingResearcher.completion);
 
     // Step 4: Refinement
     const editorModel = config.defaultReasoningModel; // using reasoning model for refinement
-    const pricingEditor = getPricing(editorModel);
+    const pricingEditor = modelPricing[editorModel];
     const perRefinementInputTokens = 2100; // system (100) + user query (1000) + subquery result (1000)
     const perRefinementOutputTokens = 1000;
-    const refinementCost = numSubqueries * (perRefinementInputTokens * pricingEditor.prompt + perRefinementOutputTokens * pricingEditor.completion) / 1e6;
+    const refinementCost = numSubqueries * (perRefinementInputTokens * pricingEditor.prompt + perRefinementOutputTokens * pricingEditor.completion);
 
     // Step 5: Synthesis
     const synthesisInputTokens = 200 + 1000 + strategyOutputTokens + (perRefinementOutputTokens * numSubqueries); // system (200) + user messages (1000)
-    const synthesisOutputTokens = 2000;
-    const synthesisCost = (synthesisInputTokens * pricingPlanning.prompt + synthesisOutputTokens * pricingPlanning.completion) / 1e6;
+    const synthesisOutputTokens = config.deepResearchMaxSynthesisTokens;
+    const synthesisCost = (synthesisInputTokens * pricingPlanning.prompt + synthesisOutputTokens * pricingPlanning.completion);
 
     // Web search cost
     const webSearchCost = (config.deepResearchWebSearchMaxPlanningResults + (config.deepResearchWebRequestsPerSubrequest * numSubqueries)) * 0.004;
@@ -375,5 +373,6 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     // Total cost
     const totalCost = strategyCost + planningCost + executionCost + refinementCost + synthesisCost + webSearchCost;
 
+    console.log(`Estimated deep research cost: $${totalCost.toFixed(3)}`);
     return totalCost;
 }

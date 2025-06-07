@@ -243,3 +243,7 @@ select {
   color: #eee;
   background-color: #333;
 }
+
+.text-end {
+  text-align: end;
+}
