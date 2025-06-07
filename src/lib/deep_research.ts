@@ -5,6 +5,7 @@ import { generateID } from "./util";
 
 
 export async function doDeepResearch(
+    config: Config,
     apiKey : string, 
     maxTokens : number, 
     maxWebRequests : number, 
@@ -17,7 +18,7 @@ export async function doDeepResearch(
         let actualStrategy: 'deep' | 'broad' = 'deep'; // default
         let chat_results: ChatResult[] = [];
         let answer_content : string = "";
-        let max_subsets = Math.max(2, (maxWebRequests / 10)-1);
+        let max_subsets = config.deepResearchMaxSubqrequests;
         const web_requests = () => { return Math.max(0, maxWebRequests - total_web_requests); };
         let plan_prompt : string = '';
         let sub_results : string[] = [];

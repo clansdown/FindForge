@@ -275,6 +275,7 @@
                     researcher: localConfig.defaultModel,
                 };
                 const deepResult = await doDeepResearch(
+                    localConfig,
                     localConfig.apiKey,
                     8192, // maxTokens
                     50, // maxWebRequests
