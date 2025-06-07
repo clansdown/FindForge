@@ -67,6 +67,8 @@ export interface GenerationData {
     id: string;
     total_cost: number;
     model: string;
+    generation_time: number;
+    provider_name: string;
     created: number;
     usage?: number;
     cache_discount?: boolean;

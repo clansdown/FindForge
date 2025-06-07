@@ -1,10 +1,15 @@
 <script lang="ts">
     import ModalDialog from "./ModalDialog.svelte";
-    import type { DeepResearchResult, ResearchResult, GenerationData, Annotation } from "./types";
+    import type { DeepResearchResult, ResearchResult, GenerationData, Annotation, ChatResult } from "./types";
+    import MarkdownIt from 'markdown-it';
+    import { onMount } from 'svelte';
 
     export let researchResult: ResearchResult | undefined = undefined;
     export let deepResearchResult: DeepResearchResult | undefined = undefined;
     export let onClose: () => void;
+
+    const md = new MarkdownIt();
+    let copySuccess: string | null = null;
 
     function formatCost(cost: number | undefined): string {
         if (cost === undefined) return "N/A";
@@ -16,6 +21,25 @@
             return `URL Citation: <a href="${annotation.url_citation.url}" target="_blank" rel="noopener">${annotation.url_citation.url}</a> (${annotation.url_citation.title})`;
         }
         return `Unknown annotation type: ${annotation.type}`;
+    }
+
+    function formatChatContent(content: string): string {
+        return md.render(content);
+    }
+
+    async function copyToClipboard(text: string, label: string) {
+        try {
+            await navigator.clipboard.writeText(text);
+            copySuccess = `Copied ${label} to clipboard!`;
+            setTimeout(() => copySuccess = null, 2000);
+        } catch (err) {
+            copySuccess = `Failed to copy ${label}`;
+        }
+    }
+
+    function formatGenerationData(data: GenerationData | undefined): string {
+        if (!data) return "N/A";
+        return `Cost: ${formatCost(data.total_cost)}, Tokens: ${data.tokens_prompt || 0}+${data.tokens_completion || 0}`;
     }
 </script>
 
@@ -30,12 +54,23 @@
                 <p><strong>Editor Model:</strong> {deepResearchResult.models.editor}</p>
                 <p><strong>Researcher Model:</strong> {deepResearchResult.models.researcher}</p>
                 
-                {#if deepResearchResult.plan_prompt}
-                    <div class="info-block">
-                        <h4>Plan Prompt</h4>
+                <div class="info-block">
+                    <h3>Plan Result</h3>
+                    <div class="chat-result">
+                        <div class="chat-header">
+                            <h4>Plan Prompt</h4>
+                            <button on:click={() => copyToClipboard(deepResearchResult.plan_prompt, 'plan prompt')} class="copy-button">
+                                📋
+                            </button>
+                        </div>
                         <pre>{deepResearchResult.plan_prompt}</pre>
+                        <p><strong>Generation Data:</strong> {formatGenerationData(deepResearchResult.plan_result.generationData)}</p>
+                        <h4>Plan Content</h4>
+                        <div class="chat-content">
+                            {@html formatChatContent(deepResearchResult.plan_result.content)}
+                        </div>
                     </div>
-                {/if}
+                </div>
                 
                 {#if deepResearchResult.research_plan}
                     <div class="info-block">
@@ -44,29 +79,69 @@
                     </div>
                 {/if}
 
-                {#if deepResearchResult.sub_results && deepResearchResult.sub_results.length > 0}
-                    <div class="info-block">
-                        <h2>Sub Results (Raw)</h2>
-                        {#each deepResearchResult.sub_results as result, index}
-                            <div class="result-block">
-                                <h4>Result {index + 1}</h4>
-                                <pre>{result}</pre>
+                <div class="info-block">
+                    <h3>Research Threads</h3>
+                    {#each deepResearchResult.research_threads as thread, index}
+                        <div class="thread-block">
+                            <h4>Thread {index + 1}</h4>
+                            <div class="chat-header">
+                                <h5>Prompt</h5>
+                                <button on:click={() => copyToClipboard(thread.prompt, `thread ${index+1} prompt`)} class="copy-button">
+                                    📋
+                                </button>
                             </div>
-                        {/each}
-                    </div>
-                {/if}
+                            <pre>{thread.prompt}</pre>
+                            
+                            {#if thread.firstPass}
+                                <div class="chat-result">
+                                    <div class="chat-header">
+                                        <h5>First Pass</h5>
+                                        <button on:click={() => copyToClipboard(thread.firstPass?.content||'', `thread ${index+1} first pass`)} class="copy-button">
+                                            📋
+                                        </button>
+                                    </div>
+                                    <p><strong>Generation Data:</strong> {formatGenerationData(thread.firstPass.generationData)}</p>
+                                    <div class="chat-content">
+                                        {@html formatChatContent(thread.firstPass.content)}
+                                    </div>
+                                </div>
+                            {/if}
+                            
+                            {#if thread.refined}
+                                <div class="chat-result">
+                                    <div class="chat-header">
+                                        <h5>Refined</h5>
+                                        <button on:click={() => copyToClipboard(thread.refined?.content||'', `thread ${index+1} refined`)} class="copy-button">
+                                            📋
+                                        </button>
+                                    </div>
+                                    <p><strong>Generation Data:</strong> {formatGenerationData(thread.refined.generationData)}</p>
+                                    <div class="chat-content">
+                                        {@html formatChatContent(thread.refined.content)}
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
 
-                {#if deepResearchResult.refined_sub_results && deepResearchResult.refined_sub_results.length > 0}
-                    <div class="info-block">
-                        <h2>Refined Sub Results</h2>
-                        {#each deepResearchResult.refined_sub_results as result, index}
-                            <div class="result-block">
-                                <h4>Refined Result {index + 1}</h4>
-                                <pre>{result}</pre>
-                            </div>
-                        {/each}
+                <div class="info-block">
+                    <h3>Synthesis</h3>
+                    <div class="chat-result">
+                        <div class="chat-header">
+                            <h4>Synthesis Prompt</h4>
+                            <button on:click={() => copyToClipboard(deepResearchResult.synthesis_prompt, 'synthesis prompt')} class="copy-button">
+                                📋
+                            </button>
+                        </div>
+                        <pre>{deepResearchResult.synthesis_prompt}</pre>
+                        <p><strong>Generation Data:</strong> {formatGenerationData(deepResearchResult.synthesis_result.generationData)}</p>
+                        <h4>Synthesis Content</h4>
+                        <div class="chat-content">
+                            {@html formatChatContent(deepResearchResult.synthesis_result.content)}
+                        </div>
                     </div>
-                {/if}
+                </div>
 
                 {#if deepResearchResult.annotations && deepResearchResult.annotations.length > 0}
                     <div class="info-block">
@@ -118,9 +193,35 @@
     .info-block {
         margin-top: 1rem;
     }
-    .result-block {
+    .thread-block {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: #1a1a1a;
+        border-radius: 8px;
+    }
+    .chat-result {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #1a1a1a;
+        border-radius: 8px;
+    }
+    .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .copy-button {
+        background: none;
+        border: none;
+        color: #ccc;
+        cursor: pointer;
+        font-size: 1.2rem;
+    }
+    .chat-content {
         margin-top: 0.5rem;
-        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: #222;
+        border-radius: 4px;
     }
     h3 {
         margin-top: 0;
