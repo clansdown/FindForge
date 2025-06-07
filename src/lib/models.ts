@@ -140,7 +140,7 @@ export async function callOpenRouterStreaming(
               callback(json.choices[0].delta.content);
             }
             if (json.choices?.[0]?.delta?.annotations) {
-              result.annotations = [...result.annotations, ...json.choices[0].delta.annotations];
+              result.annotations = [...(result.annotations||[]), ...json.choices[0].delta.annotations];
             }
             if (json.usage) {
               result.totalTokens = json.usage.total_tokens;

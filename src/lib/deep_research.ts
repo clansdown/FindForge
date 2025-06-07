@@ -1,5 +1,5 @@
 import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData } from "./models";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation } from "./types";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config } from "./types";
 import { generateID } from "./util";
 
 
@@ -19,10 +19,10 @@ export async function doDeepResearch(
         let chat_results: ChatResult[] = [];
         let answer_content : string = "";
         let max_subsets = config.deepResearchMaxSubqrequests;
-        const web_requests = () => { return Math.max(0, maxWebRequests - total_web_requests); };
         let plan_prompt : string = '';
         let sub_results : string[] = [];
         let allAnnotations: Annotation[] = []; // to collect all annotations
+        const max_planning_requests = config.deepResearchWebSearchMaxPlanningResults;
 
         statusCallback("Starting deep research.");
 
@@ -56,11 +56,11 @@ export async function doDeepResearch(
         let research_plan : string = '';
         if(actualStrategy === 'deep') {
             const system_prompt = createSystemApiCallMessage(plan_prompt =
-                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`
+                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>` + config.deepResearchSystemPrompt
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            const response = await callOpenRouterChat(apiKey, models.reasoning, maxTokens, web_requests(), messages_for_api);
+            const response = await callOpenRouterChat(apiKey, models.reasoning, maxTokens, max_planning_requests, messages_for_api);
             fetchGenerationData(apiKey, response.requestID).then(data => {
                 if(data) {
                     total_cost += data.total_cost || 0;
@@ -77,7 +77,7 @@ export async function doDeepResearch(
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            const response = await callOpenRouterChat(apiKey, models.reasoning, maxTokens, web_requests(), messages_for_api);
+            const response = await callOpenRouterChat(apiKey, models.reasoning, maxTokens, max_planning_requests, messages_for_api);
             fetchGenerationData(apiKey, response.requestID).then(data => {
                 if(data) {
                     total_cost += data.total_cost || 0;
@@ -104,11 +104,10 @@ export async function doDeepResearch(
 
         statusCallback(`Executing research plan: ${prompts.length} prompts in parallel.`);
 
-        // Calculate the remaining web requests and allocate per prompt
-        const remaining = web_requests();
-        const perPromptWebRequests = prompts.length > 0 ? Math.max(0, Math.floor(remaining / prompts.length)) : 0;
+
 
         // Execute all prompts in parallel
+        const perPromptWebRequests = config.deepResearchWebRequestsPerSubrequest;
         const promises = prompts.map(prompt => {
             const messages_for_subquery: ApiCallMessage[] = [
                 subquery_system_prompt,
@@ -202,7 +201,7 @@ export async function doDeepResearch(
             apiKey,
             models.reasoning,
             maxTokens,
-            web_requests(),   // use the remaining web requests
+            0,   // web requests
             messages_for_synthesis
         );
 

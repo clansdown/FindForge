@@ -37,7 +37,7 @@ export class Config {
     this.includePreviousMessagesAsContext = true;
     this.searchEngine = 'duckduckgo';
     this.deepResearchWebSearchMaxPlanningResults = 10;
-    this.deepResearchSystemPrompt = '';
+    this.deepResearchSystemPrompt = ''; // appended to the internal system prompt
     this.deepResearchWebRequestsPerSubrequest = 8;
     this.deepResearchMaxSubqrequests = 8;
   }
