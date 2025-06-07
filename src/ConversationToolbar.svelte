@@ -43,7 +43,7 @@
       <input type="checkbox" bind:checked={config.allowWebSearch} />
       Web Search
     </label>
-    <label title="The maximum number of results to allow the LLM to request. At time of writing, they cost $.004 per result.">
+    <label class="ms-2" title="The maximum number of results to allow the LLM to request. At time of writing, they cost $.004 per result.">
       Max:
       <input style="width: 2rem;" type="number" bind:value={config.webSearchMaxResults} min="1" max="10" />
     </label>
@@ -52,7 +52,7 @@
   <div class="toolbar-group">
     <label>
       <input id="previous-messages" type="checkbox" bind:checked={config.includePreviousMessagesAsContext} />
-      <label for="previous-messages" title="Include previous messages as context. This uses more tokens and thus costs more.">Send Context</label>
+      <label for="previous-messages" title="Include previous messages as context. This uses more tokens and thus costs more.">Include Context</label>
     </label>
   </div>
 
@@ -114,12 +114,11 @@
   .toolbar-group {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.1rem;
+    margin-left: 0.2rem;
+    margin-right: 0.2rem;
   }
 
-  .toolbar-group label {
-    margin: 0;
-  }
 
   select, input[type="number"] {
     background-color: #333;
