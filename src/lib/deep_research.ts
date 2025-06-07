@@ -58,7 +58,7 @@ export async function doDeepResearch(
         let max_planning_tokens = config.deepResearchMaxPlanningTokens;
         if(actualStrategy === 'deep') {
             const system_prompt = createSystemApiCallMessage(plan_prompt =
-                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`
+                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
@@ -76,7 +76,7 @@ export async function doDeepResearch(
             }
         } else if (actualStrategy === 'broad') {
             const system_prompt = createSystemApiCallMessage(plan_prompt =
-                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>"`
+                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>"`
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
@@ -95,7 +95,7 @@ export async function doDeepResearch(
         /* Execute the research plan */
         /*****************************/
         const subquery_system_prompt = createSystemApiCallMessage(
-            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. `
+            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested.`
         );
 
         // Extract the prompts from the research_plan
@@ -106,7 +106,7 @@ export async function doDeepResearch(
             prompts.push(match[1].trim());
         }
 
-        statusCallback(`Executing research plan: ${prompts.length} prompts in parallel.`);
+        statusCallback(`Executing research plan with ${prompts.length} research threads.`);
 
 
 
