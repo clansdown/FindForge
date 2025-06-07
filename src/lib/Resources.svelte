@@ -5,6 +5,8 @@
     export let annotations: Annotation[] = [];
     export let onClose: () => void;
 
+    let filter = '';
+
     function getDomain(url: string): string {
         try {
             const u = new URL(url);
@@ -17,6 +19,18 @@
     function copyToClipboard(text: string) {
         navigator.clipboard.writeText(text);
     }
+
+    // Filter annotations by URL, title or content
+    $: filteredAnnotations = filter ? annotations.filter(annotation => {
+        if (annotation.type !== 'url_citation') return true;
+        const uc = annotation.url_citation;
+        const str = filter.toLowerCase();
+        return (
+            (uc.url && uc.url.toLowerCase().includes(str)) ||
+            (uc.title && uc.title.toLowerCase().includes(str)) ||
+            (uc.content && uc.content.toLowerCase().includes(str))
+        );
+    }) : annotations;
 </script>
 
 <ModalDialog isOpen={true} onClose={onClose}>
@@ -24,8 +38,16 @@
         {#if annotations.length === 0}
             <p>No resources found</p>
         {:else}
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    placeholder="Filter resources..." 
+                    bind:value={filter}
+                    class="search-input"
+                />
+            </div>
             <ul>
-                {#each annotations as annotation}
+                {#each filteredAnnotations as annotation}
                     {#if annotation.type === 'url_citation'}
                         <li>
                             <div class="link-line">
@@ -51,7 +73,19 @@
     .resources {
         max-height: 60vh;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 1rem;
+    }
+    .search-container {
+        margin-bottom: 1rem;
+    }
+    .search-input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #444;
+        border-radius: 4px;
+        background-color: #222;
+        color: #eee;
     }
     ul {
         list-style: none;
