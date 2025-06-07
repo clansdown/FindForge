@@ -1,5 +1,5 @@
 import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData } from "./models";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData } from "./types";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation } from "./types";
 import { generateID } from "./util";
 
 
@@ -21,6 +21,7 @@ export async function doDeepResearch(
         const web_requests = () => { return Math.max(0, maxWebRequests - total_web_requests); };
         let plan_prompt : string = '';
         let sub_results : string[] = [];
+        let annotations : Annotation[] = [];
 
         statusCallback("Starting deep research.");
 
