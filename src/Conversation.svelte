@@ -396,6 +396,28 @@
         navigator.clipboard.writeText(message.content);
     }
 
+    function saveMessageToFile(message: MessageData, conversationTitle: string) {
+        // Create filename: conversation title with underscores + timestamp
+        const safeTitle = conversationTitle.replace(/[^a-z0-9]+/gi, '_');
+        const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
+        const filename = `${safeTitle}_${timestamp}.md`;
+
+        // Create Blob and trigger download
+        const blob = new Blob([message.content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 0);
+    }
+
     // Placeholder cost calculation (implement based on your pricing model)
     function calculateCost(promptTokens: number, completionTokens: number, modelId: string): number {
         // Add actual pricing calculation logic here
@@ -439,6 +461,10 @@
                                             class="copy-button"
                                             on:click={() => copyMessageContent(message)}
                                             title="Copy raw markdown to system clipboard">📋</button>
+                                        <button
+                                            class="save-button"
+                                            on:click={() => saveMessageToFile(message, currentConversation.title)}
+                                            title="Save raw markdown to file">💾</button>
                                         {#if message.annotations && message.annotations.length > 0}
                                             <button
                                                 class="resources-button"
@@ -751,7 +777,7 @@
         background: rgba(0, 0, 0, 0.3);
     }
 
-    .copy-button, .resources-button, .info-button {
+    .copy-button, .save-button, .resources-button, .info-button {
         padding: 0.25rem;
         color: #aaa;
         background: transparent;
@@ -760,7 +786,7 @@
         margin-left: 0.25rem;
     }
 
-    .copy-button:hover, .resources-button:hover, .info-button:hover {
+    .copy-button:hover, .save-button:hover, .resources-button:hover, .info-button:hover {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid #ddd;
     }
