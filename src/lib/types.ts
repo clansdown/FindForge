@@ -15,6 +15,7 @@ export class Config {
   deepResearchSystemPrompt!: string;
   deepResearchWebRequestsPerSubrequest!: number;
   deepResearchMaxSubqrequests!: number;
+  deepResearchMaxPlanningTokens!: number;
 
   constructor() {
     this.historyWidth = 400;
@@ -40,6 +41,7 @@ export class Config {
     this.deepResearchSystemPrompt = ''; // appended to the internal system prompt
     this.deepResearchWebRequestsPerSubrequest = 8;
     this.deepResearchMaxSubqrequests = 8;
+    this.deepResearchMaxPlanningTokens = 16384;
   }
 }
 

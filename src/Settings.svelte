@@ -176,6 +176,11 @@
         <input type="number" id="deep-research-web-requests-per-subrequest" bind:value={localConfig.deepResearchWebRequestsPerSubrequest} min="1" />
       </div>
 
+      <div class="form-group">
+        <label for="deep-research-max-planning-tokens">Max Planning Tokens:</label>
+        <input type="number" id="deep-research-max-planning-tokens" bind:value={localConfig.deepResearchMaxPlanningTokens} min="1" />
+      </div>
+
 
     <!------------------------->
     <!-- Model Configuration -->
