@@ -21,7 +21,7 @@ export async function doDeepResearch(
         const web_requests = () => { return Math.max(0, maxWebRequests - total_web_requests); };
         let plan_prompt : string = '';
         let sub_results : string[] = [];
-        let annotations : Annotation[] = [];
+        let allAnnotations: Annotation[] = []; // to collect all annotations
 
         statusCallback("Starting deep research.");
 
@@ -34,6 +34,9 @@ export async function doDeepResearch(
                 const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, messages);
                 actualStrategy = determinedStrategy;
                 chat_results.push(chatResult);
+                if (chatResult.annotations) {
+                    allAnnotations.push(...chatResult.annotations);
+                }
                 statusCallback(`Research strategy determined: ${actualStrategy}`);
             } catch (error) {
                 console.error('Error determining strategy:', error);
@@ -64,6 +67,9 @@ export async function doDeepResearch(
                 }
             });
             research_plan = response.content.trim();
+            if (response.annotations) {
+                allAnnotations.push(...response.annotations);
+            }
         } else if (actualStrategy === 'broad') {
             const system_prompt = createSystemApiCallMessage(plan_prompt =
                 `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed back to you, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>"`
@@ -118,6 +124,9 @@ export async function doDeepResearch(
         // Collect the responses
         responses.forEach(response => {
             sub_results.push(response.content);
+            if (response.annotations) {
+                allAnnotations.push(...response.annotations);
+            }
         });
 
         // Fetch generation data for each response in parallel
@@ -162,6 +171,9 @@ export async function doDeepResearch(
         const refined_sub_results: string[] = [];
         for (const result of refinedResults) {
             refined_sub_results.push(result.chatResult.content);
+            if (result.chatResult.annotations) {
+                allAnnotations.push(...result.chatResult.annotations);
+            }
             if (result.generationData) {
                 total_cost += result.generationData.total_cost || 0;
                 total_web_requests += result.generationData.num_search_results || 0;
@@ -201,6 +213,9 @@ export async function doDeepResearch(
         }
 
         answer_content = synthesisResponse.content;
+        if (synthesisResponse.annotations) {
+            allAnnotations.push(...synthesisResponse.annotations);
+        }
 
         statusCallback("Research synthesis complete.");
 
@@ -212,7 +227,8 @@ export async function doDeepResearch(
             research_plan,
             sub_results,
             refined_sub_results,
-            content: answer_content
+            content: answer_content,
+            annotations: allAnnotations
         };
 }
 
