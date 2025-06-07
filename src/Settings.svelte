@@ -245,6 +245,15 @@
         </div>
 
         <div class="form-group">
+            <label for="default-reasoning-effort">Default Reasoning Effort:</label>
+            <select id="default-reasoning-effort" bind:value={localConfig.defaultReasoningEffort}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+            </select>
+        </div>
+
+        <div class="form-group">
             <h4>Available Models:</h4>
             <div class="filters">
                 <div class="price-filters">
