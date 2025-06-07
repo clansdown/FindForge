@@ -201,7 +201,7 @@ export async function doDeepResearch(
         const synthesisResponse = await callOpenRouterChat(
             apiKey,
             models.reasoning,
-            maxTokens,
+            config.deepResearchMaxSynthesisTokens,
             0,   // web requests
             messages_for_synthesis
         );
@@ -247,7 +247,7 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
     const response = await callOpenRouterChat(
         apiKey,
         models.reasoning,
-        10, // maxTokens: we only need a single word
+        32, // maxTokens: we only need a single word
         0,  // maxWebRequests: none for this step
         messages_for_api
     );

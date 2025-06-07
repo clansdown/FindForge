@@ -16,6 +16,7 @@ export class Config {
   deepResearchWebRequestsPerSubrequest!: number;
   deepResearchMaxSubqrequests!: number;
   deepResearchMaxPlanningTokens!: number;
+  deepResearchMaxSynthesisTokens!: number;
 
   constructor() {
     this.historyWidth = 400;
@@ -42,6 +43,7 @@ export class Config {
     this.deepResearchWebRequestsPerSubrequest = 8;
     this.deepResearchMaxSubqrequests = 8;
     this.deepResearchMaxPlanningTokens = 16384;
+    this.deepResearchMaxSynthesisTokens = 16384;
   }
 }
 

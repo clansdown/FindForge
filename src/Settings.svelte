@@ -181,6 +181,11 @@
         <input type="number" id="deep-research-max-planning-tokens" bind:value={localConfig.deepResearchMaxPlanningTokens} min="1" />
       </div>
 
+      <div class="form-group">
+        <label for="deep-research-max-synthesis-tokens">Max Synthesis Tokens:</label>
+        <input type="number" id="deep-research-max-synthesis-tokens" bind:value={localConfig.deepResearchMaxSynthesisTokens} min="1" />
+      </div>
+
 
     <!------------------------->
     <!-- Model Configuration -->
