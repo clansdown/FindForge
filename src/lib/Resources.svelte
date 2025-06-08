@@ -8,6 +8,7 @@
 
     let filterResources = '';
     let filterAnnotations = '';
+    let activeTab: 'resources' | 'annotations' = 'resources';
 
     function getDomain(url: string): string {
         try {
@@ -31,7 +32,7 @@
             (resource.date && resource.date.toLowerCase().includes(filterStr)) ||
             (resource.type && resource.type.toLowerCase().includes(filterStr)) ||
             (resource.summary && resource.summary.toLowerCase().includes(filterStr))
-        );
+        ) == true;
     }
 
     function annotationMatches(annotation: Annotation, filterStr: string): boolean {
@@ -42,105 +43,110 @@
             (uc.url && uc.url.toLowerCase().includes(filterStr)) ||
             (uc.title && uc.title.toLowerCase().includes(filterStr)) ||
             (uc.content && uc.content.toLowerCase().includes(filterStr))
-        );
+        ) == true;
     }
 
     $: filteredResources = filterResources ? resources.filter(r => resourceMatches(r, filterResources)) : resources;
     $: filteredAnnotations = filterAnnotations ? annotations.filter(a => annotationMatches(a, filterAnnotations)) : annotations;
 </script>
 
-<ModalDialog isOpen={true} onClose={onClose}>
+<ModalDialog isOpen={true} scrollOverflow={false} onClose={onClose}>
     <div class="resources">
+        <div class="tabs">
+            <button class:active={activeTab === 'resources'} on:click={() => activeTab = 'resources'}>Resources Used</button>
+            <button class:active={activeTab === 'annotations'} on:click={() => activeTab = 'annotations'}>Annotations</button>
+        </div>
+
         {#if resources.length === 0 && annotations.length === 0}
             <p>No resources found</p>
         {:else}
-            {#if resources.length > 0}
-                <div class="search-container">
-                    <input 
-                        type="text" 
-                        placeholder="Filter resources..." 
-                        bind:value={filterResources}
-                        class="search-input"
-                    />
-                </div>
-            {/if}
-
-            {#if filteredResources.length > 0}
-                <h2>Resources</h2>
-                <ul>
-                    {#each filteredResources as resource}
-                        <li>
-                            <div class="link-line">
-                                <a href={resource.url} target="_blank" rel="noopener">
-                                    {resource.title || resource.url}
-                                </a>
-                                <button class="copy-button" on:click={() => copyToClipboard(resource.url)}>📋</button>
-                            </div>
-                            <div class="meta">
-                                <div class="row">
-                                    <div class="col">
-                                        {#if resource.type}
-                                            <span class="type">{resource.type}</span>
-                                        {/if}
-                                        <span class="domain">({getDomain(resource.url)})</span>
+            {#if activeTab === 'resources' && resources.length > 0}
+                <div class="tab-panel">
+                    <div class="search-container">
+                        <input 
+                            type="text" 
+                            placeholder="Filter resources..." 
+                            bind:value={filterResources}
+                            class="search-input"
+                        />
+                    </div>
+                    {#if filteredResources.length > 0}
+                        <div class="resource-list">
+                            <ul class="resource-list">
+                                {#each filteredResources as resource}
+                                    <li>
+                                        <div class="link-line">
+                                            <a href={resource.url} target="_blank" rel="noopener">
+                                                {resource.title || resource.url}
+                                            </a>
+                                            <button class="copy-button" on:click={() => copyToClipboard(resource.url)}>📋</button>
                                         </div>
-                                        <div class="colt text-end">
-                                        {#if resource.date}
-                                            <span class="date">{resource.date}</span>
-                                        {/if}
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col">
-                                        {#if resource.author}
-                                            <span class="author">by {resource.author}</span>
-                                        {/if}
-                                    </div>
-                                </div>
+                                        <div class="meta">
+                                            <div class="row">
+                                                <div class="col">
+                                                    {#if resource.type}
+                                                        <span class="type">{resource.type}</span>
+                                                    {/if}
+                                                    <span class="domain">({getDomain(resource.url)})</span>
+                                                    </div>
+                                                    <div class="colt text-end">
+                                                    {#if resource.date}
+                                                        <span class="date">{resource.date}</span>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col">
+                                                    {#if resource.author}
+                                                        <span class="author">by {resource.author}</span>
+                                                    {/if}
+                                                </div>
+                                            </div>
 
-                            </div>
-                            {#if resource.purpose}
-                                <div class="purpose">{resource.purpose}</div>
-                            {/if}
-                            {#if resource.summary}
-                                <p>{resource.summary}</p>
-                            {:else}
-                                <p>[No summary provided]</p>
-                            {/if}
-                        </li>
-                    {/each}
-                </ul>
-            {/if}
-
-            {#if annotations.length > 0}
-                <div class="search-container">
-                    <input 
-                        type="text" 
-                        placeholder="Filter web citations..." 
-                        bind:value={filterAnnotations}
-                        class="search-input"
-                    />
+                                        </div>
+                                        {#if resource.purpose}
+                                            <div class="purpose">{resource.purpose}</div>
+                                        {/if}
+                                        {#if resource.summary}
+                                            <p>{resource.summary}</p>
+                                        {:else}
+                                            <p>[No summary provided]</p>
+                                        {/if}
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
+                    {/if}
                 </div>
-            {/if}
-
-            {#if filteredAnnotations.length > 0}
-                <h2>Web Citations</h2>
-                <ul>
-                    {#each filteredAnnotations as annotation}
-                        {#if annotation.type === 'url_citation'}
-                            <li>
-                                <div class="link-line">
-                                    <a href={annotation.url_citation.url} target="_blank" rel="noopener">
-                                        {annotation.url_citation.title || annotation.url_citation.url}
-                                    </a>
-                                    <span class="domain">({getDomain(annotation.url_citation.url)})</span>
-                                    <button class="copy-button" on:click={() => copyToClipboard(annotation.url_citation.url)}>📋</button>
-                                </div>
-                                <p>{annotation.url_citation.content.slice(0, 200)}...</p>
-                            </li>
-                        {/if}
-                    {/each}
-                </ul>
+            {:else if activeTab === 'annotations' && annotations.length > 0}
+                <div class="tab-panel">
+                    <div class="search-container sticky">
+                        <input 
+                            type="text" 
+                            placeholder="Filter web citations..." 
+                            bind:value={filterAnnotations}
+                            class="search-input"
+                        />
+                    </div>
+                    {#if filteredAnnotations.length > 0}
+                        <ul>
+                            {#each filteredAnnotations as annotation}
+                                {#if annotation.type === 'url_citation'}
+                                    <li>
+                                        <div class="link-line">
+                                            <a href={annotation.url_citation.url} target="_blank" rel="noopener">
+                                                {annotation.url_citation.title || annotation.url_citation.url}
+                                            </a>
+                                            <span class="domain">({getDomain(annotation.url_citation.url)})</span>
+                                            <button class="copy-button" on:click={() => copyToClipboard(annotation.url_citation.url)}>📋</button>
+                                        </div>
+                                        <p>{annotation.url_citation.content.slice(0, 200)}...</p>
+                                    </li>
+                                {/if}
+                            {/each}
+                        </ul>
+                    {/if}
+                </div>
             {/if}
 
             <div class="close-button-container">
@@ -152,13 +158,40 @@
 
 <style>
     .resources {
-        max-height: 60vh;
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding: 1rem;
+        max-height: 80vh;
+        overflow: hidden;
+        padding: 1rem 0 ;
+    }
+    .tabs {
+        display: flex;
+        border-bottom: 1px solid #444;
+        margin-bottom: 1rem;
+    }
+    .tabs button {
+        padding: 0.5rem 1rem;
+        background: none;
+        border: none;
+        color: #ccc;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+    }
+    .tabs button.active {
+        color: #4a9;
+        border-bottom: 2px solid #4a9;
+    }
+    .tab-panel {
+        height: 100%;
     }
     .search-container {
-        margin-bottom: 1rem;
+        margin-bottom: .1rem;
+        margin-right: 24px
+    }
+    .search-container.sticky {
+        position: sticky;
+        top: 0;
+        background-color: #222;
+        z-index: 1;
+        padding-top: 0.5rem;
     }
     .search-input {
         width: 100%;
@@ -212,11 +245,10 @@
         margin-top: 1rem;
         text-align: right;
     }
-
-    h2 {
-        font-size: 1.1rem;
-        margin-top: 1.5rem;
-        margin-bottom: 0.5rem;
-        color: #4a9;
+    div.resource-list {
+        max-height: 68vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0 18px 0 0;
     }
 </style>

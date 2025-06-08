@@ -3,6 +3,7 @@
 
   export let isOpen: boolean;
   export let onClose: (() => void) | undefined = undefined;
+  export let scrollOverflow : boolean = true;
   
   const dispatch = createEventDispatcher();
 
@@ -33,7 +34,7 @@
 </script>
 
 {#if isOpen}
-<div class="modal-background" 
+<div class="modal-background" class:overflow={scrollOverflow}
      on:click|stopPropagation={handleBackgroundClick} 
      role="dialog" 
      aria-modal="true" 
@@ -58,6 +59,10 @@
     align-items: center;
     z-index: 1000;
   }
+
+  .overflow {
+    overflow-y: auto;
+  }
   
   .modal-content {
     background: #222;
@@ -68,6 +73,7 @@
     box-shadow: 0 4px 10px rgba(1,1,1,0.3);
     width: 80%;
     max-width: 860px;
+    max-height: 80%;
   }
 
   @media (max-width: 600px) {
