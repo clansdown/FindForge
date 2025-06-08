@@ -109,6 +109,7 @@ button:focus-visible {
   --bs-gutter-x: 1.5rem; /* Horizontal gutter */
   --bs-gutter-y: 0; /* Vertical gutter */
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
   margin-top: calc(-1 * var(--bs-gutter-y));
   margin-right: calc(-0.5 * var(--bs-gutter-x));

@@ -6,7 +6,8 @@
     export let annotations: Annotation[] = [];
     export let onClose: () => void;
 
-    let filter = '';
+    let filterResources = '';
+    let filterAnnotations = '';
 
     function getDomain(url: string): string {
         try {
@@ -21,22 +22,6 @@
         navigator.clipboard.writeText(text);
     }
 
-    function resourcesFromAnnotations(annotations: Annotation[]): Resource[] {
-        return annotations
-            .filter(annotation => annotation.type === 'url_citation')
-            .map(annotation => {
-                const uc = annotation.url_citation;
-                return {
-                    url: uc.url,
-                    title: uc.title,
-                    author: undefined,
-                    date: undefined,
-                    type: 'web citation',
-                    summary: uc.content
-                };
-            });
-    }
-
     function resourceMatches(resource: Resource, filterStr: string): boolean {
         filterStr = filterStr.toLowerCase();
         return (
@@ -46,12 +31,22 @@
             (resource.date && resource.date.toLowerCase().includes(filterStr)) ||
             (resource.type && resource.type.toLowerCase().includes(filterStr)) ||
             (resource.summary && resource.summary.toLowerCase().includes(filterStr))
-        ) == true;
+        );
     }
 
-    $: annotationResources = resourcesFromAnnotations(annotations);
-    $: filteredResources = filter ? resources.filter(r => resourceMatches(r, filter)) : resources;
-    $: filteredAnnotationResources = filter ? annotationResources.filter(r => resourceMatches(r, filter)) : annotationResources;
+    function annotationMatches(annotation: Annotation, filterStr: string): boolean {
+        if (annotation.type !== 'url_citation') return false;
+        const uc = annotation.url_citation;
+        filterStr = filterStr.toLowerCase();
+        return (
+            (uc.url && uc.url.toLowerCase().includes(filterStr)) ||
+            (uc.title && uc.title.toLowerCase().includes(filterStr)) ||
+            (uc.content && uc.content.toLowerCase().includes(filterStr))
+        );
+    }
+
+    $: filteredResources = filterResources ? resources.filter(r => resourceMatches(r, filterResources)) : resources;
+    $: filteredAnnotations = filterAnnotations ? annotations.filter(a => annotationMatches(a, filterAnnotations)) : annotations;
 </script>
 
 <ModalDialog isOpen={true} onClose={onClose}>
@@ -59,14 +54,16 @@
         {#if resources.length === 0 && annotations.length === 0}
             <p>No resources found</p>
         {:else}
-            <div class="search-container">
-                <input 
-                    type="text" 
-                    placeholder="Filter resources..." 
-                    bind:value={filter}
-                    class="search-input"
-                />
-            </div>
+            {#if resources.length > 0}
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        placeholder="Filter resources..." 
+                        bind:value={filterResources}
+                        class="search-input"
+                    />
+                </div>
+            {/if}
 
             {#if filteredResources.length > 0}
                 <h2>Resources</h2>
@@ -77,59 +74,71 @@
                                 <a href={resource.url} target="_blank" rel="noopener">
                                     {resource.title || resource.url}
                                 </a>
-                                <span class="domain">({getDomain(resource.url)})</span>
                                 <button class="copy-button" on:click={() => copyToClipboard(resource.url)}>📋</button>
                             </div>
+                            <div class="meta">
+                                <div class="row">
+                                    <div class="col">
+                                        {#if resource.type}
+                                            <span class="type">{resource.type}</span>
+                                        {/if}
+                                        <span class="domain">({getDomain(resource.url)})</span>
+                                        </div>
+                                        <div class="colt text-end">
+                                        {#if resource.date}
+                                            <span class="date">{resource.date}</span>
+                                        {/if}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col">
+                                        {#if resource.author}
+                                            <span class="author">by {resource.author}</span>
+                                        {/if}
+                                    </div>
+                                </div>
+
+                            </div>
+                            {#if resource.purpose}
+                                <div class="purpose">{resource.purpose}</div>
+                            {/if}
                             {#if resource.summary}
                                 <p>{resource.summary}</p>
                             {:else}
                                 <p>[No summary provided]</p>
                             {/if}
-                            <div class="meta">
-                                {#if resource.author}
-                                    <span class="author">{resource.author}</span>
-                                {/if}
-                                {#if resource.date}
-                                    <span class="date">{resource.date}</span>
-                                {/if}
-                                {#if resource.type}
-                                    <span class="type">{resource.type}</span>
-                                {/if}
-                            </div>
                         </li>
                     {/each}
                 </ul>
             {/if}
 
-            {#if filteredAnnotationResources.length > 0}
+            {#if annotations.length > 0}
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        placeholder="Filter web citations..." 
+                        bind:value={filterAnnotations}
+                        class="search-input"
+                    />
+                </div>
+            {/if}
+
+            {#if filteredAnnotations.length > 0}
                 <h2>Web Citations</h2>
                 <ul>
-                    {#each filteredAnnotationResources as resource}
-                        <li>
-                            <div class="link-line">
-                                <a href={resource.url} target="_blank" rel="noopener">
-                                    {resource.title || resource.url}
-                                </a>
-                                <span class="domain">({getDomain(resource.url)})</span>
-                                <button class="copy-button" on:click={() => copyToClipboard(resource.url)}>📋</button>
-                            </div>
-                            {#if resource.summary}
-                                <p>{resource.summary}</p>
-                            {:else}
-                                <p>[No summary provided]</p>
-                            {/if}
-                            <div class="meta">
-                                {#if resource.author}
-                                    <span class="author">{resource.author}</span>
-                                {/if}
-                                {#if resource.date}
-                                    <span class="date">{resource.date}</span>
-                                {/if}
-                                {#if resource.type}
-                                    <span class="type">{resource.type}</span>
-                                {/if}
-                            </div>
-                        </li>
+                    {#each filteredAnnotations as annotation}
+                        {#if annotation.type === 'url_citation'}
+                            <li>
+                                <div class="link-line">
+                                    <a href={annotation.url_citation.url} target="_blank" rel="noopener">
+                                        {annotation.url_citation.title || annotation.url_citation.url}
+                                    </a>
+                                    <span class="domain">({getDomain(annotation.url_citation.url)})</span>
+                                    <button class="copy-button" on:click={() => copyToClipboard(annotation.url_citation.url)}>📋</button>
+                                </div>
+                                <p>{annotation.url_citation.content.slice(0, 200)}...</p>
+                            </li>
+                        {/if}
                     {/each}
                 </ul>
             {/if}
@@ -182,14 +191,18 @@
     a:hover {
         text-decoration: underline;
     }
+    .meta {
+        color: #ccc;
+        display: block;
+        gap: 0.5rem;
+        margin-top: 0.25rem;
+    }
     .domain {
         color: #888;
-        font-size: 0.8rem;
     }
     p {
-        margin: 0.5rem 0 0;
-        color: #aaa;
-        font-size: 0.9rem;
+        margin: 0.5rem 0 0 1rem;
+        color: #ccc;
     }
     .copy-button {
         padding: 0.25rem;
@@ -198,13 +211,6 @@
     .close-button-container {
         margin-top: 1rem;
         text-align: right;
-    }
-    .meta {
-        font-size: 0.75rem;
-        color: #888;
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 0.25rem;
     }
 
     h2 {
