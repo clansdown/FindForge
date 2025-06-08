@@ -1,0 +1,13 @@
+* Add the ability to copy the raw synthesis markdown
+
+* Add a feature to re-run the synthesis stage with an on-the-fly edited synthesis system prompt
+
+* Add default text to the conversation window explaining how to use LLMs for research
+
+* Add the ability to clear individual settings back to default, especially system prompts.
+
+* Add the ability to have multiple system prompts (the default might be unremovable from the list to accomplish resetting to default)
+
+* card catalog functionality (reading many documents and characterizing them according to characteristics the user picks for the card catalog)
+
+
