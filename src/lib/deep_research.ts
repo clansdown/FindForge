@@ -33,7 +33,7 @@ export async function doDeepResearch(
         if (strategy === 'auto') {
             statusCallback("Determining research strategy.");
             try {
-                const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, messages);
+                const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, messages, config.defaultReasoningEffort);
                 actualStrategy = determinedStrategy;
                 chat_results.push(chatResult);
                 if (chatResult.annotations) {
@@ -62,7 +62,7 @@ export async function doDeepResearch(
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api);
+            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
             fetchGenerationData(apiKey, planResult.requestID).then(data => {
                 if(data) {
                     total_cost += data.total_cost || 0;
@@ -80,7 +80,7 @@ export async function doDeepResearch(
             );
             const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api);
+            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
             fetchGenerationData(apiKey, planResult.requestID).then(data => {
                 if(data) {
                     total_cost += data.total_cost || 0;
@@ -120,7 +120,7 @@ export async function doDeepResearch(
                     content: [{ type: 'text', text: prompt }]
                 }
             ];
-            return callOpenRouterChat(apiKey, models.researcher, maxTokens, perPromptWebRequests, messages_for_subquery);
+            return callOpenRouterChat(apiKey, models.researcher, maxTokens, perPromptWebRequests, messages_for_subquery, undefined, config.defaultReasoningEffort);
         });
 
         const responses = await Promise.all(promises);
@@ -175,7 +175,7 @@ export async function doDeepResearch(
 
         // Refine each sub-result in parallel
         const refinePromises = research_threads.map(thread => 
-            refine_result(apiKey, models.editor, thread, userQuery, maxTokens, 0)
+            refine_result(apiKey, models.editor, thread, userQuery, maxTokens, 0, config.defaultReasoningEffort)
         );
 
         const refinedResults = await Promise.all(refinePromises);
@@ -250,7 +250,7 @@ export async function doDeepResearch(
 }
 
 
-async function determineStrategy(apiKey: string, models: ModelsForResearch, messages: ApiCallMessage[]): Promise<{ strategy: 'deep' | 'broad', chatResult: ChatResult }> {
+async function determineStrategy(apiKey: string, models: ModelsForResearch, messages: ApiCallMessage[], reasoningEffort: 'low'|'medium'|'high'): Promise<{ strategy: 'deep' | 'broad', chatResult: ChatResult }> {
     const system_prompt : ApiCallMessage = {
         role: 'system',
         content: [{
@@ -265,7 +265,9 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
         models.reasoning,
         500, // maxTokens: we only need a single word
         0,  // maxWebRequests: none for this step
-        messages_for_api
+        messages_for_api,
+        undefined,
+        reasoningEffort
     );
 
     const strategyResponse = response.content.trim().toLowerCase();
@@ -296,7 +298,8 @@ export async function refine_result(
     thread: ResearchThread,
     userQuery: string,
     maxTokens: number,
-    maxWebRequests: number
+    maxWebRequests: number,
+    reasoningEffort: 'low' | 'medium' | 'high'
 ): Promise<{ chatResult: ChatResult, generationData: GenerationData | undefined }> {
     const systemPrompt = createSystemApiCallMessage(
         `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`
@@ -325,7 +328,9 @@ export async function refine_result(
         modelId,
         maxTokens,
         0,
-        messages
+        messages,
+        undefined,
+        reasoningEffort
     );
 
     const generationData = await fetchGenerationData(apiKey, chatResult.requestID);

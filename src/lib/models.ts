@@ -169,7 +169,8 @@ export async function callOpenRouterChat(
   maxTokens: number,
   maxWebRequests: number,
   messages: ApiCallMessage[],
-  abortController?: AbortController
+  abortController?: AbortController,
+  reasoning_effort?: 'low' | 'medium' | 'high'
 ): Promise<ChatResult> {
   const url = 'https://openrouter.ai/api/v1/chat/completions';
   const headers = {
@@ -177,13 +178,16 @@ export async function callOpenRouterChat(
     'Content-Type': 'application/json'
   };
 
-  const body = {
+  const body: any = {
     model: modelId,
     messages : messages,
     max_tokens: maxTokens,
     stream: false,
     plugins: maxWebRequests > 0 ? [{ id: "web", max_results: maxWebRequests }] : [],
   };
+  if (reasoning_effort) {
+    body.reasoning_effort = reasoning_effort;
+  }
 
   const response = await fetch(url, {
     method: 'POST',
