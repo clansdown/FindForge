@@ -560,6 +560,7 @@
 {#if showResourcesFor}
     <Resources 
         resources={currentConversation.messages.find(m => m.id === showResourcesFor)?.resources || []} 
+        annotations={currentConversation.messages.find(m => m.id === showResourcesFor)?.annotations || []}
         onClose={() => showResourcesFor = null} 
     />
 {/if}
