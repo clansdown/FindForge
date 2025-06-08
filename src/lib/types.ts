@@ -41,7 +41,7 @@ export class Config {
         this.includePreviousMessagesAsContext = true;
         this.searchEngine = 'duckduckgo';
         this.deepResearchWebSearchMaxPlanningResults = 10;
-        this.deepResearchSystemPrompt = ''; // appended to the internal system prompt
+        this.deepResearchSystemPrompt = `Address the user's question or goal directly. The answer should be detailed, informative, clear, and dense. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant.`; // appended to the internal system prompt
         this.deepResearchWebRequestsPerSubrequest = 8;
         this.deepResearchMaxSubqrequests = 8;
         this.deepResearchMaxPlanningTokens = 16384;
