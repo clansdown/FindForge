@@ -24,6 +24,7 @@ export async function doDeepResearch(
                 const authorMatch = /<AUTHOR>(.*?)<\/AUTHOR>/s.exec(resourceBlock);
                 const dateMatch = /<DATE>(.*?)<\/DATE>/s.exec(resourceBlock);
                 const typeMatch = /<TYPE>(.*?)<\/TYPE>/s.exec(resourceBlock);
+                const purposeMatch = /<PURPOSE>(.*?)<\/PURPOSE>/s.exec(resourceBlock);
                 const summaryMatch = /<SUMMARY>(.*?)<\/SUMMARY>/s.exec(resourceBlock);
 
                 if (urlMatch && urlMatch[1]) {
@@ -33,6 +34,7 @@ export async function doDeepResearch(
                         author: authorMatch && authorMatch[1] ? authorMatch[1].trim() : undefined,
                         date: dateMatch && dateMatch[1] ? dateMatch[1].trim() : undefined,
                         type: typeMatch && typeMatch[1] ? typeMatch[1].trim() : undefined,
+                        purpose: purposeMatch && purposeMatch[1] ? purposeMatch[1].trim() : undefined,
                         summary: summaryMatch && summaryMatch[1] ? summaryMatch[1].trim() : undefined
                     };
                     resources.push(resource);
@@ -136,7 +138,7 @@ export async function doDeepResearch(
 
         // Execute all prompts in parallel
         const subquery_system_prompt = createSystemApiCallMessage(
-            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested. Provide anything that may be relevant in an information dense manner. After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. Inside of the RESOURCES section, provide a list of the resources you used to gather information. Each resource should begin with <RESOURCE> and end with </RESOURCE>. The resource should begin with the URL wrapped in <URL> and </URL> tags. Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), author (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). Also give a description of the kind of resource it is (e.g. journal article, blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. Include a brief summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`
+            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested. Provide anything that may be relevant in an information dense manner. After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. Inside of the RESOURCES section, provide a list of the resources you used to gather information. Each resource should begin with <RESOURCE> and end with </RESOURCE>. The resource should begin with the URL wrapped in <URL> and </URL> tags. Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), author or authors (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). Also give a description of the kind of resource it is (e.g. journal article, scientific study, personal blog post, professional blog post, corporate blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. Indicate the purpose of the resource, that is, why it was written and published, wrapped in <PURPOSE> and </PURPOSE> tags. Include a 2 to 4 sentence summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`
         );
         const perPromptWebRequests = config.deepResearchWebRequestsPerSubrequest;
         const promises = prompts.map(prompt => {

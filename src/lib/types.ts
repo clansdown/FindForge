@@ -184,6 +184,7 @@ export interface Resource {
     author?: string;
     date?: string;
     type?: string;
+    purpose? : string;
     summary?: string;
 }
 
