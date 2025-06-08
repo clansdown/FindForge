@@ -297,6 +297,7 @@
                 assistantMessage.totalCost = deepResult.total_cost;
                 assistantMessage.status = undefined; // clear status when done
                 assistantMessage.deepResearchResult = deepResult; // Store the full result
+                assistantMessage.resources = deepResult.resources; // Store resources separately for UI
                 if (deepResult.annotations) {
                     assistantMessage.annotations = deepResult.annotations;
                 }
@@ -558,7 +559,7 @@
 
 {#if showResourcesFor}
     <Resources 
-        annotations={currentConversation.messages.find(m => m.id === showResourcesFor)?.annotations || []} 
+        resources={currentConversation.messages.find(m => m.id === showResourcesFor)?.resources || []} 
         onClose={() => showResourcesFor = null} 
     />
 {/if}

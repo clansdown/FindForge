@@ -130,6 +130,7 @@ export interface MessageData {
     deepResearchResult?: DeepResearchResult; // result of deep research, if it was done
     researchResult?: ResearchResult; // result of standard research, if it was done
     annotations?: Annotation[];
+    resources?: Resource[]; // List of resources used for research
 }
 
 export interface ConversationData {
@@ -177,6 +178,15 @@ export interface ResearchThread {
     refined? : ChatResult;
 }
 
+export interface Resource {
+    url: string;
+    title?: string;
+    author?: string;
+    date?: string;
+    type?: string;
+    summary?: string;
+}
+
 export interface DeepResearchResult {
     id: string;
     total_cost: number;
@@ -189,4 +199,5 @@ export interface DeepResearchResult {
     synthesis_prompt: string;
     synthesis_result: ChatResult;
     annotations?: Annotation[];
+    resources : Resource[];
 }

@@ -1,5 +1,5 @@
 import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData, getModels } from "./models";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread } from "./types";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource } from "./types";
 import { generateID } from "./util";
 
 
@@ -13,6 +13,34 @@ export async function doDeepResearch(
     strategy : 'deep' | 'broad' | 'auto',
     messages : ApiCallMessage[], 
     statusCallback : (status: string) => void): Promise<DeepResearchResult> {
+        function parseResourcesFromContent(content: string): Resource[] {
+            const resources: Resource[] = [];
+            const resourceRegex = /<RESOURCE>(.*?)<\/RESOURCE>/gs;
+            let resourceMatch;
+            while ((resourceMatch = resourceRegex.exec(content)) !== null) {
+                const resourceBlock = resourceMatch[1];
+                const urlMatch = /<URL>(.*?)<\/URL>/s.exec(resourceBlock);
+                const titleMatch = /<TITLE>(.*?)<\/TITLE>/s.exec(resourceBlock);
+                const authorMatch = /<AUTHOR>(.*?)<\/AUTHOR>/s.exec(resourceBlock);
+                const dateMatch = /<DATE>(.*?)<\/DATE>/s.exec(resourceBlock);
+                const typeMatch = /<TYPE>(.*?)<\/TYPE>/s.exec(resourceBlock);
+                const summaryMatch = /<SUMMARY>(.*?)<\/SUMMARY>/s.exec(resourceBlock);
+
+                if (urlMatch && urlMatch[1]) {
+                    const resource: Resource = {
+                        url: urlMatch[1].trim(),
+                        title: titleMatch && titleMatch[1] ? titleMatch[1].trim() : undefined,
+                        author: authorMatch && authorMatch[1] ? authorMatch[1].trim() : undefined,
+                        date: dateMatch && dateMatch[1] ? dateMatch[1].trim() : undefined,
+                        type: typeMatch && typeMatch[1] ? typeMatch[1].trim() : undefined,
+                        summary: summaryMatch && summaryMatch[1] ? summaryMatch[1].trim() : undefined
+                    };
+                    resources.push(resource);
+                }
+            }
+            return resources;
+        }
+
         let total_cost = 0;
         let total_web_requests = 0;
         let actualStrategy: 'deep' | 'broad' = 'deep'; // default
@@ -94,10 +122,6 @@ export async function doDeepResearch(
         /*****************************/
         /* Execute the research plan */
         /*****************************/
-        const subquery_system_prompt = createSystemApiCallMessage(
-            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested.`
-        );
-
         // Extract the prompts from the research_plan
         const promptRegex = /<prompt>(.*?)<\/prompt>/gs;
         const prompts: string[] = [];
@@ -111,6 +135,9 @@ export async function doDeepResearch(
 
 
         // Execute all prompts in parallel
+        const subquery_system_prompt = createSystemApiCallMessage(
+            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested. Provide anything that may be relevant in an information dense manner. After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. Inside of the RESOURCES section, provide a list of the resources you used to gather information. Each resource should begin with <RESOURCE> and end with </RESOURCE>. The resource should begin with the URL wrapped in <URL> and </URL> tags. Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), author (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). Also give a description of the kind of resource it is (e.g. journal article, blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. Include a brief summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`
+        );
         const perPromptWebRequests = config.deepResearchWebRequestsPerSubrequest;
         const promises = prompts.map(prompt => {
             const messages_for_subquery: ApiCallMessage[] = [
@@ -124,6 +151,13 @@ export async function doDeepResearch(
         });
 
         const responses = await Promise.all(promises);
+
+        // Parse resources from the first pass responses
+        let allResources: Resource[] = [];
+        for (const response of responses) {
+            const resources = parseResourcesFromContent(response.content);
+            allResources.push(...resources);
+        }
 
         // Collect the responses
         responses.forEach((response, index) => {
@@ -245,7 +279,8 @@ export async function doDeepResearch(
             synthesis_prompt: synthesis_prompt_string,
             synthesis_result: synthesisResponse,
             content: answer_content,
-            annotations: allAnnotations
+            annotations: allAnnotations,
+            resources: allResources
         };
 }
 
@@ -305,6 +340,16 @@ export async function refine_result(
         `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`
     );
 
+    // Strip out the RESOURCES section from the content to refine
+    let contentToRefine = thread.firstPass?.content || '';
+    const resourcesStart = contentToRefine.indexOf('<RESOURCES>');
+    if (resourcesStart !== -1) {
+        const resourcesEnd = contentToRefine.indexOf('</RESOURCES>', resourcesStart);
+        if (resourcesEnd !== -1) {
+            contentToRefine = contentToRefine.substring(0, resourcesStart) + contentToRefine.substring(resourcesEnd + '</RESOURCES>'.length);
+        }
+    }
+
     const userMessage: ApiCallMessage = {
         role: 'user',
         content: [{
@@ -317,7 +362,7 @@ export async function refine_result(
         role: 'assistant',
         content: [{
             type: 'text',
-            text: `Research result to refine:\n${thread.firstPass?.content || ''}`
+            text: `Research result to refine:\n${contentToRefine}`
         }]
     };
 
