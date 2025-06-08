@@ -8,6 +8,7 @@
 
     let filterResources = '';
     let filterAnnotations = '';
+    let resourceSort: 'unsorted' | 'type' | 'purpose' | 'author' | 'domain' | 'date' | 'title' = 'unsorted';
     let activeTab: 'resources' | 'annotations' = resources.length > 0 ? 'resources' : 'annotations';
 
     function getDomain(url: string): string {
@@ -46,7 +47,25 @@
         ) == true;
     }
 
+    function sortResources(resources: Resource[], criteria: typeof resourceSort): Resource[] {
+        if (criteria === 'unsorted') {
+            return [...resources];
+        }
+        return [...resources].sort((a, b) => {
+            switch (criteria) {
+                case 'type': return (a.type || '').localeCompare(b.type || '');
+                case 'purpose': return (a.purpose || '').localeCompare(b.purpose || '');
+                case 'author': return (a.author || '').localeCompare(b.author || '');
+                case 'domain': return getDomain(a.url).localeCompare(getDomain(b.url));
+                case 'date': return (a.date || '').localeCompare(b.date || '');
+                case 'title': return (a.title || '').localeCompare(b.title || '');
+                default: return 0;
+            }
+        });
+    }
+
     $: filteredResources = filterResources ? resources.filter(r => resourceMatches(r, filterResources)) : resources;
+    $: sortedResources = sortResources(filteredResources, resourceSort);
     $: filteredAnnotations = filterAnnotations ? annotations.filter(a => annotationMatches(a, filterAnnotations)) : annotations;
 </script>
 
@@ -73,11 +92,20 @@
                             bind:value={filterResources}
                             class="search-input"
                         />
+                        <select bind:value={resourceSort} class="sort-select">
+                            <option value="unsorted">Unsorted</option>
+                            <option value="type">Type</option>
+                            <option value="purpose">Purpose</option>
+                            <option value="author">Author</option>
+                            <option value="domain">Domain</option>
+                            <option value="date">Date</option>
+                            <option value="title">Title</option>
+                        </select>
                     </div>
-                    {#if filteredResources.length > 0}
+                    {#if sortedResources.length > 0}
                         <div class="resource-list">
                             <ul class="resource-list">
-                                {#each filteredResources as resource}
+                                {#each sortedResources as resource}
                                     <li>
                                         <div class="link-line">
                                             <a href={resource.url} target="_blank" rel="noopener">
@@ -189,8 +217,20 @@
         height: 100%;
     }
     .search-container {
+        display: flex;
+        gap: 0.5rem;
         margin-bottom: .1rem;
-        margin-right: 24px
+        margin-right: 24px;
+    }
+    .search-input {
+        flex: 1;
+    }
+    .sort-select {
+        background-color: #222;
+        color: #eee;
+        border: 1px solid #444;
+        border-radius: 4px;
+        padding: 0.5rem;
     }
     .search-container.sticky {
         position: sticky;
