@@ -233,7 +233,7 @@ export async function doDeepResearch(
         /* Do the synthesis */
         /*********************/
         statusCallback("Synthesizing research results.");
-        const synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the results of the research plan and synthesize them into a final answer to the user's question or goal. The synthesis should be clear, concise without omitting anything important, and should address the user's question or goal directly. The synthesis should be based on the information gathered in the previous prompts. Cite all sources. Wrap the answer for the user in <ANSWER> and </ANSWER> tags.` + config.deepResearchSystemPrompt;
+        const synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the results of the research plan and synthesize them into a final answer to the user's question or goal. The synthesis should be based on the information gathered in the previous prompts. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
         const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
 
         // Construct the messages for synthesis
