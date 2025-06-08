@@ -8,7 +8,7 @@
 
     let filterResources = '';
     let filterAnnotations = '';
-    let activeTab: 'resources' | 'annotations' = 'resources';
+    let activeTab: 'resources' | 'annotations' = resources.length > 0 ? 'resources' : 'annotations';
 
     function getDomain(url: string): string {
         try {
@@ -53,8 +53,12 @@
 <ModalDialog isOpen={true} scrollOverflow={false} onClose={onClose}>
     <div class="resources">
         <div class="tabs">
-            <button class:active={activeTab === 'resources'} on:click={() => activeTab = 'resources'}>Resources Used</button>
-            <button class:active={activeTab === 'annotations'} on:click={() => activeTab = 'annotations'}>Annotations</button>
+            {#if resources.length > 0}
+                <button class:active={activeTab === 'resources'} on:click={() => activeTab = 'resources'}>Resources Used</button>
+            {/if}
+            {#if annotations.length > 0}
+                <button class:active={activeTab === 'annotations'} on:click={() => activeTab = 'annotations'}>Annotations</button>
+            {/if}
         </div>
 
         {#if resources.length === 0 && annotations.length === 0}
@@ -129,22 +133,24 @@
                         />
                     </div>
                     {#if filteredAnnotations.length > 0}
-                        <ul>
-                            {#each filteredAnnotations as annotation}
-                                {#if annotation.type === 'url_citation'}
-                                    <li>
-                                        <div class="link-line">
-                                            <a href={annotation.url_citation.url} target="_blank" rel="noopener">
-                                                {annotation.url_citation.title || annotation.url_citation.url}
-                                            </a>
-                                            <span class="domain">({getDomain(annotation.url_citation.url)})</span>
-                                            <button class="copy-button" on:click={() => copyToClipboard(annotation.url_citation.url)}>📋</button>
-                                        </div>
-                                        <p>{annotation.url_citation.content.slice(0, 200)}...</p>
-                                    </li>
-                                {/if}
-                            {/each}
-                        </ul>
+                        <div class="resource-list">
+                            <ul>
+                                {#each filteredAnnotations as annotation}
+                                    {#if annotation.type === 'url_citation'}
+                                        <li>
+                                            <div class="link-line">
+                                                <a href={annotation.url_citation.url} target="_blank" rel="noopener">
+                                                    {annotation.url_citation.title || annotation.url_citation.url}
+                                                </a>
+                                                <span class="domain">({getDomain(annotation.url_citation.url)})</span>
+                                                <button class="copy-button" on:click={() => copyToClipboard(annotation.url_citation.url)}>📋</button>
+                                            </div>
+                                            <p>{annotation.url_citation.content.slice(0, 200)}...</p>
+                                        </li>
+                                    {/if}
+                                {/each}
+                            </ul>
+                        </div>
                     {/if}
                 </div>
             {/if}
