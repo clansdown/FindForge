@@ -4,8 +4,6 @@
 
 <div class="text">
 
-<center>(Type your message below and hit send to get started.)</center>
-
 <p>There's a lot of hype about AI, but in spite of that it can actually be a very useful research tool. To explain how to use this research tool well, we've got to take a quick detour in explaining how the underlying AI works. To do that, let's start with calling it by its proper name: LLMs, or Large Language Models.</p>
 
 <p></p>

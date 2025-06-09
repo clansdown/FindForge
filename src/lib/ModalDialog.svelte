@@ -34,13 +34,12 @@
 </script>
 
 {#if isOpen}
-<div class="modal-background" class:overflow={scrollOverflow}
-     on:click|stopPropagation={handleBackgroundClick} 
+<div class="modal-background" on:click|stopPropagation={handleBackgroundClick} 
      role="dialog" 
      aria-modal="true" 
      tabindex="0">
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="modal-content" on:click|stopPropagation>
+  <div class="modal-content" on:click|stopPropagation class:overflow={scrollOverflow}>
     <slot></slot>
   </div>
 </div>

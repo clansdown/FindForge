@@ -517,6 +517,7 @@
                     </div>
                 </div>
             {:else}
+                <center>(Type your message below and hit send to get started.)</center>
                 <GettingStarted />
             {/each}
         </div>
