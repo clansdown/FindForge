@@ -45,6 +45,7 @@ export async function doDeepResearch(
 
         let total_cost = 0;
         let total_web_requests = 0;
+        let total_generation_time_ms = 0; // in milliseconds
         let actualStrategy: 'deep' | 'broad' = 'deep'; // default
         let chat_results: ChatResult[] = [];
         let answer_content : string = "";
@@ -68,6 +69,9 @@ export async function doDeepResearch(
                 chat_results.push(chatResult);
                 if (chatResult.annotations) {
                     allAnnotations.push(...chatResult.annotations);
+                }
+                if (chatResult.generationData?.generation_time) {
+                    total_generation_time_ms += chatResult.generationData.generation_time;
                 }
                 statusCallback(`Research strategy determined: ${actualStrategy}`);
             } catch (error) {
@@ -97,6 +101,9 @@ export async function doDeepResearch(
                 if(data) {
                     total_cost += data.total_cost || 0;
                     total_web_requests += data.num_search_results || 0;
+                    if (data.generation_time) {
+                        total_generation_time_ms += data.generation_time;
+                    }
                     planResult!.generationData = data; // attach generation data to the response
                 }
             });
@@ -185,6 +192,9 @@ export async function doDeepResearch(
             if (data) {
                 total_cost += data.total_cost || 0;
                 total_web_requests += data.num_search_results || 0;
+                if (data.generation_time) {
+                    total_generation_time_ms += data.generation_time;
+                }
                 const response = responses.find(r => r.requestID === data.id);
                 if (response) {
                     response.generationData = data; // attach generation data to the response
@@ -226,6 +236,9 @@ export async function doDeepResearch(
             if (result.generationData) {
                 total_cost += result.generationData.total_cost || 0;
                 total_web_requests += result.generationData.num_search_results || 0;
+                if (result.generationData.generation_time) {
+                    total_generation_time_ms += result.generationData.generation_time;
+                }
             }
         }
 
@@ -261,6 +274,9 @@ export async function doDeepResearch(
         if (synthesisGenerationData) {
             total_cost += synthesisGenerationData.total_cost || 0;
             total_web_requests += synthesisGenerationData.num_search_results || 0;
+            if (synthesisGenerationData.generation_time) {
+                total_generation_time_ms += synthesisGenerationData.generation_time;
+            }
             synthesisResponse.generationData = synthesisGenerationData; // attach generation data to the response
         }
 
@@ -291,7 +307,8 @@ export async function doDeepResearch(
             synthesis_result: synthesisResponse,
             content: answer_content,
             annotations: allAnnotations,
-            resources: allResources
+            resources: allResources,
+            total_generation_time: total_generation_time_ms / 1000 // convert to seconds
         };
 }
 
@@ -315,6 +332,10 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
         undefined,
         reasoningEffort
     );
+    const generationData = await fetchGenerationData(apiKey, response.requestID);
+    if (generationData) {
+        response.generationData = generationData;
+    }
 
     const strategyResponse = response.content.trim().toLowerCase();
     console.log('Strategy response:', strategyResponse);
