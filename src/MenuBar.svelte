@@ -2,6 +2,8 @@
   import type { Config, OpenRouterCredits } from './lib/types';
   import Settings from './Settings.svelte';
   import About from './About.svelte';
+  import GettingStarted from './GettingStarted.svelte';
+  import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
   
   export let config: Config;
@@ -12,6 +14,7 @@
   let activeMenu: string | null = null;
   let showSettings = false;
   let showAbout = false;
+  let showGettingStarted = false;
   
   function toggleMenu(menu: string) {
     activeMenu = activeMenu === menu ? null : menu;
@@ -63,6 +66,7 @@
     {#if activeMenu === 'help'}
       <div class="dropdown">
         <button on:click={() => { window.open('https://github.com/clansdown/MachineLearner', '_blank'); closeMenu(); }}>Source Code</button>
+        <button on:click={() => { showGettingStarted = true; closeMenu(); }}>Getting Started</button>
         <button on:click={() => { showAbout = true; closeMenu(); }}>About</button>
       </div>
     {/if}
@@ -77,6 +81,9 @@
 
 <Settings bind:config bind:isOpen={showSettings} {credits} />
 <About bind:isOpen={showAbout} onClose={() => showAbout = false} />
+<ModalDialog isOpen={showGettingStarted} onClose={() => showGettingStarted = false}>
+  <GettingStarted />
+</ModalDialog>
 
 <style>
   .menu-bar {
