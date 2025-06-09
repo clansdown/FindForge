@@ -87,6 +87,7 @@ export async function doStandardResearch(
         let generationData: GenerationData | undefined = undefined;
         if (streamingResult.requestID) {
             generationData = await fetchGenerationData(config.apiKey, streamingResult.requestID);
+            if(generationData) streamingResult.generationData = generationData;
         }
         updateStatus('Research completed');
         return { streamingResult, generationData };
