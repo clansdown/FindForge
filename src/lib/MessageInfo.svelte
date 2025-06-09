@@ -1,6 +1,6 @@
 <script lang="ts">
     import ModalDialog from "./ModalDialog.svelte";
-    import type { DeepResearchResult, ResearchResult, GenerationData, Annotation, ChatResult } from "./types";
+    import type { DeepResearchResult, ResearchResult, GenerationData, Annotation, ChatResult, ResearchThread } from "./types";
     import MarkdownIt from 'markdown-it';
     import { onMount } from 'svelte';
 
@@ -11,6 +11,20 @@
     const md = new MarkdownIt();
     let copySuccess: string | null = null;
     let activeTab: 'overview' | 'plan' | 'threads' | 'synthesis' | 'annotations' = 'overview';
+    let selectedThreadIndex = 0;
+    let selectedThread: ResearchThread | null = null;
+
+    $: {
+        if (deepResearchResult) {
+            if (selectedThreadIndex >= 0 && selectedThreadIndex < deepResearchResult.research_threads.length) {
+                selectedThread = deepResearchResult.research_threads[selectedThreadIndex];
+            } else {
+                selectedThread = null;
+            }
+        } else {
+            selectedThread = null;
+        }
+    }
 
     function formatCost(cost: number | undefined): string {
         if (cost === undefined) return "N/A";
@@ -52,8 +66,8 @@
                 
                 <div class="tabs">
                     <button class:active={activeTab === 'overview'} on:click={() => activeTab = 'overview'}>Overview</button>
-                    <button class:active={activeTab === 'plan'} on:click={() => activeTab = 'plan'}>Research Plan</button>
-                    <button class:active={activeTab === 'threads'} on:click={() => activeTab = 'threads'}>Research Threads</button>
+                    <button class:active={activeTab === 'plan'} on:click={() => activeTab = 'plan'}>Plan</button>
+                    <button class:active={activeTab === 'threads'} on:click={() => activeTab = 'threads'}>Threads</button>
                     <button class:active={activeTab === 'synthesis'} on:click={() => activeTab = 'synthesis'}>Synthesis</button>
                     <button class:active={activeTab === 'annotations'} on:click={() => activeTab = 'annotations'}>Annotations</button>
                 </div>
@@ -68,7 +82,6 @@
                 {:else if activeTab === 'plan'}
                     <div class="tab-content">
                         <div class="info-block">
-                            <h1>Research Plan</h1>
                             <div class="chat-result">
                                 <div class="chat-header">
                                     <h4>Plan Prompt</h4>
@@ -88,55 +101,57 @@
                 {:else if activeTab === 'threads'}
                     <div class="tab-content">
                         <div class="info-block">
-                            <h1>Research Threads</h1>
-                            {#each deepResearchResult.research_threads as thread, index}
+                            <select bind:value={selectedThreadIndex} class="thread-selector">
+                                {#each deepResearchResult.research_threads as _, index (index)}
+                                    <option value={index}>Thread {index + 1}</option>
+                                {/each}
+                            </select>
+                            {#if selectedThread}
                                 <div class="thread-block">
-                                    <h3>Thread {index + 1}</h3>
                                     <div class="chat-header">
                                         <h4>Prompt</h4>
-                                        <button on:click={() => copyToClipboard(thread.prompt, `thread ${index+1} prompt`)} class="copy-button">
+                                        <button on:click={() => copyToClipboard(selectedThread.prompt, `thread ${selectedThreadIndex+1} prompt`)} class="copy-button">
                                             📋
                                         </button>
                                     </div>
-                                    <pre>{thread.prompt}</pre>
+                                    <pre>{selectedThread.prompt}</pre>
                                     
-                                    {#if thread.firstPass}
+                                    {#if selectedThread.firstPass}
                                         <div class="chat-result">
                                             <div class="chat-header">
                                                 <h4>First Pass</h4>
-                                                <button on:click={() => copyToClipboard(thread.firstPass?.content||'', `thread ${index+1} first pass`)} class="copy-button">
+                                                <button on:click={() => copyToClipboard(selectedThread.firstPass?.content||'', `thread ${selectedThreadIndex+1} first pass`)} class="copy-button">
                                                     📋
                                                 </button>
                                             </div>
-                                            <p>{formatGenerationData(thread.firstPass.generationData)}</p>
+                                            <p>{formatGenerationData(selectedThread.firstPass.generationData)}</p>
                                             <div class="chat-content">
-                                                {@html formatChatContent(thread.firstPass.content)}
+                                                {@html formatChatContent(selectedThread.firstPass.content)}
                                             </div>
                                         </div>
                                     {/if}
                                     
-                                    {#if thread.refined}
+                                    {#if selectedThread.refined}
                                         <div class="chat-result">
                                             <div class="chat-header">
                                                 <h5>Refined</h5>
-                                                <button on:click={() => copyToClipboard(thread.refined?.content||'', `thread ${index+1} refined`)} class="copy-button">
+                                                <button on:click={() => copyToClipboard(selectedThread.refined?.content||'', `thread ${selectedThreadIndex+1} refined`)} class="copy-button">
                                                     📋
                                                 </button>
                                             </div>
-                                            <p>{formatGenerationData(thread.refined.generationData)}</p>
+                                            <p>{formatGenerationData(selectedThread.refined.generationData)}</p>
                                             <div class="chat-content">
-                                                {@html formatChatContent(thread.refined.content)}
+                                                {@html formatChatContent(selectedThread.refined.content)}
                                             </div>
                                         </div>
                                     {/if}
                                 </div>
-                            {/each}
+                            {/if}
                         </div>
                     </div>
                 {:else if activeTab === 'synthesis'}
                     <div class="tab-content">
                         <div class="info-block">
-                            <h1>Synthesis</h1>
                             <div class="chat-result">
                                 <div class="chat-header">
                                     <h4>Synthesis Prompt</h4>
@@ -290,5 +305,14 @@
     }
     .tab-content {
         margin-top: 1rem;
+    }
+    .thread-selector {
+        background: #1a1a1a;
+        color: #fff;
+        border: 1px solid #444;
+        border-radius: 4px;
+        padding: 0.5rem;
+        margin-bottom: 1rem;
+        width: 100%;
     }
 </style>
