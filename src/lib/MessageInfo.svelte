@@ -10,6 +10,7 @@
 
     const md = new MarkdownIt();
     let copySuccess: string | null = null;
+    let activeTab: 'overview' | 'plan' | 'threads' | 'synthesis' | 'annotations' = 'overview';
 
     function formatCost(cost: number | undefined): string {
         if (cost === undefined) return "N/A";
@@ -48,102 +49,124 @@
         {#if deepResearchResult}
             <div class="info-section">
                 <h1>Deep Research Details</h1>
-                <p><strong>Total Cost:</strong> {formatCost(deepResearchResult.total_cost)}</p>
                 
-                <p><strong>Reasoning Model:</strong> {deepResearchResult.models.reasoning}</p>
-                <p><strong>Editor Model:</strong> {deepResearchResult.models.editor}</p>
-                <p><strong>Researcher Model:</strong> {deepResearchResult.models.researcher}</p>
-                
-                <div class="info-block">
-                    <h1>Research Plan</h1>
-                    <div class="chat-result">
-                        <div class="chat-header">
-                            <h4>Plan Prompt</h4>
-                            <button on:click={() => copyToClipboard(deepResearchResult.plan_prompt, 'plan prompt')} class="copy-button">
-                                📋
-                            </button>
-                        </div>
-                        <div style="text-align: justify; padding: 0 1rem;">{deepResearchResult.plan_prompt}</div>
-                        <p>{formatGenerationData(deepResearchResult.plan_result.generationData)}</p>
-                        <h3>Plan Content</h3>
-                        <div class="chat-content">
-                            {@html formatChatContent(deepResearchResult.plan_result.content)}
-                        </div>
-                    </div>
+                <div class="tabs">
+                    <button class:active={activeTab === 'overview'} on:click={() => activeTab = 'overview'}>Overview</button>
+                    <button class:active={activeTab === 'plan'} on:click={() => activeTab = 'plan'}>Research Plan</button>
+                    <button class:active={activeTab === 'threads'} on:click={() => activeTab = 'threads'}>Research Threads</button>
+                    <button class:active={activeTab === 'synthesis'} on:click={() => activeTab = 'synthesis'}>Synthesis</button>
+                    <button class:active={activeTab === 'annotations'} on:click={() => activeTab = 'annotations'}>Annotations</button>
                 </div>
-
-                <div class="info-block">
-                    <h1>Research Threads</h1>
-                    {#each deepResearchResult.research_threads as thread, index}
-                        <div class="thread-block">
-                            <h3>Thread {index + 1}</h3>
-                            <div class="chat-header">
-                                <h4>Prompt</h4>
-                                <button on:click={() => copyToClipboard(thread.prompt, `thread ${index+1} prompt`)} class="copy-button">
-                                    📋
-                                </button>
+                
+                {#if activeTab === 'overview'}
+                    <div class="tab-content">
+                        <p><strong>Total Cost:</strong> {formatCost(deepResearchResult.total_cost)}</p>
+                        <p><strong>Reasoning Model:</strong> {deepResearchResult.models.reasoning}</p>
+                        <p><strong>Editor Model:</strong> {deepResearchResult.models.editor}</p>
+                        <p><strong>Researcher Model:</strong> {deepResearchResult.models.researcher}</p>
+                    </div>
+                {:else if activeTab === 'plan'}
+                    <div class="tab-content">
+                        <div class="info-block">
+                            <h1>Research Plan</h1>
+                            <div class="chat-result">
+                                <div class="chat-header">
+                                    <h4>Plan Prompt</h4>
+                                    <button on:click={() => copyToClipboard(deepResearchResult.plan_prompt, 'plan prompt')} class="copy-button">
+                                        📋
+                                    </button>
+                                </div>
+                                <div style="text-align: justify; padding: 0 1rem;">{deepResearchResult.plan_prompt}</div>
+                                <p>{formatGenerationData(deepResearchResult.plan_result.generationData)}</p>
+                                <h3>Plan Content</h3>
+                                <div class="chat-content">
+                                    {@html formatChatContent(deepResearchResult.plan_result.content)}
+                                </div>
                             </div>
-                            <pre>{thread.prompt}</pre>
-                            
-                            {#if thread.firstPass}
-                                <div class="chat-result">
-                                    <div class="chat-header">
-                                        <h4>First Pass</h4>
-                                        <button on:click={() => copyToClipboard(thread.firstPass?.content||'', `thread ${index+1} first pass`)} class="copy-button">
-                                            📋
-                                        </button>
-                                    </div>
-                                    <p>{formatGenerationData(thread.firstPass.generationData)}</p>
-                                    <div class="chat-content">
-                                        {@html formatChatContent(thread.firstPass.content)}
-                                    </div>
-                                </div>
-                            {/if}
-                            
-                            {#if thread.refined}
-                                <div class="chat-result">
-                                    <div class="chat-header">
-                                        <h5>Refined</h5>
-                                        <button on:click={() => copyToClipboard(thread.refined?.content||'', `thread ${index+1} refined`)} class="copy-button">
-                                            📋
-                                        </button>
-                                    </div>
-                                    <p>{formatGenerationData(thread.refined.generationData)}</p>
-                                    <div class="chat-content">
-                                        {@html formatChatContent(thread.refined.content)}
-                                    </div>
-                                </div>
-                            {/if}
-                        </div>
-                    {/each}
-                </div>
-
-                <div class="info-block">
-                    <h3>Synthesis</h3>
-                    <div class="chat-result">
-                        <div class="chat-header">
-                            <h4>Synthesis Prompt</h4>
-                            <button on:click={() => copyToClipboard(deepResearchResult.synthesis_prompt, 'synthesis prompt')} class="copy-button">
-                                📋
-                            </button>
-                        </div>
-                        <pre>{deepResearchResult.synthesis_prompt}</pre>
-                        <p><strong>Generation Data:</strong> {formatGenerationData(deepResearchResult.synthesis_result.generationData)}</p>
-                        <h4>Synthesis Content</h4>
-                        <div class="chat-content">
-                            {@html formatChatContent(deepResearchResult.synthesis_result.content)}
                         </div>
                     </div>
-                </div>
-
-                {#if deepResearchResult.annotations && deepResearchResult.annotations.length > 0}
-                    <div class="info-block">
-                        <h4>Annotations</h4>
-                        <ol>
-                            {#each deepResearchResult.annotations as annotation}
-                                <li>{@html formatAnnotation(annotation)}</li>
+                {:else if activeTab === 'threads'}
+                    <div class="tab-content">
+                        <div class="info-block">
+                            <h1>Research Threads</h1>
+                            {#each deepResearchResult.research_threads as thread, index}
+                                <div class="thread-block">
+                                    <h3>Thread {index + 1}</h3>
+                                    <div class="chat-header">
+                                        <h4>Prompt</h4>
+                                        <button on:click={() => copyToClipboard(thread.prompt, `thread ${index+1} prompt`)} class="copy-button">
+                                            📋
+                                        </button>
+                                    </div>
+                                    <pre>{thread.prompt}</pre>
+                                    
+                                    {#if thread.firstPass}
+                                        <div class="chat-result">
+                                            <div class="chat-header">
+                                                <h4>First Pass</h4>
+                                                <button on:click={() => copyToClipboard(thread.firstPass?.content||'', `thread ${index+1} first pass`)} class="copy-button">
+                                                    📋
+                                                </button>
+                                            </div>
+                                            <p>{formatGenerationData(thread.firstPass.generationData)}</p>
+                                            <div class="chat-content">
+                                                {@html formatChatContent(thread.firstPass.content)}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                    
+                                    {#if thread.refined}
+                                        <div class="chat-result">
+                                            <div class="chat-header">
+                                                <h5>Refined</h5>
+                                                <button on:click={() => copyToClipboard(thread.refined?.content||'', `thread ${index+1} refined`)} class="copy-button">
+                                                    📋
+                                                </button>
+                                            </div>
+                                            <p>{formatGenerationData(thread.refined.generationData)}</p>
+                                            <div class="chat-content">
+                                                {@html formatChatContent(thread.refined.content)}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                </div>
                             {/each}
-                        </ol>
+                        </div>
+                    </div>
+                {:else if activeTab === 'synthesis'}
+                    <div class="tab-content">
+                        <div class="info-block">
+                            <h1>Synthesis</h1>
+                            <div class="chat-result">
+                                <div class="chat-header">
+                                    <h4>Synthesis Prompt</h4>
+                                    <button on:click={() => copyToClipboard(deepResearchResult.synthesis_prompt, 'synthesis prompt')} class="copy-button">
+                                        📋
+                                    </button>
+                                </div>
+                                <pre>{deepResearchResult.synthesis_prompt}</pre>
+                                <p><strong>Generation Data:</strong> {formatGenerationData(deepResearchResult.synthesis_result.generationData)}</p>
+                                <h4>Synthesis Content</h4>
+                                <div class="chat-content">
+                                    {@html formatChatContent(deepResearchResult.synthesis_result.content)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {:else if activeTab === 'annotations'}
+                    <div class="tab-content">
+                        {#if deepResearchResult.annotations && deepResearchResult.annotations.length > 0}
+                            <div class="info-block">
+                                <h4>Annotations</h4>
+                                <ol>
+                                    {#each deepResearchResult.annotations as annotation}
+                                        <li>{@html formatAnnotation(annotation)}</li>
+                                    {/each}
+                                </ol>
+                            </div>
+                        {:else}
+                            <p>No annotations found.</p>
+                        {/if}
                     </div>
                 {/if}
             </div>
@@ -177,7 +200,7 @@
 <style>
     .message-info {
         padding: 1rem;
-        max-height: 60vh;
+        height: 90vh;
         overflow-y: auto;
     }
     .info-section {
@@ -247,5 +270,25 @@
     li {
         margin: 0.25rem 0;
         font-size: 0.9rem;
+    }
+    .tabs {
+        display: flex;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #444;
+    }
+    .tabs button {
+        padding: 0.5rem 1rem;
+        background: none;
+        border: none;
+        color: #ccc;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    .tabs button.active {
+        border-bottom: 2px solid #4caf50;
+        color: #fff;
+    }
+    .tab-content {
+        margin-top: 1rem;
     }
 </style>

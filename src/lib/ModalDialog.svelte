@@ -73,7 +73,7 @@
     box-shadow: 0 4px 10px rgba(1,1,1,0.3);
     width: 80%;
     max-width: 860px;
-    max-height: 80%;
+    max-height: 92vh;
   }
 
   @media (max-width: 600px) {
