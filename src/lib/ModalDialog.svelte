@@ -34,7 +34,7 @@
 </script>
 
 {#if isOpen}
-<div class="modal-background" on:click|stopPropagation={handleBackgroundClick} 
+<div class="modal-background" on:click|stopPropagation={handleBackgroundClick} on:keydown|stopPropagation={handleKeydown}
      role="dialog" 
      aria-modal="true" 
      tabindex="0">
