@@ -31,6 +31,16 @@
         return `$${cost.toFixed(4)}`;
     }
 
+    function formatTime(seconds: number): string {
+        if (seconds < 60) {
+            return `${seconds.toFixed(1)}s`;
+        } else {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}m ${remainingSeconds.toFixed(1)}s`;
+        }
+    }
+
     function formatAnnotation(annotation: Annotation): string {
         if (annotation.type === 'url_citation') {
             return `URL Citation: <a href="${annotation.url_citation.url}" target="_blank" rel="noopener">${annotation.url_citation.url}</a> (${annotation.url_citation.title})`;
@@ -75,6 +85,7 @@
                 {#if activeTab === 'overview'}
                     <div class="tab-content">
                         <p><strong>Total Cost:</strong> {formatCost(deepResearchResult.total_cost)}</p>
+                        <p><strong>Total Generation Time:</strong> {formatTime(deepResearchResult.total_generation_time)}</p>
                         <p><strong>Reasoning Model:</strong> {deepResearchResult.models.reasoning}</p>
                         <p><strong>Editor Model:</strong> {deepResearchResult.models.editor}</p>
                         <p><strong>Researcher Model:</strong> {deepResearchResult.models.researcher}</p>
@@ -110,7 +121,7 @@
                                 <div class="thread-block">
                                     <div class="chat-header">
                                         <h4>Prompt</h4>
-                                        <button on:click={() => copyToClipboard(selectedThread.prompt, `thread ${selectedThreadIndex+1} prompt`)} class="copy-button">
+                                        <button on:click={() => copyToClipboard(selectedThread!.prompt, `thread ${selectedThreadIndex+1} prompt`)} class="copy-button">
                                             📋
                                         </button>
                                     </div>
@@ -120,7 +131,7 @@
                                         <div class="chat-result">
                                             <div class="chat-header">
                                                 <h4>First Pass</h4>
-                                                <button on:click={() => copyToClipboard(selectedThread.firstPass?.content||'', `thread ${selectedThreadIndex+1} first pass`)} class="copy-button">
+                                                <button on:click={() => copyToClipboard(selectedThread!.firstPass?.content||'', `thread ${selectedThreadIndex+1} first pass`)} class="copy-button">
                                                     📋
                                                 </button>
                                             </div>
@@ -135,7 +146,7 @@
                                         <div class="chat-result">
                                             <div class="chat-header">
                                                 <h5>Refined</h5>
-                                                <button on:click={() => copyToClipboard(selectedThread.refined?.content||'', `thread ${selectedThreadIndex+1} refined`)} class="copy-button">
+                                                <button on:click={() => copyToClipboard(selectedThread!.refined?.content||'', `thread ${selectedThreadIndex+1} refined`)} class="copy-button">
                                                     📋
                                                 </button>
                                             </div>
