@@ -25,6 +25,7 @@
     import SearchToolbar from "./SearchToolbar.svelte";
     import Resources from "./lib/Resources.svelte";
     import MessageInfo from "./lib/MessageInfo.svelte";
+    import GettingStarted from "./GettingStarted.svelte";
 
     /***************/
     /* Propertiess */
@@ -515,6 +516,8 @@
                         {/if}
                     </div>
                 </div>
+            {:else}
+                <GettingStarted />
             {/each}
         </div>
         {#if showScrollToBottom}
