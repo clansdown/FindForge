@@ -169,8 +169,8 @@ export interface ModelsForResearch {
 export interface ResearchResult {
     streamingResult: StreamingResult;
     generationData?: GenerationData;
-    resources? : Resource[];
-    annotations?: Annotation[];
+    resources : Resource[];
+    annotations: Annotation[];
 }
 
 /** Used in deep research for doing sub-queries */

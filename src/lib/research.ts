@@ -1,5 +1,5 @@
 import { callOpenRouterStreaming, fetchGenerationData } from './models';
-import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult } from './types';
+import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource } from './types';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -46,6 +46,7 @@ export async function doStandardResearch(
     abortController?: AbortController
 ): Promise<ResearchResult> {
     updateStatus('Starting research...');
+    const resources: Resource[] = [];
     
     // Prepare messages for API
     const messagesForAPI: ApiCallMessage[] = [];
@@ -90,7 +91,12 @@ export async function doStandardResearch(
             if(generationData) streamingResult.generationData = generationData;
         }
         updateStatus('Research completed');
-        return { streamingResult, generationData };
+        return { 
+            streamingResult, 
+            generationData, 
+            annotations: streamingResult.annotations || [], 
+            resources
+        };
     } catch (error) {
         updateStatus('Research failed');
         throw error;
