@@ -4,9 +4,11 @@
 
 <div class="text">
 
-<p>There's a lot of hype about AI, but in spite of that it can actually be a very useful research tool. The trick is to realize that it's a kind of machine, not any kind of actual intelligence. In particular, it's a searching machine. But it doesn't search for words. It searchies for <i>patterns</i>.</p>
+<center>(Type your message below and hit send to get started.)</center>
 
-<p>To explain how to use this research tool well, we've got to take a quick detour in explaining how the underlying AI works. To do that, let's start with calling it by its proper name: LLMs, or Large Language Models.</p>
+<p>There's a lot of hype about AI, but in spite of that it can actually be a very useful research tool. To explain how to use this research tool well, we've got to take a quick detour in explaining how the underlying AI works. To do that, let's start with calling it by its proper name: LLMs, or Large Language Models.</p>
+
+<p></p>
 
 <h2>What LLMs are good at.</h2>
 
