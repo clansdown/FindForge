@@ -55,6 +55,8 @@
     let deepSearchStrategy: 'auto' | 'deep' | 'broad' = 'auto'; // strategy for deep research
     let showResourcesFor: string | null = null; // message ID for which to show resources
     let showInfoFor: string | null = null; // message ID for which to show info
+    let currentConversationID = currentConversation.id;
+    let lastMessageCount = currentConversation.messages.length;
 
     const md = new MarkdownIt({
         html: false,
@@ -80,9 +82,26 @@
     /* Reactivity */
     /**************/
     $: localConfig = createConfigCopy(config);
-    // Scroll to bottom when messages change
-    $: if (currentConversation.messages.length) {
-        scrollToBottom();
+    // Handle conversation changes
+    $: {
+        if (currentConversationID !== currentConversation.id) {
+            currentConversationID = currentConversation.id;
+            if (conversationDiv) {
+                conversationDiv.scrollTop = 0;
+            }
+            // Update last message count to the current conversation's message length
+            lastMessageCount = currentConversation.messages.length;
+        }
+    }
+    // Scroll to bottom when new messages are added
+    $: {
+        const messageCount = currentConversation.messages.length;
+        if (messageCount !== lastMessageCount && messageCount > lastMessageCount) {
+            // Only scroll if the new message count is greater (meaning new messages were added)
+            scrollToBottom();
+        }
+        // Always update the lastMessageCount
+        lastMessageCount = messageCount;
     }
 
     // Disable web search if no credits available
@@ -203,8 +222,10 @@
     });
 
     function scrollToBottom() {
-        conversationDiv.scrollTop = conversationDiv.scrollHeight;
-        showScrollToBottom = false;
+        if (conversationDiv) {
+            conversationDiv.scrollTop = conversationDiv.scrollHeight;
+            showScrollToBottom = false;
+        }
     }
 
     // Handle textarea key events
@@ -220,8 +241,6 @@
      */
     async function sendMessage() {
         if (!userInput.trim() || generating) return;
-        scrollToBottom();
-        await tick();
 
         // Create user message with attachments
         const userMessage: MessageData = {
@@ -254,10 +273,9 @@
         };
         currentConversation.messages.push(assistantMessage);
         currentConversation.messages = currentConversation.messages; // Trigger reactivity
-        await tick(); // Ensure DOM updates before scrolling
+        await tick(); // Ensure DOM updates
         scrollToBottom();
-        await tick();
-
+        
         // Clear attachments after adding to message
         currentMessageContext = [];
 
@@ -318,6 +336,7 @@
                         currentConversation.messages = currentConversation.messages.map((msg) =>
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
+                        scrollToBottom();
                     },
                     (status) => {
                         console.log(status);

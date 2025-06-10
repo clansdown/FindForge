@@ -10,7 +10,7 @@
 
 <h2>What LLMs are good at.</h2>
 
-<p>LLMs are created by a "training" process where a model is constructed through analyzing terrabytes of data for the patterns in it. Once trained, LLMs are good at reproducing the patterns that exist in their training data. Up until this time, computers were limited to searching for words and phrases;  the combinatorics of word patterns are where the immense power of LLMs come from.</p>
+<p>LLMs are created by a "training" process where a model is constructed through analyzing terabytes of data for the patterns in it. Once trained, LLMs are good at reproducing the patterns that exist in their training data. Up until this time, computers were limited to searching for words and phrases;  the combinatorics of word patterns are where the immense power of LLMs come from.</p>
 
 <p>Now, when I say patterns, I don't mean patterns of specific words. If you have enough training data, "tip the waiter," "give money to the food server," and "pay the guy who brought you your food" have the same underlying pattern. (Because of all the other patterns in the training data which make tip in the verb part of a sentence show up with the same kind of places as "give money to". This is why the training data needs to be so immense.)</p>
 
