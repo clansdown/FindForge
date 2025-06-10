@@ -57,10 +57,12 @@ export class Config {
         this.synthesisPrompts = [
             {
                 name: 'Default',
-                prompt: this.systemPrompt,
+                prompt: this.deepResearchSystemPrompt,
             }
         ];
     }
+
+   
 }
 
 export interface StreamingResult {

@@ -24,6 +24,9 @@
     let currentSystemPromptIndex: number = 0;
     let currentSystemPromptName: string = '';
     let currentSystemPromptText: string = '';
+    let currentSynthesisPromptIndex: number = 0;
+    let currentSynthesisPromptName: string = '';
+    let currentSynthesisPromptText: string = '';
 
     $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
 
@@ -63,6 +66,14 @@
         currentSystemPromptText = '';
     }
 
+    $: if (currentSynthesisPromptIndex >= 0 && currentSynthesisPromptIndex < localConfig.synthesisPrompts.length) {
+        currentSynthesisPromptName = localConfig.synthesisPrompts[currentSynthesisPromptIndex].name;
+        currentSynthesisPromptText = localConfig.synthesisPrompts[currentSynthesisPromptIndex].prompt;
+    } else if (currentSynthesisPromptIndex === -1) {
+        currentSynthesisPromptName = '';
+        currentSynthesisPromptText = '';
+    }
+
     function opened() {
         console.log("Settings dialog opened");
         // Create a deep copy when dialog opens
@@ -76,6 +87,16 @@
             currentSystemPromptIndex = -1;
             currentSystemPromptName = '';
             currentSystemPromptText = '';
+        }
+        // Initialize synthesis prompt UI
+        if (localConfig.synthesisPrompts.length > 0) {
+            currentSynthesisPromptIndex = 0;
+            currentSynthesisPromptName = localConfig.synthesisPrompts[0].name;
+            currentSynthesisPromptText = localConfig.synthesisPrompts[0].prompt;
+        } else {
+            currentSynthesisPromptIndex = -1;
+            currentSynthesisPromptName = '';
+            currentSynthesisPromptText = '';
         }
         // Fetch models when dialog opens
         modelFetchError = null;
@@ -157,6 +178,38 @@
                 localConfig.systemPrompts[currentSystemPromptIndex] = {
                     name: currentSystemPromptName,
                     prompt: currentSystemPromptText
+                };
+            }
+        }
+    }
+
+    function deleteSynthesisPrompt() {
+        if (currentSynthesisPromptIndex > 0) { // don't delete the first one (Default)
+            localConfig.synthesisPrompts.splice(currentSynthesisPromptIndex, 1);
+            // Switch to the first one
+            currentSynthesisPromptIndex = 0;
+        }
+    }
+
+    function discardSynthesisPrompt() {
+        // Switch to the first one (Default)
+        currentSynthesisPromptIndex = 0;
+    }
+
+    function saveSynthesisPrompt() {
+        if (currentSynthesisPromptIndex === -1) {
+            // Add new
+            localConfig.synthesisPrompts.push({
+                name: currentSynthesisPromptName,
+                prompt: currentSynthesisPromptText
+            });
+            currentSynthesisPromptIndex = localConfig.synthesisPrompts.length - 1;
+        } else {
+            // Update existing
+            if (currentSynthesisPromptIndex >= 0 && currentSynthesisPromptIndex < localConfig.synthesisPrompts.length) {
+                localConfig.synthesisPrompts[currentSynthesisPromptIndex] = {
+                    name: currentSynthesisPromptName,
+                    prompt: currentSynthesisPromptText
                 };
             }
         }
@@ -249,6 +302,32 @@
         <!-- Deep Research Configuration -->
         <!------------------------------>
     {:else if currentTab === "deep-research"}
+        <div class="form-group">
+            <label for="synthesis-prompt-select">Synthesis Prompt:</label>
+            <select id="synthesis-prompt-select" bind:value={currentSynthesisPromptIndex}>
+                {#each localConfig.synthesisPrompts as prompt, index (index)}
+                    <option value={index}>{prompt.name}</option>
+                {/each}
+                <option value={-1}>New...</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="synthesis-prompt-name">Name:</label>
+            <input type="text" id="synthesis-prompt-name" bind:value={currentSynthesisPromptName} />
+        </div>
+
+        <div class="form-group">
+            <label for="synthesis-prompt">Prompt:</label>
+            <textarea id="synthesis-prompt" bind:value={currentSynthesisPromptText} rows="4"></textarea>
+        </div>
+
+        <div class="form-group button-group">
+            <button on:click={deleteSynthesisPrompt} disabled={currentSynthesisPromptIndex === 0}>Delete</button>
+            <button on:click={discardSynthesisPrompt}>Discard</button>
+            <button on:click={saveSynthesisPrompt}>Save</button>
+        </div>
+
         <div class="form-group">
             <label for="deep-research-system-prompt">Deep Research System Prompt:</label>
             <textarea
