@@ -32,8 +32,16 @@
       {#each filteredModels as model}
         <option value={model.id}>
           {formatModelName(model.name)}
-          (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+          (${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
         </option>
+      {/each}
+    </select>
+  </div>
+
+  <div class="toolbar-group" title="System prompt to use for this conversation">
+    <select bind:value={config.systemPrompt}>
+      {#each config.systemPrompts as prompt}
+        <option value={prompt.prompt}>{prompt.name}</option>
       {/each}
     </select>
   </div>
@@ -41,10 +49,9 @@
   <div class="toolbar-group">
     <label title="If enabled, the LLM can look up information on the web. This costs extra money.">
       <input type="checkbox" bind:checked={config.allowWebSearch} />
-      Web Search
+      🌐
     </label>
     <label class="ms-2" title="The maximum number of results to allow the LLM to request. At time of writing, they cost $.004 per result.">
-      Max:
       <input style="width: 2rem;" type="number" bind:value={config.webSearchMaxResults} min="1" max="10" />
     </label>
   </div>
