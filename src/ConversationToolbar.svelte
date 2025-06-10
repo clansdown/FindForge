@@ -81,6 +81,13 @@
         {/each}
       </select>
     </div>
+    <div class="toolbar-group" title="Synthesis prompt for deep research">
+      <select id="synthesis-prompt" bind:value={config.deepResearchSystemPrompt}>
+        {#each config.synthesisPrompts as prompt}
+          <option value={prompt.prompt}>{prompt.name}</option>
+        {/each}
+      </select>
+    </div>
     <div class="toolbar-group" title="Research strategy">
       <select id="search-strategy" bind:value={deepSearchStrategy}>
         <option value="auto">Auto</option>

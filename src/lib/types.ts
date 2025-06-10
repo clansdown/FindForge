@@ -253,5 +253,6 @@ export interface DeepResearchResult {
     synthesis_result: ChatResult;
     annotations?: Annotation[];
     resources : Resource[];
+    elapsed_time: number; // wall-clock time taken for the deep research (in seconds)
     total_generation_time: number; // total time taken for all generations in the deep research (in seconds)
 }

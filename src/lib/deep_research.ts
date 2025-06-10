@@ -13,6 +13,8 @@ export async function doDeepResearch(
     strategy : 'deep' | 'broad' | 'auto',
     messages : ApiCallMessage[], 
     statusCallback : (status: string) => void): Promise<DeepResearchResult> {
+        const startTime = Date.now(); // Record start time for elapsed_time calculation
+
         function parseResourcesFromContent(content: string): Resource[] {
             const resources: Resource[] = [];
             const resourceRegex = /<RESOURCE>(.*?)<\/RESOURCE>/gs;
@@ -295,6 +297,8 @@ export async function doDeepResearch(
 
         statusCallback("Deep research completed successfully.");
 
+        const elapsed_time = (Date.now() - startTime) / 1000; // in seconds
+
         return {
             id: generateID(),
             total_cost,
@@ -308,7 +312,8 @@ export async function doDeepResearch(
             content: answer_content,
             annotations: allAnnotations,
             resources: allResources,
-            total_generation_time: total_generation_time_ms / 1000 // convert to seconds
+            total_generation_time: total_generation_time_ms / 1000, // convert to seconds
+            elapsed_time
         };
 }
 
