@@ -47,6 +47,7 @@ export async function doStandardResearch(
 ): Promise<ResearchResult> {
     updateStatus('Starting research...');
     const resources: Resource[] = [];
+    const systemPromptUsed = config.systemPrompt || undefined;
     
     // Prepare messages for API
     const messagesForAPI: ApiCallMessage[] = [];
@@ -92,6 +93,7 @@ export async function doStandardResearch(
         }
         updateStatus('Research completed');
         return { 
+            systemPrompt: systemPromptUsed,
             streamingResult, 
             generationData, 
             annotations: streamingResult.annotations || [], 
