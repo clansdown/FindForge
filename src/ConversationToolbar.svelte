@@ -76,7 +76,7 @@
         {#each filteredModels as model}
           <option value={model.id}>
             {formatModelName(model.name)}
-            (In: ${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, Out: ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+            (${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
           </option>
         {/each}
       </select>
