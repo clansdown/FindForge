@@ -201,23 +201,23 @@
                 <h3>Research Details</h3>
                 <p><strong>Created:</strong> {new Date(researchResult.streamingResult.created * 1000).toLocaleString()}</p>
                 <p><strong>Model:</strong> {researchResult.streamingResult.model}</p>
-                {#if researchResult.systemPrompt}
-                    <div class="info-block">
-                        <div class="chat-header">
-                            <h4>System Prompt</h4>
-                            <button on:click={() => copyToClipboard(researchResult.systemPrompt, 'system prompt')} class="copy-button">
-                                📋
-                            </button>
-                        </div>
-                        <pre>{researchResult.systemPrompt}</pre>
-                    </div>
-                {/if}
                 {#if researchResult.generationData}
                     <p><strong>Total Cost:</strong> {formatCost(researchResult.generationData.total_cost)}</p>
                     <p><strong>Generation Time:</strong> {((researchResult.generationData.generation_time || 0)/1000).toFixed(1)}s</p>
                     <p><strong>Streamed:</strong> {researchResult.generationData.streamed ? 'Yes' : 'No'}</p>
                     <p><strong>Canceled:</strong> {researchResult.generationData.canceled ? 'Yes' : 'No'}</p>
                     <p><strong>Finish Reason:</strong> {researchResult.generationData.finish_reason}</p>
+                {/if}
+                {#if researchResult.systemPrompt}
+                    <div class="info-block">
+                        <div class="chat-header">
+                            <h4>System Prompt</h4>
+                            <button on:click={() => copyToClipboard(researchResult.systemPrompt||'', 'system prompt')} class="copy-button">
+                                📋
+                            </button>
+                        </div>
+                        <pre>{researchResult.systemPrompt}</pre>
+                    </div>
                 {/if}
 
                 {#if researchResult.streamingResult.annotations && researchResult.streamingResult.annotations.length > 0}
