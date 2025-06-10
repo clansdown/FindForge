@@ -180,12 +180,6 @@ export interface ModelsForResearch {
     researcher: string;
 }
 
-export interface ResearchResult {
-    streamingResult: StreamingResult;
-    generationData?: GenerationData;
-    resources : Resource[];
-    annotations: Annotation[];
-}
 
 /** Used in deep research for doing sub-queries */
 export interface ResearchThread {
@@ -209,6 +203,15 @@ export interface SystemPrompt {
     name: string;
     prompt: string;
 }
+
+export interface ResearchResult {
+    systemPrompt?: string;
+    streamingResult: StreamingResult;
+    generationData?: GenerationData;
+    resources : Resource[];
+    annotations: Annotation[];
+}
+
 
 export interface DeepResearchResult {
     id: string;
