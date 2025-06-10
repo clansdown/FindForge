@@ -177,6 +177,7 @@ export interface ResearchResult {
 export interface ResearchThread {
     prompt: string; // the prompt for the sub-query
     firstPass? : ChatResult;
+    refiningPrompt? : string; // the prompt for refining the first pass
     refined? : ChatResult;
 }
 

@@ -368,9 +368,10 @@ export async function refine_result(
     maxWebRequests: number,
     reasoningEffort: 'low' | 'medium' | 'high'
 ): Promise<{ chatResult: ChatResult, generationData: GenerationData | undefined }> {
-    const systemPrompt = createSystemApiCallMessage(
-        `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`
-    );
+    const system_prompt_string =
+        `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`;
+    thread.refiningPrompt = system_prompt_string;
+    const systemPrompt = createSystemApiCallMessage(system_prompt_string);
 
     // Strip out the RESOURCES section from the content to refine
     let contentToRefine = thread.firstPass?.content || '';
