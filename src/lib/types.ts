@@ -237,6 +237,7 @@ export interface ResearchResult {
     generationData?: GenerationData;
     resources : Resource[];
     annotations: Annotation[];
+    contextWasIncluded?: boolean; // true if the previous messages were included in the context
 }
 
 
@@ -245,6 +246,7 @@ export interface DeepResearchResult {
     total_cost: number;
     models: ModelsForResearch;
     content: string;
+    contextWasIncluded?: boolean; // true if the previous messages were included in the context
     plan_prompt: string;
     plan_result: ChatResult;
     research_plan: string;

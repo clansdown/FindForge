@@ -313,7 +313,8 @@ export async function doDeepResearch(
             annotations: allAnnotations,
             resources: allResources,
             total_generation_time: total_generation_time_ms / 1000, // convert to seconds
-            elapsed_time
+            elapsed_time,
+            contextWasIncluded: true
         };
 }
 

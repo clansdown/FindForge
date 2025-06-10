@@ -9,3 +9,10 @@
 * card catalog functionality (reading many documents and characterizing them according to characteristics the user picks for the card catalog)
 
 * add the ability to copy code samples and other block quotes in the markdown rather than the whole markdown
+
+* add the ability to run the same user prompt with multiple system prompts in parallel.
+
+* add the ability to run the same user prompt with multiple models in parallel.
+
+* add the ability to run, in paralle, particular combinations of model and user prompt
+

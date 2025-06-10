@@ -97,7 +97,8 @@ export async function doStandardResearch(
             streamingResult, 
             generationData, 
             annotations: streamingResult.annotations || [], 
-            resources
+            resources,
+            contextWasIncluded: config.includePreviousMessagesAsContext
         };
     } catch (error) {
         updateStatus('Research failed');
