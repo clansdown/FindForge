@@ -18,6 +18,8 @@ export class Config {
     deepResearchMaxSubqrequests!: number;
     deepResearchMaxPlanningTokens!: number;
     deepResearchMaxSynthesisTokens!: number;
+    systemPrompts: SystemPrompt[];
+    synthesisPrompts : SystemPrompt[];
 
     constructor() {
         this.historyWidth = 400;
@@ -46,6 +48,18 @@ export class Config {
         this.deepResearchWebRequestsPerSubrequest = 6;
         this.deepResearchMaxPlanningTokens = 16384;
         this.deepResearchMaxSynthesisTokens = 16384;
+        this.systemPrompts = [
+            {
+                name: 'Default',
+                prompt: this.systemPrompt
+            },
+        ];
+        this.synthesisPrompts = [
+            {
+                name: 'Default',
+                prompt: this.systemPrompt,
+            }
+        ];
     }
 }
 
@@ -189,6 +203,11 @@ export interface Resource {
     type?: string;
     purpose? : string;
     summary?: string;
+}
+
+export interface SystemPrompt {
+    name: string;
+    prompt: string;
 }
 
 export interface DeepResearchResult {

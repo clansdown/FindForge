@@ -21,6 +21,9 @@
     let modelFilter = "";
     let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;
+    let currentSystemPromptIndex: number = 0;
+    let currentSystemPromptName: string = '';
+    let currentSystemPromptText: string = '';
 
     $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
 
@@ -52,10 +55,28 @@
         estimatedDeepResearchCost = 'Error: ' + error.message;
     });
 
+    $: if (currentSystemPromptIndex >= 0 && currentSystemPromptIndex < localConfig.systemPrompts.length) {
+        currentSystemPromptName = localConfig.systemPrompts[currentSystemPromptIndex].name;
+        currentSystemPromptText = localConfig.systemPrompts[currentSystemPromptIndex].prompt;
+    } else if (currentSystemPromptIndex === -1) {
+        currentSystemPromptName = '';
+        currentSystemPromptText = '';
+    }
+
     function opened() {
         console.log("Settings dialog opened");
         // Create a deep copy when dialog opens
         localConfig = JSON.parse(JSON.stringify(config));
+        // Initialize system prompt UI
+        if (localConfig.systemPrompts.length > 0) {
+            currentSystemPromptIndex = 0;
+            currentSystemPromptName = localConfig.systemPrompts[0].name;
+            currentSystemPromptText = localConfig.systemPrompts[0].prompt;
+        } else {
+            currentSystemPromptIndex = -1;
+            currentSystemPromptName = '';
+            currentSystemPromptText = '';
+        }
         // Fetch models when dialog opens
         modelFetchError = null;
         if (config.apiKey) {
@@ -109,6 +130,38 @@
         localConfig = localConfig;
     }
 
+    function deleteSystemPrompt() {
+        if (currentSystemPromptIndex > 0) { // don't delete the first one (Default)
+            localConfig.systemPrompts.splice(currentSystemPromptIndex, 1);
+            // Switch to the first one
+            currentSystemPromptIndex = 0;
+        }
+    }
+
+    function discardSystemPrompt() {
+        // Switch to the first one (Default)
+        currentSystemPromptIndex = 0;
+    }
+
+    function saveSystemPrompt() {
+        if (currentSystemPromptIndex === -1) {
+            // Add new
+            localConfig.systemPrompts.push({
+                name: currentSystemPromptName,
+                prompt: currentSystemPromptText
+            });
+            currentSystemPromptIndex = localConfig.systemPrompts.length - 1;
+        } else {
+            // Update existing
+            if (currentSystemPromptIndex >= 0 && currentSystemPromptIndex < localConfig.systemPrompts.length) {
+                localConfig.systemPrompts[currentSystemPromptIndex] = {
+                    name: currentSystemPromptName,
+                    prompt: currentSystemPromptText
+                };
+            }
+        }
+    }
+
     function save() {
         setAvailableModelsConfig(openrouterModels);
         Object.assign(config, localConfig);
@@ -137,8 +190,29 @@
     <!---------------------------->
     {#if currentTab === "general"}
         <div class="form-group">
-            <label for="system-prompt">System Prompt:</label>
-            <textarea id="system-prompt" bind:value={localConfig.systemPrompt} rows="4"></textarea>
+            <label for="system-prompt-select">System Prompt:</label>
+            <select id="system-prompt-select" bind:value={currentSystemPromptIndex}>
+                {#each localConfig.systemPrompts as prompt, index (index)}
+                    <option value={index}>{prompt.name}</option>
+                {/each}
+                <option value={-1}>New...</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="system-prompt-name">Name:</label>
+            <input type="text" id="system-prompt-name" bind:value={currentSystemPromptName} />
+        </div>
+
+        <div class="form-group">
+            <label for="system-prompt">Prompt:</label>
+            <textarea id="system-prompt" bind:value={currentSystemPromptText} rows="4"></textarea>
+        </div>
+
+        <div class="form-group button-group">
+            <button on:click={deleteSystemPrompt} disabled={currentSystemPromptIndex === 0}>Delete</button>
+            <button on:click={discardSystemPrompt}>Discard</button>
+            <button on:click={saveSystemPrompt}>Save</button>
         </div>
 
         <div class="form-group">
