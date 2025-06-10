@@ -21,6 +21,9 @@ export class Config {
     systemPrompts: SystemPrompt[];
     synthesisPrompts : SystemPrompt[];
 
+    static defaultSystemPrompt ='You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
+    static defaultDeepResearchSynthesisPrompt = `Address the user's question or goal directly. The answer should be detailed, informative, clear, and dense. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant.`; // appended to the internal system prompt
+
     constructor() {
         this.historyWidth = 400;
         this.apiKey = '';
@@ -62,7 +65,29 @@ export class Config {
         ];
     }
 
-   
+    ensureDefaults() {
+        // Ensure systemPrompts has a Default prompt
+        const defaultSystemPrompt = this.systemPrompts.find(p => p.name === 'Default');
+        if (defaultSystemPrompt) {
+            defaultSystemPrompt.prompt = Config.defaultSystemPrompt;
+        } else {
+            this.systemPrompts.unshift({
+                name: 'Default',
+                prompt: Config.defaultSystemPrompt
+            });
+        }
+
+        // Ensure synthesisPrompts has a Default prompt
+        const defaultSynthesisPrompt = this.synthesisPrompts.find(p => p.name === 'Default');
+        if (defaultSynthesisPrompt) {
+            defaultSynthesisPrompt.prompt = Config.defaultDeepResearchSynthesisPrompt;
+        } else {
+            this.synthesisPrompts.unshift({
+                name: 'Default',
+                prompt: Config.defaultDeepResearchSynthesisPrompt
+            });
+        }
+    }
 }
 
 export interface StreamingResult {

@@ -16,6 +16,7 @@ export function loadConfig(): Config {
     try {
       const parsed = JSON.parse(saved);
       Object.assign(config, parsed);
+      config.ensureDefaults(); // Ensure defaults are set
     } catch (e) {
       console.error('Failed to parse saved config', e);
     }

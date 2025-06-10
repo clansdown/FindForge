@@ -303,7 +303,7 @@
         <!------------------------------>
     {:else if currentTab === "deep-research"}
         <div class="form-group">
-            <label for="synthesis-prompt-select">Synthesis Prompt:</label>
+            <label for="synthesis-prompt-select">Synthesis System Prompt:</label>
             <select id="synthesis-prompt-select" bind:value={currentSynthesisPromptIndex}>
                 {#each localConfig.synthesisPrompts as prompt, index (index)}
                     <option value={index}>{prompt.name}</option>
@@ -326,16 +326,6 @@
             <button on:click={deleteSynthesisPrompt} disabled={currentSynthesisPromptIndex === 0}>Delete</button>
             <button on:click={discardSynthesisPrompt}>Discard</button>
             <button on:click={saveSynthesisPrompt}>Save</button>
-        </div>
-
-        <div class="form-group">
-            <label for="deep-research-system-prompt">Deep Research System Prompt:</label>
-            <textarea
-                id="deep-research-system-prompt"
-                bind:value={localConfig.deepResearchSystemPrompt}
-                rows="4"
-                placeholder="Optional. Specify special instructions for the LLM..."
-            ></textarea>
         </div>
 
         <div class="form-group">
