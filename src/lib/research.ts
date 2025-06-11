@@ -1,4 +1,4 @@
-import { callOpenRouterStreaming, fetchGenerationData } from './models';
+import { callOpenRouterChat, callOpenRouterStreaming, fetchGenerationData } from './models';
 import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource } from './types';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
@@ -104,4 +104,68 @@ export async function doStandardResearch(
         updateStatus('Research failed');
         throw error;
     }
+}
+
+export async function doParallelResearch(
+    maxTokens: number,
+    config: Config,
+    userMessages: ApiCallMessage[],
+    history: MessageData[],
+    abortController?: AbortController
+): Promise<ResearchResult[]> {
+    const systemPromptUsed = config.systemPrompt || undefined;
+    const maxWebRequests = config.allowWebSearch ? config.webSearchMaxResults : 0;
+    const resources: Resource[] = [];
+
+    // Prepare base messages (system + history) that are common to all requests
+    const baseMessages: ApiCallMessage[] = [];
+    if (config.systemPrompt) {
+        baseMessages.push({ 
+            role: 'system', 
+            content: [{ type: 'text', text: config.systemPrompt }] 
+        });
+    }
+    if (config.includePreviousMessagesAsContext) {
+        for (const m of history) {
+            if (!m.hidden) {
+                baseMessages.push(convertMessageToApiCallMessage(m));
+            }
+        }
+    }
+
+    // Process each user message in parallel
+    const promises = userMessages.map(async (userMessage) => {
+        // Create full message list for this request
+        const messagesForAPI = [...baseMessages, userMessage];
+        
+        try {
+            const chatResult = await callOpenRouterChat(
+                config.apiKey,
+                config.defaultModel,
+                maxTokens,
+                maxWebRequests,
+                messagesForAPI,
+                abortController
+            );
+            
+            let generationData: GenerationData | undefined = undefined;
+            if (chatResult.requestID) {
+                generationData = await fetchGenerationData(config.apiKey, chatResult.requestID);
+            }
+            
+            return { 
+                systemPrompt: systemPromptUsed,
+                streamingResult: chatResult, 
+                generationData, 
+                annotations: chatResult.annotations || [], 
+                resources: [...resources],
+                contextWasIncluded: config.includePreviousMessagesAsContext
+            };
+        } catch (error) {
+            console.error('Error in parallel research:', error);
+            throw error;
+        }
+    });
+
+    return Promise.all(promises);
 }
