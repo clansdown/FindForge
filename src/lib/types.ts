@@ -24,19 +24,7 @@ export class Config {
     deepResearchMaxPlanningTokens!: number;
     deepResearchMaxSynthesisTokens!: number;
     parallelSystemPromptNames: string[] = []; // names of selected system prompts for parallel research
-    deepResearchPhases: {
-        strategy: boolean;
-        planning: boolean;
-        execution: boolean;
-        refinement: boolean;
-        synthesis: boolean;
-    } = {
-        strategy: true,
-        planning: true,
-        execution: true,
-        refinement: true,
-        synthesis: true
-    };
+    deepResearchPhases: number = 1; // number of phases in deep research;
     systemPrompts: SystemPrompt[];
     synthesisPrompts : SystemPrompt[];
 
