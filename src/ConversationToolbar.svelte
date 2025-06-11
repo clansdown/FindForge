@@ -12,6 +12,7 @@
 
   let allModels: Model[] = [];
   let modelFilter = '';
+  let experimentMode = false; // new state for experiment mode
 
   $: filteredModels = allModels
     .filter(model => config.availableModels.includes(model.id))
@@ -66,6 +67,9 @@
   <div class="toolbar-group">
     <PushButton title="Enable deep searching" bind:pushed={deepSearch}>⛏️</PushButton>
   </div>
+  <div class="toolbar-group">
+    <PushButton title="Enable experimentation features" bind:pushed={experimentMode}>🔬</PushButton>
+  </div>
 </div>
 
 {#if deepSearch}
@@ -114,6 +118,16 @@
 </div>
 {/if}
 
+{#if experimentMode}
+<div class="toolbar experiment-toolbar flex flex-row flex-between">
+  <div class="flex flex-row flex-wrap gap-2">
+    <div class="toolbar-group">
+      <PushButton title="Execute research in parallel" bind:pushed={config.parallelResearch}>⇉</PushButton>
+    </div>
+  </div>
+</div>
+{/if}
+
 <style>
   .toolbar {
     display: flex;
@@ -142,7 +156,7 @@
     padding: 0.25rem;
   }
 
-  .deep-search-toolbar {
+  .deep-search-toolbar, .experiment-toolbar {
     border-top: 1px solid #888;
     margin-top: -0.5rem;
     padding-top: 0.5rem;

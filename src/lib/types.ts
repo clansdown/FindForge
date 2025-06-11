@@ -18,6 +18,7 @@ export class Config {
     deepResearchMaxSubqrequests!: number;
     deepResearchMaxPlanningTokens!: number;
     deepResearchMaxSynthesisTokens!: number;
+    parallelResearch: boolean = false; // new flag for parallel research execution
     systemPrompts: SystemPrompt[];
     synthesisPrompts : SystemPrompt[];
 
