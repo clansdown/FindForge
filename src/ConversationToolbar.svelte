@@ -3,9 +3,11 @@
   import type { Config, Model } from './lib/types';
   import { onMount } from 'svelte';
   import PushButton from './lib/PushButton.svelte';
-    import { formatModelName } from './lib/util';
-    import { estimateDeepResearchCost } from './lib/deep_research';
-  
+  import { formatModelName } from './lib/util';
+  import { estimateDeepResearchCost } from './lib/deep_research';
+  import Select from 'svelte-select';
+
+    
   export let config: Config;
   export let deepSearch = false; // bound from parent
   export let deepSearchStrategy: 'auto' | 'deep' | 'broad' = 'auto'; // bound from parent
@@ -124,6 +126,19 @@
     <div class="toolbar-group">
       <PushButton title="Execute research in parallel" bind:pushed={config.parallelResearch}>⇉</PushButton>
     </div>
+    {#if config.parallelResearch}
+      <div class="toolbar-group" title="Select system prompts to use in parallel research">
+        <label>Prompts:</label>
+        <Select
+          multiple
+          items={config.systemPrompts.map(p => ({ value: p.name, label: p.name }))}
+          selected={config.parallelSystemPromptNames.map(name => ({ value: name, label: name }))}
+          on:change={(e) => config.parallelSystemPromptNames = e.detail.map(item => item.value)}
+          placeholder="Select prompts..."
+          style="width: 200px;"
+        />
+      </div>
+    {/if}
   </div>
 </div>
 {/if}
