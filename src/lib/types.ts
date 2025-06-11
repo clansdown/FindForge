@@ -263,6 +263,9 @@ export interface DeepResearchResult {
     plan_prompt: string;
     plan_result: ChatResult;
     research_plan: string;
+    plan_prompts: string[]; // prompts used for the research plan
+    plan_results: ChatResult[]; // results of the research plan
+    research_plans: string[]; // research plans for each thread
     research_threads : ResearchThread[];
     synthesis_prompt: string;
     synthesis_result: ChatResult;
