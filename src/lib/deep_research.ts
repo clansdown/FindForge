@@ -376,6 +376,120 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
     return { strategy, chatResult: response };
 }
 
+export async function execute_research_thread(
+    apiKey: string,
+    modelId: string,        // for the researcher (first pass)
+    editorModelId: string,  // for the editor (refinement)
+    prompt: string,
+    userQuery: string,
+    maxTokens: number,
+    maxWebRequests: number,
+    reasoningEffort: 'low' | 'medium' | 'high',
+    systemPromptForSubquery: string,
+    systemPromptForRefinement: string
+): Promise<ResearchThread> {
+    // Create the thread object
+    const thread: ResearchThread = {
+        prompt: prompt,
+        generationPromises: [],
+        handleGenerationData: (data: GenerationData) => {
+            // This will be called when generation data is available
+        }
+    };
+
+    /*********************/
+    /* First pass: sub-query */
+    /*********************/
+    const subquery_system_prompt = createSystemApiCallMessage(systemPromptForSubquery);
+    const messages_for_subquery: ApiCallMessage[] = [
+        subquery_system_prompt,
+        {
+            role: 'user',
+            content: [{ type: 'text', text: prompt }]
+        }
+    ];
+
+    const firstPassResult = await callOpenRouterChat(
+        apiKey,
+        modelId,
+        maxTokens,
+        maxWebRequests,
+        messages_for_subquery,
+        undefined,
+        reasoningEffort
+    );
+    thread.firstPass = firstPassResult;
+
+    // Start fetching generation data for first pass
+    const firstPassGenPromise = (async () => {
+        const data = await fetchGenerationData(apiKey, firstPassResult.requestID);
+        if (data) {
+            firstPassResult.generationData = data;
+            thread.handleGenerationData(data);
+        }
+        return data;
+    })();
+    thread.generationPromises.push(firstPassGenPromise);
+
+    /*********************/
+    /* Refinement pass */
+    /*********************/
+    thread.refiningPrompt = systemPromptForRefinement;
+    const systemPrompt = createSystemApiCallMessage(systemPromptForRefinement);
+
+    // Strip out the RESOURCES section from the content to refine
+    let contentToRefine = thread.firstPass?.content || '';
+    const resourcesStart = contentToRefine.indexOf('<RESOURCES>');
+    if (resourcesStart !== -1) {
+        const resourcesEnd = contentToRefine.indexOf('</RESOURCES>', resourcesStart);
+        if (resourcesEnd !== -1) {
+            contentToRefine = contentToRefine.substring(0, resourcesStart) + contentToRefine.substring(resourcesEnd + '</RESOURCES>'.length);
+        }
+    }
+
+    const userMessage: ApiCallMessage = {
+        role: 'user',
+        content: [{
+            type: 'text',
+            text: userQuery
+        }]
+    };
+
+    const assistantMessage: ApiCallMessage = {
+        role: 'assistant',
+        content: [{
+            type: 'text',
+            text: `Research result to refine:\n${contentToRefine}`
+        }]
+    };
+
+    const messages: ApiCallMessage[] = [systemPrompt, userMessage, assistantMessage];
+
+    const refinedResult = await callOpenRouterChat(
+        apiKey,
+        editorModelId,
+        maxTokens,
+        0,   // no web requests for refinement
+        messages,
+        undefined,
+        reasoningEffort
+    );
+    thread.refined = refinedResult;
+
+    // Start fetching generation data for refinement
+    const refinedGenPromise = (async () => {
+        const data = await fetchGenerationData(apiKey, refinedResult.requestID);
+        if (data) {
+            refinedResult.generationData = data;
+            thread.handleGenerationData(data);
+        }
+        return data;
+    })();
+    thread.generationPromises.push(refinedGenPromise);
+
+    return thread;
+}
+
 export async function refine_result(
     apiKey: string,
     modelId: string,
