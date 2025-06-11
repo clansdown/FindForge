@@ -119,71 +119,6 @@ export async function doDeepResearch(
 
         statusCallback(`Executing research plan with ${prompts.length} research threads.`);
 
-
-
-        // Execute all prompts in parallel
-        const subquery_system_prompt = createSystemApiCallMessage(
-            `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested. Provide anything that may be relevant in an information dense manner. After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. Inside of the RESOURCES section, provide a list of the resources you used to gather information. Each resource should begin with <RESOURCE> and end with </RESOURCE>. The resource should begin with the URL wrapped in <URL> and </URL> tags. Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), author or authors (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). Also give a description of the kind of resource it is (e.g. journal article, scientific study, personal blog post, professional blog post, corporate blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. Indicate why the resource was written and published, especially if it is meant to persuade, educate, get business, advertise, provide SEO chum, etc. wrapped in <PURPOSE> and </PURPOSE> tags. Include a two to four sentence rich summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`
-        );
-        const perPromptWebRequests = config.deepResearchWebRequestsPerSubrequest;
-        const promises = prompts.map(prompt => {
-            const messages_for_subquery: ApiCallMessage[] = [
-                subquery_system_prompt,
-                {
-                    role: 'user',
-                    content: [{ type: 'text', text: prompt }]
-                }
-            ];
-            return callOpenRouterChat(apiKey, models.researcher, maxTokens, perPromptWebRequests, messages_for_subquery, undefined, config.defaultReasoningEffort);
-        });
-
-        const responses = await Promise.all(promises);
-
-        // Parse resources from the first pass responses
-        let allResources: Resource[] = [];
-        for (const response of responses) {
-            const resources = parseResourcesFromContent(response.content);
-            allResources.push(...resources);
-        }
-
-        // Collect the responses
-        responses.forEach((response, index) => {
-            const thread: ResearchThread = {
-                prompt: prompts[index],
-                firstPass: response,
-                generationPromises: [],
-                handleGenerationData: (data: GenerationData) => {
-                    total_cost += data.total_cost || 0;
-                    total_web_requests += data.num_search_results || 0;
-                    if (data.generation_time) {
-                        total_generation_time_ms += data.generation_time;
-                    }
-                }
-            };
-            const promise = (async () => {
-                const data = await fetchGenerationData(apiKey, response.requestID);
-                response.generationData = data;
-                thread.handleGenerationData(data);
-                return data;
-            })();
-            thread.generationPromises.push(promise);
-            research_threads.push(thread);
-            if (response.annotations) {
-                allAnnotations.push(...response.annotations);
-            }
-        });
-
-        statusCallback(`Research plan executed. Fetching generation data.`);
-
-        // We are now using generationPromises in ResearchThread
-        // so we don't need to fetch generation data here
-
-
-        /*********************/
-        /* Refine the results */
-        /*********************/
-        statusCallback("Refining research results.");
-
         // Get the last user message to use as the query for refinement
         const userMessages = messages.filter(m => m.role === 'user');
         const lastUserMessage = userMessages[userMessages.length - 1];
@@ -195,21 +130,50 @@ export async function doDeepResearch(
             .map(part => part.text)
             .join('\n');
 
-        // Refine each sub-result in parallel
-        const refinePromises = research_threads.map(thread => 
-            refine_result(apiKey, models.editor, thread, userQuery, maxTokens, 0, config.defaultReasoningEffort)
+        // Execute all research threads in parallel using execute_research_thread
+        const subquerySystemPrompt = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested. Provide anything that may be relevant in an information dense manner. After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. Inside of the RESOURCES section, provide a list of the resources you used to gather information. Each resource should begin with <RESOURCE> and end with </RESOURCE>. The resource should begin with the URL wrapped in <URL> and </URL> tags. Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), author or authors (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). Also give a description of the kind of resource it is (e.g. journal article, scientific study, personal blog post, professional blog post, corporate blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. Indicate why the resource was written and published, especially if it is meant to persuade, educate, get business, advertise, provide SEO chum, etc. wrapped in <PURPOSE> and </PURPOSE> tags. Include a two to four sentence rich summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`;
+
+        const refinementSystemPrompt = `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`;
+
+        const threadPromises = prompts.map(prompt => 
+            execute_research_thread(
+                apiKey,
+                models.researcher,
+                models.editor,
+                prompt,
+                userQuery,
+                maxTokens,
+                config.deepResearchWebRequestsPerSubrequest,
+                config.defaultReasoningEffort,
+                subquerySystemPrompt,
+                refinementSystemPrompt,
+                (data: GenerationData) => {
+                    total_cost += data.total_cost || 0;
+                    total_web_requests += data.num_search_results || 0;
+                    if (data.generation_time) {
+                        total_generation_time_ms += data.generation_time;
+                    }
+                }
+            )
         );
 
-        const refinedResults = await Promise.all(refinePromises);
+        research_threads = await Promise.all(threadPromises);
 
-        // Update the research_threads with the refined results
-        for (let i = 0; i < refinedResults.length; i++) {
-            const result = refinedResults[i];
-            // The thread.refined is already set by refine_result
-            if (result.chatResult.annotations) {
-                allAnnotations.push(...result.chatResult.annotations);
+        // Collect all resources and annotations from the threads
+        let allResources: Resource[] = [];
+        for (const thread of research_threads) {
+            if (thread.resources) {
+                allResources.push(...thread.resources);
+            }
+            if (thread.firstPass?.annotations) {
+                allAnnotations.push(...thread.firstPass.annotations);
+            }
+            if (thread.refined?.annotations) {
+                allAnnotations.push(...thread.refined.annotations);
             }
         }
+
+        statusCallback(`Research plan executed.`);
 
         /******************************************************/
         /* Wait for all generation data and update totals      */
