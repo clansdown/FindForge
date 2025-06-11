@@ -109,7 +109,7 @@ export async function doStandardResearch(
 export async function doParallelResearch(
     maxTokens: number,
     config: Config,
-    userMessages: ApiCallMessage[],
+    userMessage: ApiCallMessage,
     history: MessageData[],
     systemPrompts: SystemPrompt[],
     abortController?: AbortController
@@ -127,53 +127,47 @@ export async function doParallelResearch(
         }
     }
 
-    // Process each user message in parallel
-    const promises = userMessages.map(async (userMessage) => {
-        // Process each system prompt in parallel
-        const promptPromises = systemPrompts.map(async (systemPrompt) => {
-            // Create full message list for this request
-            const messagesForAPI = [
-                { 
-                    role: 'system', 
-                    content: [{ type: 'text', text: systemPrompt.prompt }] 
-                },
-                ...baseMessages, 
-                userMessage
-            ];
+    // Process each system prompt in parallel
+    const results = await Promise.all(systemPrompts.map(async (systemPrompt) => {
+        // Create full message list for this request
+        const messagesForAPI : ApiCallMessage[]= [
+            { 
+                role: 'system', 
+                content: [{ type: 'text', text: systemPrompt.prompt }] 
+            },
+            ...baseMessages, 
+            userMessage
+        ];
+        
+        try {
+            const chatResult = await callOpenRouterChat(
+                config.apiKey,
+                config.defaultModel,
+                maxTokens,
+                maxWebRequests,
+                messagesForAPI,
+                abortController
+            );
             
-            try {
-                const chatResult = await callOpenRouterChat(
-                    config.apiKey,
-                    config.defaultModel,
-                    maxTokens,
-                    maxWebRequests,
-                    messagesForAPI,
-                    abortController
-                );
-                
-                let generationData: GenerationData | undefined = undefined;
-                if (chatResult.requestID) {
-                    generationData = await fetchGenerationData(config.apiKey, chatResult.requestID);
-                }
-                
-                return { 
-                    systemPrompt: systemPrompt.prompt,
-                    streamingResult: chatResult,
-                    chatResult: chatResult, 
-                    generationData, 
-                    annotations: chatResult.annotations || [], 
-                    resources: [...resources],
-                    contextWasIncluded: config.includePreviousMessagesAsContext
-                };
-            } catch (error) {
-                console.error('Error in parallel research:', error);
-                throw error;
+            let generationData: GenerationData | undefined = undefined;
+            if (chatResult.requestID) {
+                generationData = await fetchGenerationData(config.apiKey, chatResult.requestID);
             }
-        });
+            
+            return { 
+                systemPrompt: systemPrompt.prompt,
+                streamingResult: chatResult,
+                chatResult: chatResult, 
+                generationData, 
+                annotations: chatResult.annotations || [], 
+                resources: [...resources],
+                contextWasIncluded: config.includePreviousMessagesAsContext
+            };
+        } catch (error) {
+            console.error('Error in parallel research:', error);
+            throw error;
+        }
+    }));
 
-        return Promise.all(promptPromises);
-    });
-
-    const results = await Promise.all(promises);
-    return results.flat();
+    return results;
 }

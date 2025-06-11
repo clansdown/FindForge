@@ -332,7 +332,7 @@
                 const results = await doParallelResearch(
                     8192, // maxTokens
                     localConfig,
-                    [convertMessageToApiCallMessage(userMessage)], // user messages
+                    convertMessageToApiCallMessage(userMessage), // user message
                     currentConversation.messages.slice(0, -2), // history
                     experimentationOptions.standardResearchPrompts,
                     abortController
