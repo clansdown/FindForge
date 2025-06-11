@@ -172,6 +172,7 @@ export interface MessageData {
     status?: string; // status text for deep research
     deepResearchResult?: DeepResearchResult; // result of deep research, if it was done
     researchResult?: ResearchResult; // result of standard research, if it was done
+    researchResults?: ResearchResult[]; // results of standard research, if multiple were done
     annotations?: Annotation[];
     resources?: Resource[]; // List of resources used for research
 }
@@ -239,6 +240,7 @@ export interface SystemPrompt {
 export interface ResearchResult {
     systemPrompt?: string;
     streamingResult: StreamingResult;
+    chatResult?: ChatResult;
     generationData?: GenerationData;
     resources : Resource[];
     annotations: Annotation[];
