@@ -21,37 +21,6 @@ export async function doDeepResearch(
     messages : ApiCallMessage[], 
     statusCallback : (status: string) => void): Promise<DeepResearchResult> {
         const startTime = Date.now(); // Record start time for elapsed_time calculation
-
-        function parseResourcesFromContent(content: string): Resource[] {
-            const resources: Resource[] = [];
-            const resourceRegex = /<RESOURCE>(.*?)<\/RESOURCE>/gs;
-            let resourceMatch;
-            while ((resourceMatch = resourceRegex.exec(content)) !== null) {
-                const resourceBlock = resourceMatch[1];
-                const urlMatch = /<URL>(.*?)<\/URL>/s.exec(resourceBlock);
-                const titleMatch = /<TITLE>(.*?)<\/TITLE>/s.exec(resourceBlock);
-                const authorMatch = /<AUTHOR>(.*?)<\/AUTHOR>/s.exec(resourceBlock);
-                const dateMatch = /<DATE>(.*?)<\/DATE>/s.exec(resourceBlock);
-                const typeMatch = /<TYPE>(.*?)<\/TYPE>/s.exec(resourceBlock);
-                const purposeMatch = /<PURPOSE>(.*?)<\/PURPOSE>/s.exec(resourceBlock);
-                const summaryMatch = /<SUMMARY>(.*?)<\/SUMMARY>/s.exec(resourceBlock);
-
-                if (urlMatch && urlMatch[1]) {
-                    const resource: Resource = {
-                        url: urlMatch[1].trim(),
-                        title: titleMatch && titleMatch[1] ? titleMatch[1].trim() : undefined,
-                        author: authorMatch && authorMatch[1] ? authorMatch[1].trim() : undefined,
-                        date: dateMatch && dateMatch[1] ? dateMatch[1].trim() : undefined,
-                        type: typeMatch && typeMatch[1] ? typeMatch[1].trim() : undefined,
-                        purpose: purposeMatch && purposeMatch[1] ? purposeMatch[1].trim() : undefined,
-                        summary: summaryMatch && summaryMatch[1] ? summaryMatch[1].trim() : undefined
-                    };
-                    resources.push(resource);
-                }
-            }
-            return resources;
-        }
-
         let total_cost = 0;
         let total_web_requests = 0;
         let total_generation_time_ms = 0; // in milliseconds
@@ -386,15 +355,14 @@ export async function execute_research_thread(
     maxWebRequests: number,
     reasoningEffort: 'low' | 'medium' | 'high',
     systemPromptForSubquery: string,
-    systemPromptForRefinement: string
+    systemPromptForRefinement: string,
+    handleGenerationData: (data: GenerationData) => void = () => {}
 ): Promise<ResearchThread> {
     // Create the thread object
     const thread: ResearchThread = {
-        prompt: prompt,
+        prompt,
         generationPromises: [],
-        handleGenerationData: (data: GenerationData) => {
-            // This will be called when generation data is available
-        }
+        handleGenerationData
     };
 
     /*********************/
@@ -620,4 +588,34 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     console.log(`Web search cost: $${webSearchCost.toFixed(3)}`);
     console.log(`Estimated deep research cost: $${totalCost.toFixed(3)}`);
     return totalCost;
+}
+
+function parseResourcesFromContent(content: string): Resource[] {
+    const resources: Resource[] = [];
+    const resourceRegex = /<RESOURCE>(.*?)<\/RESOURCE>/gs;
+    let resourceMatch;
+    while ((resourceMatch = resourceRegex.exec(content)) !== null) {
+        const resourceBlock = resourceMatch[1];
+        const urlMatch = /<URL>(.*?)<\/URL>/s.exec(resourceBlock);
+        const titleMatch = /<TITLE>(.*?)<\/TITLE>/s.exec(resourceBlock);
+        const authorMatch = /<AUTHOR>(.*?)<\/AUTHOR>/s.exec(resourceBlock);
+        const dateMatch = /<DATE>(.*?)<\/DATE>/s.exec(resourceBlock);
+        const typeMatch = /<TYPE>(.*?)<\/TYPE>/s.exec(resourceBlock);
+        const purposeMatch = /<PURPOSE>(.*?)<\/PURPOSE>/s.exec(resourceBlock);
+        const summaryMatch = /<SUMMARY>(.*?)<\/SUMMARY>/s.exec(resourceBlock);
+
+        if (urlMatch && urlMatch[1]) {
+            const resource: Resource = {
+                url: urlMatch[1].trim(),
+                title: titleMatch && titleMatch[1] ? titleMatch[1].trim() : undefined,
+                author: authorMatch && authorMatch[1] ? authorMatch[1].trim() : undefined,
+                date: dateMatch && dateMatch[1] ? dateMatch[1].trim() : undefined,
+                type: typeMatch && typeMatch[1] ? typeMatch[1].trim() : undefined,
+                purpose: purposeMatch && purposeMatch[1] ? purposeMatch[1].trim() : undefined,
+                summary: summaryMatch && summaryMatch[1] ? summaryMatch[1].trim() : undefined
+            };
+            resources.push(resource);
+        }
+    }
+    return resources;
 }
