@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, tick } from "svelte";
     import { getModels } from "./lib/models";
-    import { doStandardResearch, convertMessageToApiCallMessage } from "./lib/research";
+    import { doStandardResearch, convertMessageToApiCallMessage, doParallelResearch } from "./lib/research";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
     import { generateID, escapeHtml, formatModelName } from "./lib/util";
@@ -321,6 +321,30 @@
                 if (deepResult.annotations) {
                     assistantMessage.annotations = deepResult.annotations;
                 }
+            } else if (localConfig.parallelResearch) {
+                // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
+                const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
+                const results = await doParallelResearch(
+                    8192, // maxTokens
+                    localConfig,
+                    [convertMessageToApiCallMessage(userMessage)], // user messages
+                    currentConversation.messages.slice(0, -2), // history
+                    abortController
+                );
+                
+                if (results.length > 0) {
+                    const result = results[0];
+                    assistantMessage.isGenerating = false;
+                    assistantMessage.content = result.chatResult?.content || '';
+                    assistantMessage.researchResults = results;
+                    if (result.generationData) {
+                        assistantMessage.generationData = result.generationData;
+                        assistantMessage.totalCost = result.generationData.total_cost || 0;
+                    }
+                    if (result.annotations) {
+                        assistantMessage.annotations = result.annotations;
+                    }
+                }
             } else {
                 let firstChunk = true;
                 const result = await doStandardResearch(
@@ -468,9 +492,6 @@
                     conversationTitle={currentConversation.title}
                     onEdit={editUserMessage}
                     onToggleHidden={toggleMessageHidden}
-                    onShowResources={(id) => showResourcesFor = id}
-                    onShowInfo={(id) => showInfoFor = id}
-                    onUpdateContent={() => {}}
                 />
                 
             {:else}

@@ -7,16 +7,37 @@
         MessageData,
         GenerationData,
         Annotation,
-        Resource
+        Resource,
+
+        ResearchResult
+
     } from "./types";
+    import Resources from "./Resources.svelte";
+    import MessageInfo from "./MessageInfo.svelte";
 
     export let message: MessageData;
     export let conversationTitle: string;
     export let onEdit: (message: MessageData) => void;
     export let onToggleHidden: (message: MessageData) => void;
-    export let onShowResources: (id: string) => void;
-    export let onShowInfo: (id: string) => void;
-    export let onUpdateContent: (content: string) => void;
+
+    let selectedResearchResult = 0;
+    let showResources = false;
+    let showInfo = false;
+    let currentResources: Resource[] = [];
+    let currentAnnotations: Annotation[] = [];
+    let currentResearchResult: ResearchResult | undefined;
+    let currentGenerationData: GenerationData | undefined;
+    let currentRequestID: string | undefined;
+
+    // Update current variables when selected research result changes
+    $: if (message.researchResults && message.researchResults.length > 0) {
+        const result = message.researchResults[selectedResearchResult];
+        currentAnnotations = result.annotations || [];
+        currentResources = result.resources || [];
+        currentResearchResult = result;
+        currentGenerationData = result.generationData;
+        currentRequestID = result.streamingResult.requestID;
+    }
 
     const md = new MarkdownIt({
         html: false,
@@ -38,7 +59,8 @@
         },
     });
 
-    function formatMessage(text: string): string {
+    function formatMessage(text: string|null|undefined): string {
+        if(!text) return '';
         return md.render(text);
     }
 
@@ -87,12 +109,12 @@
                         {#if message.annotations && message.annotations.length > 0}
                             <button
                                 class="resources-button"
-                                on:click={() => onShowResources(message.id)}
+                                on:click={() => showResources = true}
                                 title="View web resources used to generate this message (links).">🌐</button>
                         {/if}
                         <button
                             class="info-button"
-                            on:click={() => onShowInfo(message.id)}
+                            on:click={() => showInfo = true}
                             title="View information about the generation of this message">ℹ️</button>
                     </div>
                     <button class="toggle-button hide-button" on:click={() => onToggleHidden(message)}>
@@ -108,9 +130,9 @@
                     <div class="attachments">
                         {#each message.attachments || [] as attachment, index}
                             <div class="attachment">
-                                <span title={attachment.filename}
-                                    >{attachment?.filename?.slice(0, 30)}{attachment?.filename?.length > 30 ? "..." : ""}</span
-                                >
+                                <span title={attachment.filename}>
+                                    {attachment?.filename?.slice(0, 30)}{attachment?.filename?.length > 30 ? "..." : ""}
+                                </span>
                             </div>
                         {/each}
                     </div>
@@ -123,7 +145,28 @@
                             <span>●</span><span>●</span><span>●</span>
                         </div>
                     {:else}
-                        {@html formatMessage(message.content)}
+                        {#if message.researchResults && message.researchResults.length > 0}
+                            <select class="research-selector" bind:value={selectedResearchResult}>
+                                {#each message.researchResults as result, index}
+                                    <option value={index}>
+                                        Result {index + 1} {result.systemPrompt ? `(${result.systemPrompt.substring(0, 20)}...)` : ''}
+                                    </option>
+                                {/each}
+                            </select>
+                            {#if message.researchResults[selectedResearchResult]}
+                                {#if message.researchResults[selectedResearchResult].resources}
+                                    {@html formatMessage(message.researchResults[selectedResearchResult].chatResult?.content)}
+                                {/if}
+                            {/if}
+                            {#if message.researchResults[selectedResearchResult]}
+                                {#if message.researchResults[selectedResearchResult].resources}
+                                    {@html formatMessage(message.researchResults[selectedResearchResult].chatResult?.content)}
+                                {/if}
+                            {/if}
+                            {@html formatMessage(message.researchResults[selectedResearchResult].chatResult?.content)}
+                        {:else}
+                            {@html formatMessage(message.content)}
+                        {/if}
                     {/if}
                 {/if}
             </div>
@@ -133,6 +176,22 @@
         {/if}
     </div>
 </div>
+
+{#if showResources}
+    <Resources 
+        resources={currentResources} 
+        annotations={currentAnnotations}
+        onClose={() => showResources = false} 
+    />
+{/if}
+
+{#if showInfo}
+    <MessageInfo
+        researchResult={currentResearchResult}
+        deepResearchResult={message.deepResearchResult}
+        onClose={() => showInfo = false}
+    />
+{/if}
 
 <style>
     .message-container {
@@ -201,7 +260,17 @@
         background: rgba(0, 0, 0, 0.3);
     }
 
-    .copy-button, .save-button, .resources-button, .info-button {
+    .research-selector {
+        background: #444;
+        color: #fff;
+        border: 1px solid #666;
+        border-radius: 4px;
+        padding: 0.25rem;
+        margin-bottom: 0.5rem;
+        width: 100%;
+    }
+
+    .copy-button, .save-button, .resources-button, .info-button, .resources-dialog {
         padding: 0.25rem;
         color: #aaa;
         background: transparent;
@@ -266,3 +335,5 @@
         font-size: 0.8rem;
     }
 </style>
+
+
