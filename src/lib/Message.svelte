@@ -149,20 +149,15 @@
                             <select class="research-selector" bind:value={selectedResearchResult}>
                                 {#each message.researchResults as result, index}
                                     <option value={index}>
-                                        Result {index + 1} {result.systemPrompt ? `(${result.systemPrompt.substring(0, 20)}...)` : ''}
+                                        {#if result.systemPromptName}
+                                            {result.systemPromptName}
+                                        {:else}
+                                            Result {index + 1}
+                                        {/if}
+                                         {result.systemPrompt ? `(${result.systemPrompt.substring(0, 30)}...)` : ''}
                                     </option>
                                 {/each}
                             </select>
-                            {#if message.researchResults[selectedResearchResult]}
-                                {#if message.researchResults[selectedResearchResult].resources}
-                                    {@html formatMessage(message.researchResults[selectedResearchResult].chatResult?.content)}
-                                {/if}
-                            {/if}
-                            {#if message.researchResults[selectedResearchResult]}
-                                {#if message.researchResults[selectedResearchResult].resources}
-                                    {@html formatMessage(message.researchResults[selectedResearchResult].chatResult?.content)}
-                                {/if}
-                            {/if}
                             {@html formatMessage(message.researchResults[selectedResearchResult].chatResult?.content)}
                         {:else}
                             {@html formatMessage(message.content)}

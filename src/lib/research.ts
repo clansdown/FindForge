@@ -157,6 +157,7 @@ export async function doParallelResearch(
             
             return { 
                 systemPrompt: systemPrompt.prompt,
+                systemPromptName: systemPrompt.name,
                 streamingResult: chatResult,
                 chatResult: chatResult, 
                 generationData, 

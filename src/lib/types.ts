@@ -256,6 +256,7 @@ export interface SystemPrompt {
 
 export interface ResearchResult {
     systemPrompt?: string;
+    systemPromptName?: string;
     streamingResult: StreamingResult;
     chatResult?: ChatResult;
     generationData?: GenerationData;

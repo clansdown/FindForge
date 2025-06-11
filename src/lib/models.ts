@@ -78,7 +78,8 @@ export async function callOpenRouterStreaming(
   const url = 'https://openrouter.ai/api/v1/chat/completions';
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'X-Title': 'MachineLearner',
   };
 
   const body = {
@@ -175,7 +176,8 @@ export async function callOpenRouterChat(
   const url = 'https://openrouter.ai/api/v1/chat/completions';
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'X-Title': 'MachineLearner',
   };
 
   const body: any = {
