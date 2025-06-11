@@ -171,6 +171,7 @@
                 {/if}
             </div>
         {/if}
+        <div>results: {message.researchResults?.length}</div>
         {#if message.totalCost}
             <div class="cost">Cost: ${message.totalCost.toFixed(2)}</div>
         {/if}

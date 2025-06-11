@@ -1,5 +1,9 @@
 import type { Mode } from "highlight.js";
 
+export interface ExperimentationOptions {
+    standardResearchPrompts: SystemPrompt[];
+}
+
 export class Config {
     historyWidth!: number;
     apiKey!: string;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getModels } from './lib/models';
-  import type { Config, Model } from './lib/types';
+  import type { Config, Model, ExperimentationOptions } from './lib/types';
   import { onMount } from 'svelte';
   import PushButton from './lib/PushButton.svelte';
   import { formatModelName } from './lib/util';
@@ -11,6 +11,7 @@
   export let config: Config;
   export let deepSearch = false; // bound from parent
   export let deepSearchStrategy: 'auto' | 'deep' | 'broad' = 'auto'; // bound from parent
+  export let experimentationOptions: ExperimentationOptions; // bound from parent
 
   let allModels: Model[] = [];
   let modelFilter = '';
@@ -132,10 +133,9 @@
         <Select
           multiple
           items={config.systemPrompts.map(p => ({ value: p.name, label: p.name }))}
-          selected={config.parallelSystemPromptNames.map(name => ({ value: name, label: name }))}
-          on:change={(e) => config.parallelSystemPromptNames = e.detail.map(item => item.value)}
+          bind:value={experimentationOptions}
+          on:change={(e) => experimentationOptions.standardResearchPrompts = e.detail.map(item => item.value)}
           placeholder="Select prompts..."
-          style="width: 200px;"
         />
       </div>
     {/if}

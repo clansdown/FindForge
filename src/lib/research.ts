@@ -1,5 +1,5 @@
 import { callOpenRouterChat, callOpenRouterStreaming, fetchGenerationData } from './models';
-import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource } from './types';
+import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt } from './types';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -111,20 +111,14 @@ export async function doParallelResearch(
     config: Config,
     userMessages: ApiCallMessage[],
     history: MessageData[],
+    systemPrompts: SystemPrompt[],
     abortController?: AbortController
 ): Promise<ResearchResult[]> {
-    const systemPromptUsed = config.systemPrompt || undefined;
-    const maxWebRequests = config.allowWebSearch ? config.webSearchMaxResults : 0;
     const resources: Resource[] = [];
+    const maxWebRequests = config.allowWebSearch ? config.webSearchMaxResults : 0;
 
-    // Prepare base messages (system + history) that are common to all requests
+    // Prepare base messages (history) that are common to all requests
     const baseMessages: ApiCallMessage[] = [];
-    if (config.systemPrompt) {
-        baseMessages.push({ 
-            role: 'system', 
-            content: [{ type: 'text', text: config.systemPrompt }] 
-        });
-    }
     if (config.includePreviousMessagesAsContext) {
         for (const m of history) {
             if (!m.hidden) {
@@ -135,38 +129,51 @@ export async function doParallelResearch(
 
     // Process each user message in parallel
     const promises = userMessages.map(async (userMessage) => {
-        // Create full message list for this request
-        const messagesForAPI = [...baseMessages, userMessage];
-        
-        try {
-            const chatResult = await callOpenRouterChat(
-                config.apiKey,
-                config.defaultModel,
-                maxTokens,
-                maxWebRequests,
-                messagesForAPI,
-                abortController
-            );
+        // Process each system prompt in parallel
+        const promptPromises = systemPrompts.map(async (systemPrompt) => {
+            // Create full message list for this request
+            const messagesForAPI = [
+                { 
+                    role: 'system', 
+                    content: [{ type: 'text', text: systemPrompt.prompt }] 
+                },
+                ...baseMessages, 
+                userMessage
+            ];
             
-            let generationData: GenerationData | undefined = undefined;
-            if (chatResult.requestID) {
-                generationData = await fetchGenerationData(config.apiKey, chatResult.requestID);
+            try {
+                const chatResult = await callOpenRouterChat(
+                    config.apiKey,
+                    config.defaultModel,
+                    maxTokens,
+                    maxWebRequests,
+                    messagesForAPI,
+                    abortController
+                );
+                
+                let generationData: GenerationData | undefined = undefined;
+                if (chatResult.requestID) {
+                    generationData = await fetchGenerationData(config.apiKey, chatResult.requestID);
+                }
+                
+                return { 
+                    systemPrompt: systemPrompt.prompt,
+                    streamingResult: chatResult,
+                    chatResult: chatResult, 
+                    generationData, 
+                    annotations: chatResult.annotations || [], 
+                    resources: [...resources],
+                    contextWasIncluded: config.includePreviousMessagesAsContext
+                };
+            } catch (error) {
+                console.error('Error in parallel research:', error);
+                throw error;
             }
-            
-            return { 
-                systemPrompt: systemPromptUsed,
-                streamingResult: chatResult,
-                chatResult: chatResult, 
-                generationData, 
-                annotations: chatResult.annotations || [], 
-                resources: [...resources],
-                contextWasIncluded: config.includePreviousMessagesAsContext
-            };
-        } catch (error) {
-            console.error('Error in parallel research:', error);
-            throw error;
-        }
+        });
+
+        return Promise.all(promptPromises);
     });
 
-    return Promise.all(promises);
+    const results = await Promise.all(promises);
+    return results.flat();
 }

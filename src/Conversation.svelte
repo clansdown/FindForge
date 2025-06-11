@@ -20,6 +20,8 @@
         DeepResearchResult,
         StreamingResult,
         Annotation,
+        ExperimentationOptions,
+        SystemPrompt
     } from "./lib/types";
     import { Config, type ConversationData } from "./lib/types";
     import SearchToolbar from "./SearchToolbar.svelte";
@@ -58,6 +60,9 @@
     let showInfoFor: string | null = null; // message ID for which to show info
     let currentConversationID = currentConversation.id;
     let lastMessageCount = currentConversation.messages.length;
+    let experimentationOptions: ExperimentationOptions = {
+        standardResearchPrompts: []
+    };
 
     const md = new MarkdownIt({
         html: false,
@@ -329,6 +334,7 @@
                     localConfig,
                     [convertMessageToApiCallMessage(userMessage)], // user messages
                     currentConversation.messages.slice(0, -2), // history
+                    experimentationOptions.standardResearchPrompts,
                     abortController
                 );
                 
@@ -481,7 +487,7 @@
 <div class="conversation">
     <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
     <!-- Toolbar goes here -->
-    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy />
+    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions />
 
     <!-- Conversation content will go here -->
     <div class="conversation-window">
