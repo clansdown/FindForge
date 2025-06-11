@@ -218,6 +218,7 @@ export interface ResearchThread {
     refined? : ChatResult;
     generationPromises: Promise<GenerationData>[];   // new field
     handleGenerationData: (data: GenerationData) => void;
+    resources?: Resource[];   // resources extracted from first pass
 }
 
 export interface Resource {

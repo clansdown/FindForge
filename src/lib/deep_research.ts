@@ -387,6 +387,8 @@ export async function execute_research_thread(
         reasoningEffort
     );
     thread.firstPass = firstPassResult;
+    // Extract resources from first pass content
+    thread.resources = parseResourcesFromContent(firstPassResult.content);
 
     // Start fetching generation data for first pass
     const firstPassGenPromise = (async () => {
@@ -405,8 +407,9 @@ export async function execute_research_thread(
     thread.refiningPrompt = systemPromptForRefinement;
     const systemPrompt = createSystemApiCallMessage(systemPromptForRefinement);
 
-    // Strip out the RESOURCES section from the content to refine
+    // Use content without resources for refinement
     let contentToRefine = thread.firstPass?.content || '';
+    // Remove RESOURCES section if present
     const resourcesStart = contentToRefine.indexOf('<RESOURCES>');
     if (resourcesStart !== -1) {
         const resourcesEnd = contentToRefine.indexOf('</RESOURCES>', resourcesStart);
