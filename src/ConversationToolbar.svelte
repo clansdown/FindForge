@@ -133,7 +133,7 @@
         <Select
           multiple
           items={config.systemPrompts.map(p => ({ value: p.name, label: p.name }))}
-          bind:value={experimentationOptions}
+          bind:value={experimentationOptions.standardResearchPrompts}
           on:change={(e) => experimentationOptions.standardResearchPrompts = e.detail.map(item => item.value)}
           placeholder="Select prompts..."
         />
