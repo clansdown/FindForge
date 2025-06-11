@@ -155,7 +155,8 @@ export async function doParallelResearch(
             
             return { 
                 systemPrompt: systemPromptUsed,
-                streamingResult: chatResult, 
+                streamingResult: chatResult,
+                chatResult: chatResult, 
                 generationData, 
                 annotations: chatResult.annotations || [], 
                 resources: [...resources],
