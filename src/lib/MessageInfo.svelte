@@ -210,6 +210,9 @@
                 {/if}
                 {#if researchResult.systemPrompt}
                     <div class="info-block">
+                        {#if researchResult.systemPromptName}
+                            <p><strong>Prompt Name:</strong> {researchResult.systemPromptName}</p>
+                        {/if}
                         <div class="chat-header">
                             <h4>System Prompt</h4>
                             <button on:click={() => copyToClipboard(researchResult.systemPrompt||'', 'system prompt')} class="copy-button">

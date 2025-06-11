@@ -154,7 +154,7 @@
                                         {:else}
                                             Result {index + 1}
                                         {/if}
-                                         {result.systemPrompt ? `(${result.systemPrompt.substring(0, 30)}...)` : ''}
+                                         {result.systemPrompt ? `(${result.systemPrompt.substring(0, 50)}...)` : ''}
                                     </option>
                                 {/each}
                             </select>
