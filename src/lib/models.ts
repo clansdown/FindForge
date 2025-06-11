@@ -219,7 +219,7 @@ export async function callOpenRouterChat(
 }
 
 // Fetch generation data from OpenRouter Generation API
-export async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData | undefined> {
+export async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData> {
     try {
         // We can't request this immediately as the generation object won't instantly exist, we have to wait a short time
         await sleep(1000);
@@ -237,7 +237,17 @@ export async function fetchGenerationData(apiKey : string, requestId : string): 
         return data.data as GenerationData;
     } catch (error) {
         console.error('Error fetching generation data:', error);
-        return undefined;
+        return {
+            id: requestId,
+            total_cost: 0,
+            model: '',
+            generation_time: 0,
+            provider_name: '',
+            created: 0,
+            streamed: false,
+            canceled: false,
+            finish_reason: 'error'
+        };
     }
 }
 

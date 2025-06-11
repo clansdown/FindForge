@@ -216,6 +216,8 @@ export interface ResearchThread {
     firstPass? : ChatResult;
     refiningPrompt? : string; // the prompt for refining the first pass
     refined? : ChatResult;
+    generationPromises: Promise<GenerationData>[];   // new field
+    handleGenerationData: (data: GenerationData) => void;
 }
 
 export interface Resource {

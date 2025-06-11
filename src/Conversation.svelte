@@ -26,6 +26,7 @@
     import Resources from "./lib/Resources.svelte";
     import MessageInfo from "./lib/MessageInfo.svelte";
     import GettingStarted from "./GettingStarted.svelte";
+    import Message from "./lib/Message.svelte";
 
     /***************/
     /* Propertiess */
@@ -461,6 +462,15 @@
     <div class="conversation-window">
         <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
             {#each currentConversation.messages as message (message.id)}
+                <Message
+                    message={message}
+                    conversationTitle={currentConversation.title}
+                    onEdit={editUserMessage}
+                    onToggleHidden={toggleMessageHidden}
+                    onShowResources={(id) => showResourcesFor = id}
+                    onShowInfo={(id) => showInfoFor = id}
+                    onUpdateContent={() => {}}
+                />
                 <div
                     class="message-container {message.role}"
                     class:active={hoveredMessageId === message.id}

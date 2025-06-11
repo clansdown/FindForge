@@ -2,6 +2,13 @@ import { callOpenRouterChat, createAssistantApiCallMessage, createSystemApiCallM
 import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource } from "./types";
 import { generateID } from "./util";
 
+async function attachGenerationData(apiKey: string, chatResult: ChatResult): Promise<void> {
+    const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
+    if (generationData) {
+        chatResult.generationData = generationData;
+    }
+}
+
 
 
 export async function doDeepResearch(
@@ -172,10 +179,26 @@ export async function doDeepResearch(
 
         // Collect the responses
         responses.forEach((response, index) => {
-            research_threads.push({
+            const thread: ResearchThread = {
                 prompt: prompts[index],
-                firstPass: response
-            });
+                firstPass: response,
+                generationPromises: [],
+                handleGenerationData: (data: GenerationData) => {
+                    total_cost += data.total_cost || 0;
+                    total_web_requests += data.num_search_results || 0;
+                    if (data.generation_time) {
+                        total_generation_time_ms += data.generation_time;
+                    }
+                }
+            };
+            const promise = (async () => {
+                const data = await fetchGenerationData(apiKey, response.requestID);
+                response.generationData = data;
+                thread.handleGenerationData(data);
+                return data;
+            })();
+            thread.generationPromises.push(promise);
+            research_threads.push(thread);
             if (response.annotations) {
                 allAnnotations.push(...response.annotations);
             }
@@ -183,26 +206,8 @@ export async function doDeepResearch(
 
         statusCallback(`Research plan executed. Fetching generation data.`);
 
-        // Fetch generation data for each response in parallel
-        const generationDataPromises = responses.map(response => 
-            fetchGenerationData(apiKey, response.requestID)
-        );
-        const generationDatas = await Promise.all(generationDataPromises);
-
-        // Update total_cost and total_web_requests
-        for (const data of generationDatas) {
-            if (data) {
-                total_cost += data.total_cost || 0;
-                total_web_requests += data.num_search_results || 0;
-                if (data.generation_time) {
-                    total_generation_time_ms += data.generation_time;
-                }
-                const response = responses.find(r => r.requestID === data.id);
-                if (response) {
-                    response.generationData = data; // attach generation data to the response
-                }
-            }
-        }
+        // We are now using generationPromises in ResearchThread
+        // so we don't need to fetch generation data here
 
 
         /*********************/
@@ -228,21 +233,27 @@ export async function doDeepResearch(
 
         const refinedResults = await Promise.all(refinePromises);
 
-        // Update the research_threads with the refined results and collect generation data
+        // Update the research_threads with the refined results
         for (let i = 0; i < refinedResults.length; i++) {
             const result = refinedResults[i];
             // The thread.refined is already set by refine_result
             if (result.chatResult.annotations) {
                 allAnnotations.push(...result.chatResult.annotations);
             }
-            if (result.generationData) {
-                total_cost += result.generationData.total_cost || 0;
-                total_web_requests += result.generationData.num_search_results || 0;
-                if (result.generationData.generation_time) {
-                    total_generation_time_ms += result.generationData.generation_time;
-                }
-            }
         }
+
+        /******************************************************/
+        /* Wait for all generation data and update totals      */
+        /******************************************************/
+        statusCallback("Waiting for generation data...");
+        // Collect all generation promises from all threads
+        const allGenerationPromises: Promise<GenerationData>[] = [];
+        for (const thread of research_threads) {
+            allGenerationPromises.push(...thread.generationPromises);
+        }
+        // We don't need the results because they are attached to the chat results
+        await Promise.all(allGenerationPromises);
+
 
         /*********************/
         /* Do the synthesis */
@@ -417,13 +428,17 @@ export async function refine_result(
         reasoningEffort
     );
 
-    const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
-    if (generationData) {
-        chatResult.generationData = generationData;
-    }
     thread.refined = chatResult;
-
-    return { chatResult, generationData };
+    const genPromise = (async () => {
+        const data = await fetchGenerationData(apiKey, chatResult.requestID);
+        if (data) {
+            chatResult.generationData = data;
+            thread.handleGenerationData(data);
+        }
+        return data;
+    })();
+    thread.generationPromises.push(genPromise);
+    return { chatResult, generationData: undefined };
 }
 
 export async function estimateDeepResearchCost(config: Config): Promise<number> {
