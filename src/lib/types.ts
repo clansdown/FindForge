@@ -1,6 +1,7 @@
 import type { Mode } from "highlight.js";
 
 export interface ExperimentationOptions {
+    parallelResearch: boolean; // If true, do research in parallel
     standardResearchPrompts: SystemPrompt[];
 }
 
@@ -22,7 +23,6 @@ export class Config {
     deepResearchMaxSubqrequests!: number;
     deepResearchMaxPlanningTokens!: number;
     deepResearchMaxSynthesisTokens!: number;
-    parallelResearch: boolean = false; // new flag for parallel research execution
     parallelSystemPromptNames: string[] = []; // names of selected system prompts for parallel research
     deepResearchPhases: {
         strategy: boolean;

@@ -61,6 +61,7 @@
     let currentConversationID = currentConversation.id;
     let lastMessageCount = currentConversation.messages.length;
     let experimentationOptions: ExperimentationOptions = {
+        parallelResearch: false, // Enable parallel research mode
         standardResearchPrompts: []
     };
 
@@ -326,7 +327,7 @@
                 if (deepResult.annotations) {
                     assistantMessage.annotations = deepResult.annotations;
                 }
-            } else if (localConfig.parallelResearch) {
+            } else if (experimentationOptions.parallelResearch) {
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
                 const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
                 const results = await doParallelResearch(

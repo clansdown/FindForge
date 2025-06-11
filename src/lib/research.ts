@@ -129,6 +129,7 @@ export async function doParallelResearch(
 
     // Process each system prompt in parallel
     const results = await Promise.all(systemPrompts.map(async (systemPrompt) => {
+        console.log('Processing system prompt:', systemPrompt.prompt);
         // Create full message list for this request
         const messagesForAPI : ApiCallMessage[]= [
             { 

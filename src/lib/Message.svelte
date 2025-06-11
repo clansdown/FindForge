@@ -28,7 +28,7 @@
     let currentResearchResult: ResearchResult | undefined;
     let currentGenerationData: GenerationData | undefined;
     let currentRequestID: string | undefined;
-
+//console.log(message?.researchResults);
     // Update current variables when selected research result changes
     $: if (message.researchResults && message.researchResults.length > 0) {
         const result = message.researchResults[selectedResearchResult];

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getModels } from './lib/models';
-  import type { Config, Model, ExperimentationOptions } from './lib/types';
+  import type { Config, Model, ExperimentationOptions, SystemPrompt } from './lib/types';
   import { onMount } from 'svelte';
   import PushButton from './lib/PushButton.svelte';
   import { formatModelName } from './lib/util';
@@ -16,6 +16,14 @@
   let allModels: Model[] = [];
   let modelFilter = '';
   let experimentMode = false; // new state for experiment mode
+
+  interface SelectItem {
+    value: SystemPrompt;
+    label: string;
+  }
+
+  let selectedSystemPrompts : SelectItem[] = [];
+  $: experimentationOptions.standardResearchPrompts = selectedSystemPrompts.map(item => item.value);
 
   $: filteredModels = allModels
     .filter(model => config.availableModels.includes(model.id))
@@ -125,16 +133,15 @@
 <div class="toolbar experiment-toolbar flex flex-row flex-between">
   <div class="flex flex-row flex-wrap gap-2">
     <div class="toolbar-group">
-      <PushButton title="Execute research in parallel" bind:pushed={config.parallelResearch}>⇉</PushButton>
+      <PushButton title="Execute research in parallel" bind:pushed={experimentationOptions.parallelResearch}>⇉</PushButton>
     </div>
-    {#if config.parallelResearch}
+    {#if experimentationOptions.parallelResearch}
       <div class="toolbar-group" title="Select system prompts to use in parallel research">
         <label>Prompts:</label>
         <Select
           multiple
-          items={config.systemPrompts.map(p => ({ value: p.name, label: p.name }))}
-          bind:value={experimentationOptions.standardResearchPrompts}
-          on:change={(e) => experimentationOptions.standardResearchPrompts = e.detail.map(item => item.value)}
+          items={config.systemPrompts.map(p => ({ value: p, label: p.name }))}
+          bind:value={selectedSystemPrompts}
           placeholder="Select prompts..."
         />
       </div>
