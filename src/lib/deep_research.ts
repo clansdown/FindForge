@@ -32,6 +32,9 @@ export async function doDeepResearch(
         let planResult: ChatResult | null = null;
         let research_threads: ResearchThread[] = [];
         let allAnnotations: Annotation[] = []; // to collect all annotations
+        let plan_prompts: string[] = [];
+        let plan_results: ChatResult[] = [];
+        let research_plans: string[] = [];
         const max_planning_requests = config.deepResearchWebSearchMaxPlanningResults;
 
         statusCallback("Starting deep research.");
@@ -62,181 +65,189 @@ export async function doDeepResearch(
             actualStrategy = strategy;
         }
 
-        /*******************/
-        /* Create the plan */
-        /*******************/
-        statusCallback("Creating research plan.");
-        let research_plan : string = '';
-        let max_planning_tokens = config.deepResearchMaxPlanningTokens;
-        if(actualStrategy === 'deep') {
-            const system_prompt = createSystemApiCallMessage(plan_prompt =
-                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`
-            );
-            const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
+        for(let phase_index = 0; phase_index < config.deepResearchPhases; phase_index++) {
+            /*******************/
+            /* Create the plan */
+            /*******************/
+            statusCallback("Creating research plan.");
+            let research_plan : string = '';
+            let max_planning_tokens = config.deepResearchMaxPlanningTokens;
+            if(actualStrategy === 'deep') {
+                const system_prompt = createSystemApiCallMessage(plan_prompt =
+                    `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`
+                );
+                const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
-            fetchGenerationData(apiKey, planResult.requestID).then(data => {
-                if(data) {
-                    total_cost += data.total_cost || 0;
-                    total_web_requests += data.num_search_results || 0;
-                    if (data.generation_time) {
-                        total_generation_time_ms += data.generation_time;
+                planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                fetchGenerationData(apiKey, planResult.requestID).then(data => {
+                    if(data) {
+                        total_cost += data.total_cost || 0;
+                        total_web_requests += data.num_search_results || 0;
+                        if (data.generation_time) {
+                            total_generation_time_ms += data.generation_time;
+                        }
+                        planResult!.generationData = data; // attach generation data to the response
                     }
-                    planResult!.generationData = data; // attach generation data to the response
+                });
+                research_plan = planResult.content.trim();
+                plan_prompts.push(plan_prompt);
+                plan_results.push(planResult);
+                research_plans.push(research_plan);
+                if (planResult.annotations) {
+                    allAnnotations.push(...planResult.annotations);
                 }
-            });
-            research_plan = planResult.content.trim();
-            if (planResult.annotations) {
-                allAnnotations.push(...planResult.annotations);
+            } else if (actualStrategy === 'broad') {
+                const system_prompt = createSystemApiCallMessage(plan_prompt =
+                    `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>"`
+                );
+                const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
+
+                planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                fetchGenerationData(apiKey, planResult.requestID).then(data => {
+                    if(data) {
+                        total_cost += data.total_cost || 0;
+                        total_web_requests += data.num_search_results || 0;
+                        planResult!.generationData = data; // attach generation data to the response
+                    }
+                });
+                research_plan = planResult.content.trim();
+                plan_prompts.push(plan_prompt);
+                plan_results.push(planResult);
+                research_plans.push(research_plan);
             }
-        } else if (actualStrategy === 'broad') {
-            const system_prompt = createSystemApiCallMessage(plan_prompt =
-                `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>"`
+
+            /*****************************/
+            /* Execute the research plan */
+            /*****************************/
+            // Extract the prompts from the research_plan
+            const promptRegex = /<prompt>(.*?)<\/prompt>/gs;
+            const prompts: string[] = [];
+            let match;
+            while ((match = promptRegex.exec(research_plan)) !== null) {
+                prompts.push(match[1].trim());
+            }
+
+            statusCallback(`Executing research plan with ${prompts.length} research threads.`);
+
+            // Get the last user message to use as the query for refinement
+            const userMessages = messages.filter(m => m.role === 'user');
+            const lastUserMessage = userMessages[userMessages.length - 1];
+            if (!lastUserMessage) {
+                throw new Error("No user message found for refinement");
+            }
+            const userQuery = lastUserMessage.content
+                .filter(part => part.type === 'text')
+                .map(part => part.text)
+                .join('\n');
+
+            // Execute all research threads in parallel using execute_research_thread
+            const subquerySystemPrompt = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested. Provide anything that may be relevant in an information dense manner. After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. Inside of the RESOURCES section, provide a list of the resources you used to gather information. Each resource should begin with <RESOURCE> and end with </RESOURCE>. The resource should begin with the URL wrapped in <URL> and </URL> tags. Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), author or authors (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). Also give a description of the kind of resource it is (e.g. journal article, scientific study, personal blog post, professional blog post, corporate blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. Indicate why the resource was written and published, especially if it is meant to persuade, educate, get business, advertise, provide SEO chum, etc. wrapped in <PURPOSE> and </PURPOSE> tags. Include a two to four sentence rich and descriptive summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`;
+
+            const refinementSystemPrompt = `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`;
+
+            const threadPromises = prompts.map(prompt => 
+                execute_research_thread(
+                    apiKey,
+                    models.researcher,
+                    models.editor,
+                    prompt,
+                    userQuery,
+                    maxTokens,
+                    config.deepResearchWebRequestsPerSubrequest,
+                    config.defaultReasoningEffort,
+                    subquerySystemPrompt,
+                    refinementSystemPrompt,
+                    (data: GenerationData) => {
+                        total_cost += data.total_cost || 0;
+                        total_web_requests += data.num_search_results || 0;
+                        if (data.generation_time) {
+                            total_generation_time_ms += data.generation_time;
+                        }
+                    }
+                )
             );
-            const messages_for_api: ApiCallMessage[] = [system_prompt, ...messages];
 
-            planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
-            fetchGenerationData(apiKey, planResult.requestID).then(data => {
-                if(data) {
-                    total_cost += data.total_cost || 0;
-                    total_web_requests += data.num_search_results || 0;
-                    planResult!.generationData = data; // attach generation data to the response
+            research_threads = await Promise.all(threadPromises);
+
+            // Collect all resources and annotations from the threads
+            let allResources: Resource[] = [];
+            for (const thread of research_threads) {
+                if (thread.resources) {
+                    allResources.push(...thread.resources);
                 }
-            });
-            research_plan = planResult.content.trim();
-        }
+                if (thread.firstPass?.annotations) {
+                    allAnnotations.push(...thread.firstPass.annotations);
+                }
+                if (thread.refined?.annotations) {
+                    allAnnotations.push(...thread.refined.annotations);
+                }
+            }
 
-        /*****************************/
-        /* Execute the research plan */
-        /*****************************/
-        // Extract the prompts from the research_plan
-        const promptRegex = /<prompt>(.*?)<\/prompt>/gs;
-        const prompts: string[] = [];
-        let match;
-        while ((match = promptRegex.exec(research_plan)) !== null) {
-            prompts.push(match[1].trim());
-        }
+            statusCallback(`Research plan executed.`);
 
-        statusCallback(`Executing research plan with ${prompts.length} research threads.`);
+            /******************************************************/
+            /* Wait for all generation data and update totals      */
+            /******************************************************/
+            statusCallback("Waiting for generation data...");
+            // Collect all generation promises from all threads
+            const allGenerationPromises: Promise<GenerationData>[] = [];
+            for (const thread of research_threads) {
+                allGenerationPromises.push(...thread.generationPromises);
+            }
+            // We don't need the results because they are attached to the chat results
+            await Promise.all(allGenerationPromises);
 
-        // Get the last user message to use as the query for refinement
-        const userMessages = messages.filter(m => m.role === 'user');
-        const lastUserMessage = userMessages[userMessages.length - 1];
-        if (!lastUserMessage) {
-            throw new Error("No user message found for refinement");
-        }
-        const userQuery = lastUserMessage.content
-            .filter(part => part.type === 'text')
-            .map(part => part.text)
-            .join('\n');
 
-        // Execute all research threads in parallel using execute_research_thread
-        const subquerySystemPrompt = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Do not worry about politeness or formalities, just provide the information requested. Provide anything that may be relevant in an information dense manner. After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. Inside of the RESOURCES section, provide a list of the resources you used to gather information. Each resource should begin with <RESOURCE> and end with </RESOURCE>. The resource should begin with the URL wrapped in <URL> and </URL> tags. Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), author or authors (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). Also give a description of the kind of resource it is (e.g. journal article, scientific study, personal blog post, professional blog post, corporate blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. Indicate why the resource was written and published, especially if it is meant to persuade, educate, get business, advertise, provide SEO chum, etc. wrapped in <PURPOSE> and </PURPOSE> tags. Include a two to four sentence rich and descriptive summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`;
+            /*********************/
+            /* Do the synthesis */
+            /*********************/
+            statusCallback("Synthesizing research results.");
+            const synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the answers to each of the research prompts from the research plan (research results) and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+            const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
 
-        const refinementSystemPrompt = `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`;
+            // Construct the messages for synthesis
+            const messages_for_synthesis: ApiCallMessage[] = [
+                synthesis_system_prompt,
+                ...messages.filter(m => m.role !== 'system'),   // remove system messages from the original conversation
+                createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
+                ...research_threads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined?.content}`))
+            ];
 
-        const threadPromises = prompts.map(prompt => 
-            execute_research_thread(
+            const synthesisResponse = await callOpenRouterChat(
                 apiKey,
-                models.researcher,
-                models.editor,
-                prompt,
-                userQuery,
-                maxTokens,
-                config.deepResearchWebRequestsPerSubrequest,
-                config.defaultReasoningEffort,
-                subquerySystemPrompt,
-                refinementSystemPrompt,
-                (data: GenerationData) => {
-                    total_cost += data.total_cost || 0;
-                    total_web_requests += data.num_search_results || 0;
-                    if (data.generation_time) {
-                        total_generation_time_ms += data.generation_time;
-                    }
+                models.reasoning,
+                config.deepResearchMaxSynthesisTokens,
+                0,   // web requests
+                messages_for_synthesis
+            );
+
+            statusCallback("Research synthesis complete.");
+            statusCallback("Fetching synthesis generation data.");
+            
+
+            // Fetch the generation data for the synthesis step
+            const synthesisGenerationData = await fetchGenerationData(apiKey, synthesisResponse.requestID);
+            if (synthesisGenerationData) {
+                total_cost += synthesisGenerationData.total_cost || 0;
+                total_web_requests += synthesisGenerationData.num_search_results || 0;
+                if (synthesisGenerationData.generation_time) {
+                    total_generation_time_ms += synthesisGenerationData.generation_time;
                 }
-            )
-        );
-
-        research_threads = await Promise.all(threadPromises);
-
-        // Collect all resources and annotations from the threads
-        let allResources: Resource[] = [];
-        for (const thread of research_threads) {
-            if (thread.resources) {
-                allResources.push(...thread.resources);
+                synthesisResponse.generationData = synthesisGenerationData; // attach generation data to the response
             }
-            if (thread.firstPass?.annotations) {
-                allAnnotations.push(...thread.firstPass.annotations);
+
+            // Parse the answer content from the synthesis response and handle annotations
+            let synthesisContent = synthesisResponse.content;
+            const answerTagRegex = /<ANSWER>(.*?)<\/ANSWER>/s;
+            const answerMatch = synthesisContent.match(answerTagRegex);
+            if (answerMatch && answerMatch[1]) {
+                answer_content = answerMatch[1].trim();
+            } else {
+                answer_content = synthesisContent;
             }
-            if (thread.refined?.annotations) {
-                allAnnotations.push(...thread.refined.annotations);
+            if (synthesisResponse.annotations) {
+                allAnnotations.push(...synthesisResponse.annotations);
             }
-        }
-
-        statusCallback(`Research plan executed.`);
-
-        /******************************************************/
-        /* Wait for all generation data and update totals      */
-        /******************************************************/
-        statusCallback("Waiting for generation data...");
-        // Collect all generation promises from all threads
-        const allGenerationPromises: Promise<GenerationData>[] = [];
-        for (const thread of research_threads) {
-            allGenerationPromises.push(...thread.generationPromises);
-        }
-        // We don't need the results because they are attached to the chat results
-        await Promise.all(allGenerationPromises);
-
-
-        /*********************/
-        /* Do the synthesis */
-        /*********************/
-        statusCallback("Synthesizing research results.");
-        const synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the answers to each of the research prompts from the research plan (research results) and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
-        const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
-
-        // Construct the messages for synthesis
-        const messages_for_synthesis: ApiCallMessage[] = [
-            synthesis_system_prompt,
-            ...messages.filter(m => m.role !== 'system'),   // remove system messages from the original conversation
-            createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
-            ...research_threads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined?.content}`))
-        ];
-
-        const synthesisResponse = await callOpenRouterChat(
-            apiKey,
-            models.reasoning,
-            config.deepResearchMaxSynthesisTokens,
-            0,   // web requests
-            messages_for_synthesis
-        );
-
-        statusCallback("Research synthesis complete.");
-        statusCallback("Fetching synthesis generation data.");
-        
-
-        // Fetch the generation data for the synthesis step
-        const synthesisGenerationData = await fetchGenerationData(apiKey, synthesisResponse.requestID);
-        if (synthesisGenerationData) {
-            total_cost += synthesisGenerationData.total_cost || 0;
-            total_web_requests += synthesisGenerationData.num_search_results || 0;
-            if (synthesisGenerationData.generation_time) {
-                total_generation_time_ms += synthesisGenerationData.generation_time;
-            }
-            synthesisResponse.generationData = synthesisGenerationData; // attach generation data to the response
-        }
-
-        // Parse the answer content from the synthesis response and handle annotations
-        let synthesisContent = synthesisResponse.content;
-        const answerTagRegex = /<ANSWER>(.*?)<\/ANSWER>/s;
-        const answerMatch = synthesisContent.match(answerTagRegex);
-        if (answerMatch && answerMatch[1]) {
-            answer_content = answerMatch[1].trim();
-        } else {
-            answer_content = synthesisContent;
-        }
-        if (synthesisResponse.annotations) {
-            allAnnotations.push(...synthesisResponse.annotations);
         }
 
         // Wait for all generation promises in research threads
@@ -255,6 +266,9 @@ export async function doDeepResearch(
             plan_prompt,
             plan_result: planResult!,
             research_plan,
+            plan_prompts,
+            plan_results,
+            research_plans,
             research_threads,
             synthesis_prompt: synthesis_prompt_string,
             synthesis_result: synthesisResponse,
