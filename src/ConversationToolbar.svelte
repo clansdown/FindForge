@@ -6,6 +6,7 @@
   import { formatModelName } from './lib/util';
   import { estimateDeepResearchCost } from './lib/deep_research';
   import Select from 'svelte-select';
+    import IconCheckedList from './lib/IconCheckedList.svelte';
 
     
   export let config: Config;
@@ -111,8 +112,13 @@
       </select>
     </div>
     
+    <div class="toolbar-group" title="Number of research phases">
+      <label for="research-phases"><IconCheckedList /></label>
+      <input style="width: 2rem;" id="research-phases" type="number" bind:value={config.deepResearchPhases} min="1" max="3" />
+    </div>
+    
     <div class="toolbar-group" title="Maximum number of research threads to use for researching the question.">
-      <label for="max-subqueries">🧵</label>
+      <label for="max-subqueries">🧵/<IconCheckedList /></label>
       <input style="width: 2rem;" id="max-subqueries" type="number" bind:value={config.deepResearchMaxSubqrequests} min="1" max="16" />
     </div>
     

@@ -333,8 +333,13 @@
             <input type="number" id="deep-research-web-search-max-results" bind:value={localConfig.deepResearchWebSearchMaxPlanningResults} min="1" />
         </div>
 
+        <div class="form-group" title="The number of research phases to use.">
+            <label for="deep-research-phases">Deep Research Phases:</label>
+            <input type="number" id="deep-research-phases" bind:value={localConfig.deepResearchPhases} min="1" max="3" />
+        </div>
+
         <div class="form-group">
-            <label for="deep-research-max-subqrequests">Maximum Research Threads:</label>
+            <label for="deep-research-max-subqrequests">Maximum Research Threads per Phase:</label>
             <input type="number" id="deep-research-max-subqrequests" bind:value={localConfig.deepResearchMaxSubqrequests} min="1" />
         </div>
 
