@@ -337,6 +337,7 @@
                         currentConversation.messages = currentConversation.messages.map((msg) =>
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
+                        tick();
                         scrollToBottom();
                     },
                     (status) => {
