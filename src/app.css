@@ -13,6 +13,26 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --background: #242424;
+  --multi-item-bg: #2a2a2a;
+  --multi-item-bg-hover: #3a3a3a;
+  --multi-item-bg-active: #4a4a4a;
+  --multi-item-bg-selected: #5a5a5a;
+  --multi-item-bg-selected-hover: #6a6a6a;
+  --multi-item-bg-selected-active: #7a7a7a;
+  --multi-item-bg-selected-focus: #8a8a8a;
+  --multi-item-bg-selected-focus-hover: #9a9a9a;
+  --multi-item-bg-selected-focus-active: #aaa;
+  --multi-item-bg-selected-focus-active-hover: #bbb;
+  --multi-item-bg-selected-focus-active-focus: #ccc;
+  --multi-item-bg-selected-focus-active-focus-hover: #ddd;
+  --multi-item-bg-selected-focus-active-focus-active: #eee;
+  --multi-item-bg-selected-focus-active-focus-active-hover: #fff;
+  --multi-item-bg-selected-focus-active-focus-active-focus: #f0f0f0;
+  --multi-item-bg-selected-focus-active-focus-active-focus-hover: #f5f5f5;
+  --list-background: #2a2a2a;
+  --item-is-active-bg: #559;
+  --item-hover-bg: #339;
 }
 
 a {
@@ -327,3 +347,8 @@ select {
 .ms-3 { margin-left: 0.75rem; }
 .ms-4 { margin-left: 1rem; }
 .ms-5 { margin-left: 1.5rem; }
+
+
+.svelte-select-list {
+  background: var(--background);
+}

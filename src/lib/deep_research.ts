@@ -239,6 +239,11 @@ export async function doDeepResearch(
             allAnnotations.push(...synthesisResponse.annotations);
         }
 
+        // Wait for all generation promises in research threads
+        statusCallback("Waiting for final generation data...");
+        const allThreadGenerationPromises = research_threads.flatMap(thread => thread.generationPromises);
+        await Promise.all(allThreadGenerationPromises);
+
         statusCallback("Deep research completed successfully.");
 
         const elapsed_time = (Date.now() - startTime) / 1000; // in seconds
