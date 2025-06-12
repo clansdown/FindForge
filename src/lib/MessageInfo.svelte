@@ -1,6 +1,6 @@
 <script lang="ts">
     import ModalDialog from "./ModalDialog.svelte";
-    import type { DeepResearchResult, ResearchResult, GenerationData, Annotation, ChatResult, ResearchThread } from "./types";
+    import { type DeepResearchResult, type ResearchResult, type GenerationData, type Annotation, type ChatResult, type ResearchThread, sanitizeDeepResearch } from "./types";
     import MarkdownIt from 'markdown-it';
     import { onMount } from 'svelte';
 
@@ -13,15 +13,20 @@
     let activeTab: 'overview' | 'plan' | 'threads' | 'synthesis' | 'annotations' = 'overview';
     let selectedThreadIndex = 0;
     let selectedThread: ResearchThread | null = null;
+    let selectedPlanPhase = 0;
+    let selectedSynthesisPhase = 0;
+    let sanitizedDeepResearch: DeepResearchResult | null = null;
 
     $: {
         if (deepResearchResult) {
-            if (selectedThreadIndex >= 0 && selectedThreadIndex < deepResearchResult.research_threads.length) {
-                selectedThread = deepResearchResult.research_threads[selectedThreadIndex];
+            sanitizedDeepResearch = sanitizeDeepResearch(deepResearchResult);
+            if (selectedThreadIndex >= 0 && selectedThreadIndex < sanitizedDeepResearch.research_threads.length) {
+                selectedThread = sanitizedDeepResearch.research_threads[selectedThreadIndex];
             } else {
                 selectedThread = null;
             }
         } else {
+            sanitizedDeepResearch = null;
             selectedThread = null;
         }
     }
@@ -70,7 +75,7 @@
 
 <ModalDialog isOpen={true} onClose={onClose}>
     <div class="message-info">
-        {#if deepResearchResult}
+        {#if sanitizedDeepResearch}
             <div class="info-section">
                 <h1>Deep Research Details</h1>
                 
@@ -84,27 +89,33 @@
                 
                 {#if activeTab === 'overview'}
                     <div class="tab-content">
-                        <p><strong>Total Cost:</strong> {formatCost(deepResearchResult.total_cost)}</p>
-                        <p><strong>Total Generation Time:</strong> {formatTime(deepResearchResult.total_generation_time)}</p>
-                        <p><strong>Reasoning Model:</strong> {deepResearchResult.models.reasoning}</p>
-                        <p><strong>Editor Model:</strong> {deepResearchResult.models.editor}</p>
-                        <p><strong>Researcher Model:</strong> {deepResearchResult.models.researcher}</p>
+                        <p><strong>Total Cost:</strong> {formatCost(sanitizedDeepResearch!.total_cost)}</p>
+                        <p><strong>Total Generation Time:</strong> {formatTime(sanitizedDeepResearch!.total_generation_time)}</p>
+                        <p><strong>Research Phases:</strong> {sanitizedDeepResearch!.synthesisResults.length}</p>
+                        <p><strong>Reasoning Model:</strong> {sanitizedDeepResearch!.models.reasoning}</p>
+                        <p><strong>Editor Model:</strong> {sanitizedDeepResearch!.models.editor}</p>
+                        <p><strong>Researcher Model:</strong> {sanitizedDeepResearch!.models.researcher}</p>
                     </div>
                 {:else if activeTab === 'plan'}
                     <div class="tab-content">
                         <div class="info-block">
+                            <select bind:value={selectedPlanPhase} class="phase-selector">
+                                {#each sanitizedDeepResearch!.plan_prompts as _, index (index)}
+                                    <option value={index}>Phase {index + 1}</option>
+                                {/each}
+                            </select>
                             <div class="chat-result">
                                 <div class="chat-header">
                                     <h4>Plan Prompt</h4>
-                                    <button on:click={() => copyToClipboard(deepResearchResult.plan_prompt, 'plan prompt')} class="copy-button">
+                                    <button on:click={() => copyToClipboard(sanitizedDeepResearch!.plan_prompts[selectedPlanPhase], 'plan prompt')} class="copy-button">
                                         📋
                                     </button>
                                 </div>
-                                <div style="text-align: justify; padding: 0 1rem;">{deepResearchResult.plan_prompt}</div>
-                                <p>{formatGenerationData(deepResearchResult.plan_result.generationData)}</p>
+                                <div style="text-align: justify; padding: 0 1rem;">{sanitizedDeepResearch!.plan_prompts[selectedPlanPhase]}</div>
+                                <p>{formatGenerationData(sanitizedDeepResearch!.plan_results[selectedPlanPhase].generationData)}</p>
                                 <h3>Plan Content</h3>
                                 <div class="chat-content">
-                                    {@html formatChatContent(deepResearchResult.plan_result.content)}
+                                    {@html formatChatContent(sanitizedDeepResearch.plan_results[selectedPlanPhase].content)}
                                 </div>
                             </div>
                         </div>
@@ -113,7 +124,7 @@
                     <div class="tab-content">
                         <div class="info-block">
                             <select bind:value={selectedThreadIndex} class="thread-selector">
-                                {#each deepResearchResult.research_threads as _, index (index)}
+                                {#each sanitizedDeepResearch.research_threads as _, index (index)}
                                     <option value={index}>Thread {index + 1}</option>
                                 {/each}
                             </select>
@@ -163,29 +174,34 @@
                 {:else if activeTab === 'synthesis'}
                     <div class="tab-content">
                         <div class="info-block">
+                            <select bind:value={selectedSynthesisPhase} class="phase-selector">
+                                {#each sanitizedDeepResearch.synthesisPromptStrings as _, index (index)}
+                                    <option value={index}>Phase {index + 1}</option>
+                                {/each}
+                            </select>
                             <div class="chat-result">
                                 <div class="chat-header">
                                     <h4>Synthesis Prompt</h4>
-                                    <button on:click={() => copyToClipboard(deepResearchResult.synthesis_prompt, 'synthesis prompt')} class="copy-button">
+                                    <button on:click={() => copyToClipboard(sanitizedDeepResearch!.synthesisPromptStrings[selectedSynthesisPhase], 'synthesis prompt')} class="copy-button">
                                         📋
                                     </button>
                                 </div>
-                                <pre>{deepResearchResult.synthesis_prompt}</pre>
-                                <p><strong>Generation Data:</strong> {formatGenerationData(deepResearchResult.synthesis_result.generationData)}</p>
+                                <pre>{sanitizedDeepResearch.synthesisPromptStrings[selectedSynthesisPhase]}</pre>
+                                <p><strong>Generation Data:</strong> {formatGenerationData(sanitizedDeepResearch.synthesisResults[selectedSynthesisPhase].generationData)}</p>
                                 <h4>Synthesis Content</h4>
                                 <div class="chat-content">
-                                    {@html formatChatContent(deepResearchResult.synthesis_result.content)}
+                                    {@html formatChatContent(sanitizedDeepResearch.synthesisResults[selectedSynthesisPhase].content)}
                                 </div>
                             </div>
                         </div>
                     </div>
                 {:else if activeTab === 'annotations'}
                     <div class="tab-content">
-                        {#if deepResearchResult.annotations && deepResearchResult.annotations.length > 0}
+                        {#if sanitizedDeepResearch.annotations && sanitizedDeepResearch.annotations.length > 0}
                             <div class="info-block">
                                 <h4>Annotations</h4>
                                 <ol>
-                                    {#each deepResearchResult.annotations as annotation}
+                                    {#each sanitizedDeepResearch.annotations as annotation}
                                         <li>{@html formatAnnotation(annotation)}</li>
                                     {/each}
                                 </ol>
@@ -332,7 +348,7 @@
     .tab-content {
         margin-top: 1rem;
     }
-    .thread-selector {
+    .thread-selector, .phase-selector {
         background: #1a1a1a;
         color: #fff;
         border: 1px solid #444;
