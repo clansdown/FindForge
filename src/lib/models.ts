@@ -38,6 +38,16 @@ export function createSystemApiCallMessage(text: string): ApiCallMessage {
     };
 }
 
+export function createUserApiCallMessage(text: string): ApiCallMessage {
+    return {
+        role: 'user',
+        content: [{
+            type: 'text',
+            text: text
+        }]
+    };
+}
+
 export async function fetchOpenRouterCredits(apiKey: string): Promise<OpenRouterCredits> {
     const response = await fetch('https://openrouter.ai/api/v1/credits', {
         headers: {
