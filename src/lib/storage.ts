@@ -26,6 +26,7 @@ export function loadConfig(): Config {
 }
 
 export function storeConversation(conversation: ConversationData): void {
+    // Reload IDs fresh from storage to avoid race conditions with other tabs
     const ids = loadConversationIDs();
     if (!ids.includes(conversation.id)) {
         ids.push(conversation.id);
@@ -33,14 +34,9 @@ export function storeConversation(conversation: ConversationData): void {
     }
     localStorage.setItem(`conversation_${conversation.id}`, JSON.stringify(conversation));
 
-    if (conversationsCache) {
-        const index = conversationsCache.findIndex(c => c.id === conversation.id);
-        if (index >= 0) {
-            conversationsCache[index] = conversation;
-        } else {
-            conversationsCache.push(conversation);
-        }
-    }
+    // Invalidate cache and reload it
+    conversationsCache = null;
+    loadConversations();
 }
 
 export function loadConversations(): ConversationData[] {
