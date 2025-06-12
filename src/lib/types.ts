@@ -269,6 +269,8 @@ export interface DeepResearchResult {
     research_threads : ResearchThread[];
     synthesis_prompt: string;
     synthesis_result: ChatResult;
+    synthesisPromptStrings: string[]; // all synthesis prompts used
+    synthesisResults: ChatResult[]; // all synthesis results
     annotations?: Annotation[];
     resources : Resource[];
     elapsed_time: number; // wall-clock time taken for the deep research (in seconds)

@@ -32,10 +32,15 @@ export async function doDeepResearch(
         let planResult: ChatResult | null = null;
         let research_threads: ResearchThread[] = [];
         let allAnnotations: Annotation[] = []; // to collect all annotations
+        let allResources: Resource[] = [];
         let plan_prompts: string[] = [];
         let plan_results: ChatResult[] = [];
         let research_plans: string[] = [];
+        let research_plan : string = '';
+        let synthesisPromptStrings: string[] = [];
+        let synthesisResults: ChatResult[] = [];
         const max_planning_requests = config.deepResearchWebSearchMaxPlanningResults;
+        const max_planning_tokens = config.deepResearchMaxPlanningTokens;
 
         statusCallback("Starting deep research.");
 
@@ -70,14 +75,12 @@ export async function doDeepResearch(
             /* Create the plan */
             /*******************/
             statusCallback("Creating research plan.");
-            let research_plan : string = '';
-            let max_planning_tokens = config.deepResearchMaxPlanningTokens;
             if(actualStrategy === 'deep') {
                 let plan_prompt_text: string;
                 if (phase_index === 0) {
                     plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`;
                 } else {
-                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and the previous answer (shown below) to create an improved plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you improve upon or verify the previous answer. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to improving or verifying the previous answer, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a better final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`;
+                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and the previous answer (shown below) to create a plan for further researching the user's question or goal. Focus on anything in the user's question or goal which may not have been addressed in the first answer. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you improve upon or verify the previous answer. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to improving or verifying the previous answer, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a better final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`;
                 }
                 const system_prompt = createSystemApiCallMessage(plan_prompt = plan_prompt_text);
                 const messages_for_api: ApiCallMessage[] = phase_index === 0 
@@ -182,7 +185,6 @@ export async function doDeepResearch(
             research_threads = await Promise.all(threadPromises);
 
             // Collect all resources and annotations from the threads
-            let allResources: Resource[] = [];
             for (const thread of research_threads) {
                 if (thread.resources) {
                     allResources.push(...thread.resources);
@@ -215,6 +217,7 @@ export async function doDeepResearch(
             /*********************/
             statusCallback("Synthesizing research results.");
             const synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the answers to each of the research prompts from the research plan (research results) and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+            synthesisPromptStrings.push(synthesis_prompt_string);
             const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
 
             // Construct the messages for synthesis
@@ -232,6 +235,7 @@ export async function doDeepResearch(
                 0,   // web requests
                 messages_for_synthesis
             );
+            synthesisResults.push(synthesisResponse);
 
             statusCallback("Research synthesis complete.");
             statusCallback("Fetching synthesis generation data.");
@@ -282,8 +286,10 @@ export async function doDeepResearch(
             plan_results,
             research_plans,
             research_threads,
-            synthesis_prompt: synthesis_prompt_string,
-            synthesis_result: synthesisResponse,
+            synthesis_prompt: synthesisPromptStrings[0],
+            synthesis_result: synthesisResults[0],
+            synthesisPromptStrings,
+            synthesisResults,
             content: answer_content,
             annotations: allAnnotations,
             resources: allResources,
