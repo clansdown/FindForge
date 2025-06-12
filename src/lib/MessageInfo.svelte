@@ -96,6 +96,10 @@
                         <p><strong>Reasoning Model:</strong> {sanitizedDeepResearch!.models.reasoning}</p>
                         <p><strong>Editor Model:</strong> {sanitizedDeepResearch!.models.editor}</p>
                         <p><strong>Researcher Model:</strong> {sanitizedDeepResearch!.models.researcher}</p>
+                        <p><strong>Planning Model:</strong> {sanitizedDeepResearch!.planningModel}</p>
+                        <p><strong>Research Model:</strong> {sanitizedDeepResearch!.researchModel}</p>
+                        <p><strong>Refining Model:</strong> {sanitizedDeepResearch!.refiningModel}</p>
+                        <p><strong>Synthesis Model:</strong> {sanitizedDeepResearch!.synthesisModel}</p>
                     </div>
                 {:else if activeTab === 'plan'}
                     <div class="tab-content">

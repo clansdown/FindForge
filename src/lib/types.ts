@@ -1,4 +1,3 @@
-import type { Mode } from "highlight.js";
 
 export interface ExperimentationOptions {
     parallelResearch: boolean; // If true, do research in parallel
