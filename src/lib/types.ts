@@ -25,6 +25,10 @@ export class Config {
     deepResearchMaxSynthesisTokens!: number;
     parallelSystemPromptNames: string[] = []; // names of selected system prompts for parallel research
     deepResearchPhases: number = 1; // number of phases in deep research;
+    deepResearchPlanningModel: string = 'deepseek/deepseek-chat-v3-0324:free';
+    deepResearchResearchModel: string = 'deepseek/deepseek-chat-v3-0324:free';
+    deepResearchRefiningModel: string = 'deepseek/deepseek-chat-v3-0324:free';
+    deepResearchSynthesisModel: string = 'deepseek/deepseek-chat-v3-0324:free';
     systemPrompts: SystemPrompt[];
     synthesisPrompts : SystemPrompt[];
 

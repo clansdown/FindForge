@@ -16,3 +16,4 @@
 
 * add the ability to run, in paralle, particular combinations of model and user prompt
 
+* add locking to storage in case of multiple tabs

@@ -364,6 +364,62 @@
         </div>
 
         <div class="form-group">
+            <label for="deep-research-planning-model">Planning Model:</label>
+            <select id="deep-research-planning-model" bind:value={localConfig.deepResearchPlanningModel}>
+                {#each availableModels as model}
+                    <option value={model.id}>
+                        {model.name}
+                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
+                            parseFloat(model.pricing.completion) * 1000000
+                        ).toFixed(2)}/M)
+                    </option>
+                {/each}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-research-model">Research Model:</label>
+            <select id="deep-research-research-model" bind:value={localConfig.deepResearchResearchModel}>
+                {#each availableModels as model}
+                    <option value={model.id}>
+                        {model.name}
+                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
+                            parseFloat(model.pricing.completion) * 1000000
+                        ).toFixed(2)}/M)
+                    </option>
+                {/each}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-refining-model">Refining Model:</label>
+            <select id="deep-research-refining-model" bind:value={localConfig.deepResearchRefiningModel}>
+                {#each availableModels as model}
+                    <option value={model.id}>
+                        {model.name}
+                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
+                            parseFloat(model.pricing.completion) * 1000000
+                        ).toFixed(2)}/M)
+                    </option>
+                {/each}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-synthesis-model">Synthesis Model:</label>
+            <select id="deep-research-synthesis-model" bind:value={localConfig.deepResearchSynthesisModel}>
+                {#each availableModels as model}
+                    <option value={model.id}>
+                        {model.name}
+                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
+                            parseFloat(model.pricing.completion) * 1000000
+                        ).toFixed(2)}/M)
+                    </option>
+                {/each}
+            </select>
+        </div>
+
+        <div class="form-group">
             <div class="text-end" title="The estimated cost per deep research message">Estimated Cost:
                 {#if estimatedDeepResearchCost === null}
                     Calculating...
