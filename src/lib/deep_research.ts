@@ -216,17 +216,27 @@ export async function doDeepResearch(
             /* Do the synthesis */
             /*********************/
             statusCallback("Synthesizing research results.");
-            const synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the answers to each of the research prompts from the research plan (research results) and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+            let synthesis_prompt_string: string;
+            if (phase_index === 0) {
+                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the answers to each of the research prompts from the research plan (research results) and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+            } else {
+                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the previous answer to the user's question or goal in light of the new research results and refine it to create an improved answer. Focus on addressing any gaps, weaknesses, or inaccuracies in the previous answer. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the refined answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+            }
             synthesisPromptStrings.push(synthesis_prompt_string);
             const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
 
             // Construct the messages for synthesis
             const messages_for_synthesis: ApiCallMessage[] = [
                 synthesis_system_prompt,
-                ...messages.filter(m => m.role !== 'system'),   // remove system messages from the original conversation
+                ...messages.filter(m => m.role === 'user'),   // include only user messages from original conversation
+                ...messages.filter(m => m.role === 'assistant'),   // then include assistant messages
                 createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
                 ...research_threads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined?.content}`))
             ];
+            
+            if (phase_index > 0) {
+                messages_for_synthesis.push(createAssistantApiCallMessage(`Previous Answer:\n${answer_content}`));
+            }
 
             const synthesisResponse = await callOpenRouterChat(
                 apiKey,
