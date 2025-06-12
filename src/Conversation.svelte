@@ -391,6 +391,7 @@
             }
             userInput = ""; // Clear input after sending
         } catch (error: any) {
+            console.error("Generation error:", error);
             if (error.name !== "AbortError") {
                 assistantMessage.content += "\n\n[Error: Generation failed]";
             }
