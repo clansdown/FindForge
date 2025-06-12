@@ -92,7 +92,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                planResult = await callOpenRouterChat(apiKey, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 fetchGenerationData(apiKey, planResult.requestID).then(data => {
                     if(data) {
                         total_cost += data.total_cost || 0;
@@ -122,7 +122,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                planResult = await callOpenRouterChat(apiKey, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 fetchGenerationData(apiKey, planResult.requestID).then(data => {
                     if(data) {
                         total_cost += data.total_cost || 0;
@@ -162,14 +162,10 @@ export async function doDeepResearch(
 
             const threadPromises = prompts.map(prompt => 
                 execute_research_thread(
-                    apiKey,
-                    models.researcher,
-                    models.editor,
+                    config,
                     prompt,
                     userQuery,
                     maxTokens,
-                    config.deepResearchWebRequestsPerSubrequest,
-                    config.defaultReasoningEffort,
                     subquerySystemPrompt,
                     refinementSystemPrompt,
                     (data: GenerationData) => {
@@ -235,7 +231,7 @@ export async function doDeepResearch(
 
             const synthesisResponse = await callOpenRouterChat(
                 apiKey,
-                models.editor,
+                config.deepResearchSynthesisModel,
                 config.deepResearchMaxSynthesisTokens,
                 0,   // web requests
                 messages_for_synthesis
@@ -361,14 +357,10 @@ async function determineStrategy(
 }
 
 export async function execute_research_thread(
-    apiKey: string,
-    modelId: string,        // for the researcher (first pass)
-    editorModelId: string,  // for the editor (refinement)
+    config: Config,
     prompt: string,
     userQuery: string,
     maxTokens: number,
-    maxWebRequests: number,
-    reasoningEffort: 'low' | 'medium' | 'high',
     systemPromptForSubquery: string,
     systemPromptForRefinement: string,
     handleGenerationData: (data: GenerationData) => void = () => {}
@@ -393,13 +385,13 @@ export async function execute_research_thread(
     ];
 
     const firstPassResult = await callOpenRouterChat(
-        apiKey,
-        modelId,
+        config.apiKey,
+        config.deepResearchResearchModel,
         maxTokens,
-        maxWebRequests,
+        config.deepResearchWebRequestsPerSubrequest,
         messages_for_subquery,
         undefined,
-        reasoningEffort
+        config.defaultReasoningEffort
     );
     thread.firstPass = firstPassResult;
     // Extract resources from first pass content
@@ -407,7 +399,7 @@ export async function execute_research_thread(
 
     // Start fetching generation data for first pass
     const firstPassGenPromise = (async () => {
-        const data = await fetchGenerationData(apiKey, firstPassResult.requestID);
+        const data = await fetchGenerationData(config.apiKey, firstPassResult.requestID);
         if (data) {
             firstPassResult.generationData = data;
             thread.handleGenerationData(data);
@@ -452,19 +444,19 @@ export async function execute_research_thread(
     const messages: ApiCallMessage[] = [systemPrompt, userMessage, assistantMessage];
 
     const refinedResult = await callOpenRouterChat(
-        apiKey,
-        editorModelId,
+        config.apiKey,
+        config.deepResearchRefiningModel,
         maxTokens,
         0,   // no web requests for refinement
         messages,
         undefined,
-        reasoningEffort
+        config.defaultReasoningEffort
     );
     thread.refined = refinedResult;
 
     // Start fetching generation data for refinement
     const refinedGenPromise = (async () => {
-        const data = await fetchGenerationData(apiKey, refinedResult.requestID);
+        const data = await fetchGenerationData(config.apiKey, refinedResult.requestID);
         if (data) {
             refinedResult.generationData = data;
             thread.handleGenerationData(data);
@@ -474,71 +466,6 @@ export async function execute_research_thread(
     thread.generationPromises.push(refinedGenPromise);
 
     return thread;
-}
-
-export async function refine_result(
-    apiKey: string,
-    modelId: string,
-    thread: ResearchThread,
-    userQuery: string,
-    maxTokens: number,
-    maxWebRequests: number,
-    reasoningEffort: 'low' | 'medium' | 'high'
-): Promise<{ chatResult: ChatResult, generationData: GenerationData | undefined }> {
-    const system_prompt_string =
-        `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query. Omit any irrelevant information. Be dense and include all important details. Your output will be fed into a reasoning model for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`;
-    thread.refiningPrompt = system_prompt_string;
-    const systemPrompt = createSystemApiCallMessage(system_prompt_string);
-
-    // Strip out the RESOURCES section from the content to refine
-    let contentToRefine = thread.firstPass?.content || '';
-    const resourcesStart = contentToRefine.indexOf('<RESOURCES>');
-    if (resourcesStart !== -1) {
-        const resourcesEnd = contentToRefine.indexOf('</RESOURCES>', resourcesStart);
-        if (resourcesEnd !== -1) {
-            contentToRefine = contentToRefine.substring(0, resourcesStart) + contentToRefine.substring(resourcesEnd + '</RESOURCES>'.length);
-        }
-    }
-
-    const userMessage: ApiCallMessage = {
-        role: 'user',
-        content: [{
-            type: 'text',
-            text: userQuery
-        }]
-    };
-
-    const assistantMessage: ApiCallMessage = {
-        role: 'assistant',
-        content: [{
-            type: 'text',
-            text: `Research result to refine:\n${contentToRefine}`
-        }]
-    };
-
-    const messages: ApiCallMessage[] = [systemPrompt, userMessage, assistantMessage];
-
-    const chatResult = await callOpenRouterChat(
-        apiKey,
-        modelId,
-        maxTokens,
-        0,
-        messages,
-        undefined,
-        reasoningEffort
-    );
-
-    thread.refined = chatResult;
-    const genPromise = (async () => {
-        const data = await fetchGenerationData(apiKey, chatResult.requestID);
-        if (data) {
-            chatResult.generationData = data;
-            thread.handleGenerationData(data);
-        }
-        return data;
-    })();
-    thread.generationPromises.push(genPromise);
-    return { chatResult, generationData: undefined };
 }
 
 export async function estimateDeepResearchCost(config: Config): Promise<number> {
@@ -598,13 +525,13 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     const totalCost = strategyCost + planningCost + executionCost + refinementCost + synthesisCost + webSearchCost;
 
     // Log all of the costs that went into total cost:
-    console.log(`Strategy cost: $${strategyCost.toFixed(3)}`);
-    console.log(`Planning cost: $${planningCost.toFixed(3)}`);
-    console.log(`Execution cost: $${executionCost.toFixed(3)}`);
-    console.log(`Refinement cost: $${refinementCost.toFixed(3)}`);
-    console.log(`Synthesis cost: $${synthesisCost.toFixed(3)}`);
-    console.log(`Web search cost: $${webSearchCost.toFixed(3)}`);
-    console.log(`Estimated deep research cost: $${totalCost.toFixed(3)}`);
+    // console.log(`Strategy cost: $${strategyCost.toFixed(3)}`);
+    // console.log(`Planning cost: $${planningCost.toFixed(3)}`);
+    // console.log(`Execution cost: $${executionCost.toFixed(3)}`);
+    // console.log(`Refinement cost: $${refinementCost.toFixed(3)}`);
+    // console.log(`Synthesis cost: $${synthesisCost.toFixed(3)}`);
+    // console.log(`Web search cost: $${webSearchCost.toFixed(3)}`);
+    // console.log(`Estimated deep research cost: $${totalCost.toFixed(3)}`);
     return totalCost;
 }
 
