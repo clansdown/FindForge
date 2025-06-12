@@ -2,7 +2,56 @@ import { Config, type ConversationData } from './types';
 
 const STORAGE_KEY = 'appConfig';
 const CONVERSATION_IDS_KEY = 'conversationIDs';
+const STORAGE_LOCK_KEY = 'storageLock';
+const LOCK_TIMEOUT_MS = 5000; // 5 second lock timeout
 let conversationsCache: ConversationData[] | null = null;
+
+/**
+ * Attempts to acquire a storage lock
+ * @returns true if lock was acquired, false if already locked
+ */
+export function acquireStorageLock(): boolean {
+    const lock = localStorage.getItem(STORAGE_LOCK_KEY);
+    if (lock) {
+        const lockTime = parseInt(lock);
+        if (Date.now() - lockTime < LOCK_TIMEOUT_MS) {
+            return false; // Lock is still valid
+        }
+        // Lock expired - we can take it
+    }
+    localStorage.setItem(STORAGE_LOCK_KEY, Date.now().toString());
+    return true;
+}
+
+/**
+ * Releases the storage lock
+ */
+export function releaseStorageLock(): void {
+    localStorage.removeItem(STORAGE_LOCK_KEY);
+}
+
+/**
+ * Waits to acquire a storage lock with retries
+ * @param maxRetries Maximum number of retry attempts
+ * @param retryDelayMs Delay between retries in milliseconds
+ * @returns Promise that resolves when lock is acquired or rejects if max retries reached
+ */
+export function waitForStorageLock(maxRetries = 10, retryDelayMs = 200): Promise<void> {
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const tryAcquire = () => {
+            if (acquireStorageLock()) {
+                resolve();
+            } else if (attempts >= maxRetries) {
+                reject(new Error('Failed to acquire storage lock after maximum retries'));
+            } else {
+                attempts++;
+                setTimeout(tryAcquire, retryDelayMs);
+            }
+        };
+        tryAcquire();
+    });
+}
 
 export function saveConfig(config: Config): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
