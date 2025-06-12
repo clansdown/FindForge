@@ -90,7 +90,7 @@
                 {#if activeTab === 'overview'}
                     <div class="tab-content">
                         <p><strong>Generation Time:</strong> {formatTime(sanitizedDeepResearch.elapsed_time)} </p>
-                        <p><strong>Total LLM Time:</strong> {formatTime(sanitizedDeepResearch!.total_generation_time)}</p>
+                        <p><strong>LLM Time Consumed:</strong> {formatTime(sanitizedDeepResearch!.total_generation_time)}</p>
                         <p><strong>Total Cost:</strong> {formatCost(sanitizedDeepResearch!.total_cost)}</p>
                         <p><strong>Research Phases:</strong> {sanitizedDeepResearch!.synthesisResults.length}</p>
                         <p><strong>Reasoning Model:</strong> {sanitizedDeepResearch!.models.reasoning}</p>
