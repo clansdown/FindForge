@@ -74,6 +74,7 @@ export async function doDeepResearch(
         }
 
         for(let phase_index = 0; phase_index < config.deepResearchPhases; phase_index++) {
+            statusCallback(`Research phase ${phase_index + 1} of ${config.deepResearchPhases}.`);
             /*******************/
             /* Create the plan */
             /*******************/
@@ -221,9 +222,9 @@ export async function doDeepResearch(
             statusCallback("Synthesizing research results.");
             let synthesis_prompt_string: string;
             if (phase_index === 0) {
-                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the answers to each of the research prompts from the research plan (research results) and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the research results and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
             } else {
-                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the previous answer to the user's question or goal in light of the new research results and refine it to create an improved answer. Focus on addressing any gaps, weaknesses, or inaccuracies in the previous answer. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the refined answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the previous answer to the user's question or goal in light of the new research results and refine the answer to create an improved answer. Focus on addressing any gaps, weaknesses, or inaccuracies in the previous answer. Prefer expanding the answer to removing anything. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the refined answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
             }
             synthesisPromptStrings.push(synthesis_prompt_string);
             const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
@@ -231,9 +232,8 @@ export async function doDeepResearch(
             // Construct the messages for synthesis
             const messages_for_synthesis: ApiCallMessage[] = [
                 synthesis_system_prompt,
-                ...contextMessages.filter(m => m.role === 'user'),   // include only user messages from original conversation
-                ...contextMessages.filter(m => m.role === 'assistant'),   // then include assistant messages
-                createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
+                ...contextMessages,
+                user_api_message,
                 ...research_threads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined?.content}`))
             ];
             
@@ -243,7 +243,7 @@ export async function doDeepResearch(
 
             const synthesisResponse = await callOpenRouterChat(
                 apiKey,
-                models.reasoning,
+                models.editor,
                 config.deepResearchMaxSynthesisTokens,
                 0,   // web requests
                 messages_for_synthesis
