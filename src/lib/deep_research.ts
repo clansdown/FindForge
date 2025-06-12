@@ -83,18 +83,12 @@ export async function doDeepResearch(
                 if (phase_index === 0) {
                     plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`;
                 } else {
-                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and the previous answer (shown below) to create a plan for further researching the user's question or goal. Focus on anything in the user's question or goal which may not have been addressed in the first answer. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you improve upon or verify the previous answer. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to improving or verifying the previous answer, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a better final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`;
+                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and the previous answer (shown below) to create a plan for further researching the user's question or goal. Focus on anything in the user's question or goal which may not have been addressed in the first answer. Secondarily, consider anything that could use elaboration or further detail. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you improve upon or verify the previous answer. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to improving or verifying the previous answer, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a better final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>`;
                 }
                 const system_prompt = createSystemApiCallMessage(plan_prompt = plan_prompt_text);
                 const messages_for_api: ApiCallMessage[] = phase_index === 0 
-                    ? [system_prompt, ...contextMessages, {
-                        role: 'user',
-                        content: [{ type: 'text', text: userMessage }]
-                    }]
-                    : [system_prompt, ...contextMessages, {
-                        role: 'user',
-                        content: [{ type: 'text', text: userMessage }]
-                    }, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
+                    ? [system_prompt, ...contextMessages, user_api_message]
+                    : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 fetchGenerationData(apiKey, planResult.requestID).then(data => {
@@ -123,8 +117,8 @@ export async function doDeepResearch(
                 }
                 const system_prompt = createSystemApiCallMessage(plan_prompt = plan_prompt_text);
                 const messages_for_api: ApiCallMessage[] = phase_index === 0 
-                    ? [system_prompt, ...contextMessages]
-                    : [system_prompt, ...contextMessages, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
+                    ? [system_prompt, ...contextMessages, user_api_message]
+                    : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 fetchGenerationData(apiKey, planResult.requestID).then(data => {
