@@ -574,7 +574,7 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     const pricingPlanning = modelPricing[reasoningModel];
     const planningInputTokens = 4300; // 300 (system) + 1000 (user) + 3000 (research)
     const planningOutputTokens = config.deepResearchMaxPlanningTokens;
-    const planningCost = (planningInputTokens * pricingPlanning.prompt + planningOutputTokens * pricingPlanning.completion);
+    const planningCost = config.deepResearchPhases * (planningInputTokens * pricingPlanning.prompt + planningOutputTokens * pricingPlanning.completion);
 
     // Step 3: Execution of subqueries
     const researcherModel = config.defaultModel;
@@ -582,22 +582,22 @@ export async function estimateDeepResearchCost(config: Config): Promise<number> 
     const numSubqueries = config.deepResearchMaxSubqrequests;
     const perSubqueryInputTokens = 200 + config.deepResearchWebRequestsPerSubrequest*600; // system (100) + prompt (100)
     const perSubqueryOutputTokens = 1000;
-    const executionCost = numSubqueries * (perSubqueryInputTokens * pricingResearcher.prompt + perSubqueryOutputTokens * pricingResearcher.completion);
+    const executionCost = config.deepResearchPhases * numSubqueries * (perSubqueryInputTokens * pricingResearcher.prompt + perSubqueryOutputTokens * pricingResearcher.completion);
 
     // Step 4: Refinement
     const editorModel = config.defaultReasoningModel; // using reasoning model for refinement
     const pricingEditor = modelPricing[editorModel];
     const perRefinementInputTokens = 100 + 1000 + perSubqueryOutputTokens; // system (100) + user query (1000) + subquery result (1000)
     const perRefinementOutputTokens = 1000;
-    const refinementCost = numSubqueries * (perRefinementInputTokens * pricingEditor.prompt + perRefinementOutputTokens * pricingEditor.completion);
+    const refinementCost = config.deepResearchPhases * numSubqueries * (perRefinementInputTokens * pricingEditor.prompt + perRefinementOutputTokens * pricingEditor.completion);
 
     // Step 5: Synthesis
     const synthesisInputTokens = 200 + 1000 + strategyOutputTokens + (perRefinementOutputTokens * numSubqueries); // system (200) + user messages (1000)
     const synthesisOutputTokens = config.deepResearchMaxSynthesisTokens;
-    const synthesisCost = (synthesisInputTokens * pricingPlanning.prompt + synthesisOutputTokens * pricingPlanning.completion);
+    const synthesisCost = config.deepResearchPhases * (synthesisInputTokens * pricingPlanning.prompt + synthesisOutputTokens * pricingPlanning.completion);
 
     // Web search cost
-    const webSearchCost = (config.deepResearchWebSearchMaxPlanningResults + (config.deepResearchWebRequestsPerSubrequest * numSubqueries)) * 0.004;
+    const webSearchCost = (config.deepResearchWebSearchMaxPlanningResults + (config.deepResearchWebRequestsPerSubrequest * numSubqueries * config.deepResearchPhases)) * 0.004;
 
     // Total cost
     const totalCost = strategyCost + planningCost + executionCost + refinementCost + synthesisCost + webSearchCost;
