@@ -262,6 +262,10 @@ export interface DeepResearchResult {
     id: string;
     total_cost: number;
     models: ModelsForResearch;
+    planningModel: string;
+    researchModel: string;
+    refiningModel: string;
+    synthesisModel: string;
     content: string;
     contextWasIncluded?: boolean; // true if the previous messages were included in the context
     plan_prompt: string;
@@ -286,7 +290,13 @@ export interface DeepResearchResult {
 
 export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchResult {
     // Ensure array fields are populated with their singleton counterparts if empty
-    const sanitized = {...result};
+    const sanitized = {
+        ...result,
+        planningModel: result.planningModel || 'deepseek/deepseek-chat-v3-0324:free',
+        researchModel: result.researchModel || 'deepseek/deepseek-chat-v3-0324:free',
+        refiningModel: result.refiningModel || 'deepseek/deepseek-chat-v3-0324:free',
+        synthesisModel: result.synthesisModel || 'deepseek/deepseek-chat-v3-0324:free'
+    };
     
     if ((!sanitized.plan_prompts || sanitized.plan_prompts.length === 0) && sanitized.plan_prompt) {
         sanitized.plan_prompts = [sanitized.plan_prompt];
