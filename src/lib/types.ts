@@ -275,6 +275,9 @@ export interface DeepResearchResult {
     resources : Resource[];
     elapsed_time: number; // wall-clock time taken for the deep research (in seconds)
     total_generation_time: number; // total time taken for all generations in the deep research (in seconds)
+    total_research_threads: number; // total number of research threads executed
+    web_queries_per_thread: number; // number of web queries allowed per research thread
+    research_threads_per_phase: number[]; // number of research threads in each phase
 }
 
 export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchResult {

@@ -32,6 +32,7 @@ export async function doDeepResearch(
         let plan_prompt : string = '';
         let planResult: ChatResult | null = null;
         let research_threads: ResearchThread[] = [];
+        const research_threads_per_phase: number[] = [];
         let allAnnotations: Annotation[] = []; // to collect all annotations
         let allResources: Resource[] = [];
         let plan_prompts: string[] = [];
@@ -183,6 +184,7 @@ export async function doDeepResearch(
 
             const phaseThreads = await Promise.all(threadPromises);
             research_threads.push(...phaseThreads);
+            research_threads_per_phase.push(phaseThreads.length);
 
             // Collect all resources and annotations from the threads
             for (const thread of phaseThreads) {
@@ -298,7 +300,10 @@ export async function doDeepResearch(
             resources: allResources,
             total_generation_time: total_generation_time_ms / 1000, // convert to seconds
             elapsed_time,
-            contextWasIncluded: true
+            contextWasIncluded: true,
+            total_research_threads: research_threads.length,
+            web_queries_per_thread: config.deepResearchWebRequestsPerSubrequest,
+            research_threads_per_phase
         };
 }
 
