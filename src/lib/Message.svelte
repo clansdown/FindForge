@@ -23,8 +23,8 @@
     let selectedResearchResult = 0;
     let showResources = false;
     let showInfo = false;
-    let currentResources: Resource[] = [];
-    let currentAnnotations: Annotation[] = [];
+    let currentResources: Resource[] = message.resources||[];
+    let currentAnnotations: Annotation[] = message.annotations||[];
     let currentResearchResult: ResearchResult | undefined;
     let currentGenerationData: GenerationData | undefined;
     let currentRequestID: string | undefined;

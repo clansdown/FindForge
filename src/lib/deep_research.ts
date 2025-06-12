@@ -133,6 +133,9 @@ export async function doDeepResearch(
                 plan_prompts.push(plan_prompt);
                 plan_results.push(planResult);
                 research_plans.push(research_plan);
+                if(planResult.annotations) {
+                    allAnnotations.push(...planResult.annotations);
+                }
             }
 
             /*****************************/
@@ -187,9 +190,6 @@ export async function doDeepResearch(
                 }
                 if (thread.firstPass?.annotations) {
                     allAnnotations.push(...thread.firstPass.annotations);
-                }
-                if (thread.refined?.annotations) {
-                    allAnnotations.push(...thread.refined.annotations);
                 }
             }
 
