@@ -307,7 +307,8 @@
                     50, // maxWebRequests
                     modelsForResearch,
                     deepSearchStrategy, // strategy
-                    apiCallMessages,
+                    userInput.trim(),
+                    apiCallMessages.slice(0, -1), // exclude the current user message
                     (status) => {
                         console.log(status);
                         const escapedStatus = escapeHtml(status);

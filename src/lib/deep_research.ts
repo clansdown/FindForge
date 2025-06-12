@@ -18,7 +18,8 @@ export async function doDeepResearch(
     maxWebRequests : number, 
     models : ModelsForResearch,
     strategy : 'deep' | 'broad' | 'auto',
-    messages : ApiCallMessage[], 
+    userMessage: string,
+    contextMessages : ApiCallMessage[], 
     statusCallback : (status: string) => void): Promise<DeepResearchResult> {
         const startTime = Date.now(); // Record start time for elapsed_time calculation
         let total_cost = 0;
@@ -50,7 +51,7 @@ export async function doDeepResearch(
         if (strategy === 'auto') {
             statusCallback("Determining research strategy.");
             try {
-                const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, messages, config.defaultReasoningEffort);
+                const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, contextMessages, config.defaultReasoningEffort);
                 actualStrategy = determinedStrategy;
                 chat_results.push(chatResult);
                 if (chatResult.annotations) {
@@ -84,8 +85,14 @@ export async function doDeepResearch(
                 }
                 const system_prompt = createSystemApiCallMessage(plan_prompt = plan_prompt_text);
                 const messages_for_api: ApiCallMessage[] = phase_index === 0 
-                    ? [system_prompt, ...messages]
-                    : [system_prompt, ...messages, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
+                    ? [system_prompt, ...contextMessages, {
+                        role: 'user',
+                        content: [{ type: 'text', text: userMessage }]
+                    }]
+                    : [system_prompt, ...contextMessages, {
+                        role: 'user',
+                        content: [{ type: 'text', text: userMessage }]
+                    }, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 fetchGenerationData(apiKey, planResult.requestID).then(data => {
@@ -114,8 +121,8 @@ export async function doDeepResearch(
                 }
                 const system_prompt = createSystemApiCallMessage(plan_prompt = plan_prompt_text);
                 const messages_for_api: ApiCallMessage[] = phase_index === 0 
-                    ? [system_prompt, ...messages]
-                    : [system_prompt, ...messages, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
+                    ? [system_prompt, ...contextMessages]
+                    : [system_prompt, ...contextMessages, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(apiKey, models.reasoning, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 fetchGenerationData(apiKey, planResult.requestID).then(data => {
@@ -145,7 +152,7 @@ export async function doDeepResearch(
             statusCallback(`Executing research plan with ${prompts.length} research threads.`);
 
             // Get the last user message to use as the query for refinement
-            const userMessages = messages.filter(m => m.role === 'user');
+            const userMessages = contextMessages.filter(m => m.role === 'user');
             const lastUserMessage = userMessages[userMessages.length - 1];
             if (!lastUserMessage) {
                 throw new Error("No user message found for refinement");
@@ -228,8 +235,8 @@ export async function doDeepResearch(
             // Construct the messages for synthesis
             const messages_for_synthesis: ApiCallMessage[] = [
                 synthesis_system_prompt,
-                ...messages.filter(m => m.role === 'user'),   // include only user messages from original conversation
-                ...messages.filter(m => m.role === 'assistant'),   // then include assistant messages
+                ...contextMessages.filter(m => m.role === 'user'),   // include only user messages from original conversation
+                ...contextMessages.filter(m => m.role === 'assistant'),   // then include assistant messages
                 createAssistantApiCallMessage(`Research Plan:\n${research_plan}`),
                 ...research_threads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined?.content}`))
             ];
