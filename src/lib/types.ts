@@ -276,3 +276,30 @@ export interface DeepResearchResult {
     elapsed_time: number; // wall-clock time taken for the deep research (in seconds)
     total_generation_time: number; // total time taken for all generations in the deep research (in seconds)
 }
+
+export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchResult {
+    // Ensure array fields are populated with their singleton counterparts if empty
+    const sanitized = {...result};
+    
+    if ((!sanitized.plan_prompts || sanitized.plan_prompts.length === 0) && sanitized.plan_prompt) {
+        sanitized.plan_prompts = [sanitized.plan_prompt];
+    }
+    
+    if ((!sanitized.plan_results || sanitized.plan_results.length === 0) && sanitized.plan_result) {
+        sanitized.plan_results = [sanitized.plan_result];
+    }
+    
+    if ((!sanitized.research_plans || sanitized.research_plans.length === 0) && sanitized.research_plan) {
+        sanitized.research_plans = [sanitized.research_plan];
+    }
+    
+    if ((!sanitized.synthesisPromptStrings || sanitized.synthesisPromptStrings.length === 0) && sanitized.synthesis_prompt) {
+        sanitized.synthesisPromptStrings = [sanitized.synthesis_prompt];
+    }
+    
+    if ((!sanitized.synthesisResults || sanitized.synthesisResults.length === 0) && sanitized.synthesis_result) {
+        sanitized.synthesisResults = [sanitized.synthesis_result];
+    }
+    
+    return sanitized;
+}
