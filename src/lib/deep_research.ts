@@ -52,7 +52,8 @@ export async function doDeepResearch(
         if (strategy === 'auto') {
             statusCallback("Determining research strategy.");
             try {
-                const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, contextMessages, config.defaultReasoningEffort);
+                const user_api_message = createUserApiCallMessage(userMessage);
+                const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, contextMessages, user_api_message, config.defaultReasoningEffort);
                 actualStrategy = determinedStrategy;
                 chat_results.push(chatResult);
                 if (chatResult.annotations) {
@@ -318,7 +319,13 @@ export async function doDeepResearch(
 }
 
 
-async function determineStrategy(apiKey: string, models: ModelsForResearch, messages: ApiCallMessage[], reasoningEffort: 'low'|'medium'|'high'): Promise<{ strategy: 'deep' | 'broad', chatResult: ChatResult }> {
+async function determineStrategy(
+    apiKey: string,
+    models: ModelsForResearch,
+    messages: ApiCallMessage[],
+    userMessage: ApiCallMessage,
+    reasoningEffort: 'low'|'medium'|'high'
+): Promise<{ strategy: 'deep' | 'broad', chatResult: ChatResult }> {
     const system_prompt : ApiCallMessage = {
         role: 'system',
         content: [{
@@ -326,7 +333,7 @@ async function determineStrategy(apiKey: string, models: ModelsForResearch, mess
             text: "Analyze the user's messages (and assistant's messages if there are any) and determine the best research strategy to answer the question or achieve the goal. If the messages indicate a need for deep research, use 'deep'. If they suggest a broad overview, use 'broad'. If unsure, default to 'unsure'. Reply with only those words and no explanation.",
         }],
     };
-    const messages_for_api : ApiCallMessage[] = [ system_prompt, ...messages];
+    const messages_for_api : ApiCallMessage[] = [system_prompt, ...messages, userMessage];
 
     const response = await callOpenRouterChat(
         apiKey,
