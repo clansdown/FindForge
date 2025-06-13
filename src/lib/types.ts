@@ -254,6 +254,8 @@ export interface ParallelResearchModel {
 export interface ResearchResult {
     systemPrompt?: string;
     systemPromptName?: string;
+    modelId?: string;
+    modelName?: string;
     streamingResult: StreamingResult;
     chatResult?: ChatResult;
     generationData?: GenerationData;

@@ -128,16 +128,18 @@ export async function doParallelResearch(
         }
     }
 
-    // TODO: also iterate over models so every combination gets done
-    // Process each system prompt in parallel
-    let model_index = 0;
-    const results = await Promise.all(systemPrompts.map(async (systemPrompt) => {
-        console.log('Processing system prompt:', systemPrompt.prompt);
+    // Create all combinations of models and prompts to be processed in parallel
+    const combinations = systemPrompts.flatMap(prompt => 
+        models.map(model => ({ prompt, model }))
+    );
+
+    const results = await Promise.all(combinations.map(async ({ prompt, model }) => {
+        console.log(`Processing combination: model=${model.modelId} prompt=${prompt.name}`);
         // Create full message list for this request
         const messagesForAPI : ApiCallMessage[]= [
             { 
                 role: 'system', 
-                content: [{ type: 'text', text: systemPrompt.prompt }] 
+                content: [{ type: 'text', text: prompt.prompt }] 
             },
             ...baseMessages, 
             userMessage
@@ -146,7 +148,7 @@ export async function doParallelResearch(
         try {
             const chatResult = await callOpenRouterChat(
                 config.apiKey,
-                models[model_index].modelId, // cycle through provided models
+                model.modelId,
                 maxTokens,
                 maxWebRequests,
                 messagesForAPI,
@@ -159,8 +161,10 @@ export async function doParallelResearch(
             }
             
             return { 
-                systemPrompt: systemPrompt.prompt,
-                systemPromptName: systemPrompt.name,
+                systemPrompt: prompt.prompt,
+                systemPromptName: prompt.name,
+                modelId: model.modelId,
+                modelName: model.modelName,
                 streamingResult: chatResult,
                 chatResult: chatResult, 
                 generationData, 
