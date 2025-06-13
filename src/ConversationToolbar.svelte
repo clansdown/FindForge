@@ -27,6 +27,26 @@
   let selectedParallelModels: {value: ParallelResearchModel, label: string}[] = [];
   
   $: {
+    // Ensure at least one prompt is selected (default if empty)
+    if (selectedSystemPrompts.length === 0 && config?.systemPrompts?.length > 0) {
+      selectedSystemPrompts = [{
+        value: config.systemPrompts[0],
+        label: config.systemPrompts[0].name
+      }];
+    }
+
+    // Ensure at least one model is selected (default if empty)
+    if (selectedParallelModels.length === 0 && filteredModels?.length > 0) {
+      const defaultModel = filteredModels.find(m => m.id === config.defaultModel) || filteredModels[0];
+      selectedParallelModels = [{
+        value: {
+          modelId: defaultModel.id,
+          modelName: defaultModel.name
+        },
+        label: formatModelName(defaultModel.name)
+      }];
+    }
+
     experimentationOptions.standardResearchPrompts = selectedSystemPrompts.map(item => item.value);
     experimentationOptions.standardResearchModels = selectedParallelModels.map(item => item.value);
   }

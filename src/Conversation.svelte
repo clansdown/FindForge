@@ -250,6 +250,18 @@
     async function sendMessage() {
         if (!userInput.trim() || generating) return;
 
+        // Validate parallel research configuration
+        if (experimentationOptions.parallelResearch) {
+            if (experimentationOptions.standardResearchPrompts.length === 0) {
+                alert("Error: No research prompts selected for parallel research. Please select at least one prompt in the experimentation options.");
+                return;
+            }
+            if (experimentationOptions.standardResearchModels.length === 0) {
+                alert("Error: No research models selected for parallel research. Please select at least one model in the experimentation options.");
+                return;
+            }
+        }
+
         // Create user message with attachments
         const userMessage: MessageData = {
             id: generateID(),
