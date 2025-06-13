@@ -117,6 +117,7 @@ export async function doParallelResearch(
 ): Promise<ResearchResult[]> {
     const resources: Resource[] = [];
     const maxWebRequests = config.allowWebSearch ? config.webSearchMaxResults : 0;
+    console.log('Starting parallel research', systemPrompts, models);
 
     // Prepare base messages (history) that are common to all requests
     const baseMessages: ApiCallMessage[] = [];

@@ -332,17 +332,13 @@
             } else if (experimentationOptions.parallelResearch) {
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
                 const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
-                const model = {
-                    modelId: localConfig.defaultModel,
-                    modelName: models.find((m) => m.id === localConfig.defaultModel)?.name || "Unknown"
-                };
                 const results = await doParallelResearch(
                     8192, // maxTokens
                     localConfig,
                     convertMessageToApiCallMessage(userMessage), // user message
                     currentConversation.messages.slice(0, -2), // history
                     experimentationOptions.standardResearchPrompts,
-                    [model], // Single model initially
+                    experimentationOptions.standardResearchModels,
                     abortController
                 );
                 
@@ -399,7 +395,7 @@
         } catch (error: any) {
             console.error("Generation error:", error);
             if (error.name !== "AbortError") {
-                assistantMessage.content += "\n\n[Error: Generation failed]";
+                assistantMessage.content += "\n\n[Generation failed. Error: " + (error.message || "Unknown error") + "]";
             }
         } finally {
             generating = false;
