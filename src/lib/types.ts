@@ -32,7 +32,7 @@ export class Config {
     synthesisPrompts : SystemPrompt[];
 
     static defaultSystemPrompt ='You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
-    static defaultDeepResearchSynthesisPrompt = `Address the user's question or goal directly. The answer should be detailed, informative, clear, and dense. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant.`; // appended to the internal system prompt
+    static defaultDeepResearchSynthesisPrompt = `Address the user's question or goal directly. The answer should be detailed, accurate, informative, clear, and dense, without omitting key details. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant. Focus on clear, precise, and factual prose with section headings, but use tables and lists if they aid in clarity or readability.`; // appended to the internal system prompt
 
     constructor() {
         this.historyWidth = 400;
@@ -50,13 +50,13 @@ export class Config {
             'anthropic/claude-sonnet-4',
             'anthropic/claude-opus-4'
         ];
-        this.systemPrompt = 'You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
+        this.systemPrompt = Config.defaultSystemPrompt;
         this.allowWebSearch = true;
         this.webSearchMaxResults = 5;
         this.includePreviousMessagesAsContext = true;
         this.searchEngine = 'duckduckgo';
         this.deepResearchWebSearchMaxPlanningResults = 10;
-        this.deepResearchSystemPrompt = `Address the user's question or goal directly. The answer should be detailed, accurate, informative, clear, and dense, without omitting key details. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant. Focus on clear, precise, and factual prose with section headings, but use tables and lists if they aid in clarity or readability.`; // appended to the internal system prompt
+        this.deepResearchSystemPrompt = Config.defaultDeepResearchSynthesisPrompt; // appended to the internal system prompt
         this.deepResearchMaxSubqrequests = 8;
         this.deepResearchWebRequestsPerSubrequest = 6;
         this.deepResearchMaxPlanningTokens = 16384;
