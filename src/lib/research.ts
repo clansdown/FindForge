@@ -133,6 +133,7 @@ export async function doParallelResearch(
     const combinations = systemPrompts.flatMap(prompt => 
         models.map(model => ({ prompt, model }))
     );
+    console.log("Combinations:", combinations);
 
     const results = await Promise.all(combinations.map(async ({ prompt, model }) => {
         console.log(`Processing combination: model=${model.modelId} prompt=${prompt.name}`);

@@ -32,7 +32,7 @@
   }
   
   $: parallelModelOptions = filteredModels.map(model => ({
-    value: { modelId: model.id } as ParallelResearchModel,
+    value: {modelId: model.id, modelName: model.name},
     label: formatModelName(model.name)
   }));
 

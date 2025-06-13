@@ -3,6 +3,32 @@
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
+    
+    function format_research_option(result: ResearchResult, allResults: ResearchResult[]): string {
+        // Check if there are variations in prompts and models
+        const hasPromptVariations = allResults.some(r => 
+            r.systemPromptName !== allResults[0].systemPromptName
+        );
+        const hasModelVariations = allResults.some(r => 
+            r.modelName !== allResults[0].modelName
+        );
+
+        // If both vary, show prompt name and model name
+        if (hasPromptVariations && hasModelVariations) {
+            return `${result.systemPromptName || 'Unknown'} / ${result.modelName || result.modelId || 'Unknown'}`;
+        }
+        // If only prompts vary, show prompt name
+        if (hasPromptVariations) {
+            return result.systemPromptName || `Result ${allResults.indexOf(result) + 1}`;
+        }
+        // If only models vary, show model name
+        if (hasModelVariations) {
+            return result.modelName || result.modelId || `Result ${allResults.indexOf(result) + 1}`;
+        }
+        // Default to just numbering if nothing varies
+        return `Result ${allResults.indexOf(result) + 1}`;
+    }
+
     import type {
         MessageData,
         GenerationData,
@@ -153,12 +179,7 @@
                             <select class="research-selector" bind:value={selectedResearchResult}>
                                 {#each message.researchResults as result, index}
                                     <option value={index}>
-                                        {#if result.systemPromptName}
-                                            {result.systemPromptName}
-                                        {:else}
-                                            Result {index + 1}
-                                        {/if}
-                                         {result.systemPrompt ? `(${result.systemPrompt.substring(0, 50)}...)` : ''}
+                                        {format_research_option(result, message.researchResults)}
                                     </option>
                                 {/each}
                             </select>
