@@ -407,7 +407,22 @@
         } catch (error: any) {
             console.error("Generation error:", error);
             if (error.name !== "AbortError") {
-                assistantMessage.content += "\n\n[Generation failed. Error: " + (error.message || "Unknown error") + "]";
+                if (error instanceof APIError) {
+                    assistantMessage.error = {
+                        message: error.message,
+                        url: error.url,
+                        method: error.method,
+                        statusCode: error.statusCode,
+                        requestBody: error.requestBody,
+                        responseBody: error.responseBody
+                    };
+                    assistantMessage.content += "\n\n[API Error occurred. Check error details for more information.]";
+                } else {
+                    assistantMessage.error = {
+                        message: error.message || "Unknown error"
+                    };
+                    assistantMessage.content += "\n\n[Generation failed. Error: " + (error.message || "Unknown error") + "]";
+                }
             }
         } finally {
             generating = false;

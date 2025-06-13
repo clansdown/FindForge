@@ -195,6 +195,14 @@ export interface MessageData {
     researchResults?: ResearchResult[]; // results of standard research, if multiple were done
     annotations?: Annotation[];
     resources?: Resource[]; // List of resources used for research
+    error?: {
+        message: string;
+        url?: string;
+        method?: string;
+        statusCode?: number;
+        requestBody?: any;
+        responseBody?: any;
+    };
 }
 
 export interface ConversationData {
@@ -338,6 +346,31 @@ export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchRe
     }
     
     return sanitized;
+}
+
+export class APIError extends Error {
+    url: string;
+    method: string;
+    requestBody?: any;
+    responseBody?: any;
+    statusCode?: number;
+
+    constructor(
+        message: string,
+        url: string,
+        method: string,
+        statusCode?: number,
+        requestBody?: any,
+        responseBody?: any
+    ) {
+        super(message);
+        this.url = url;
+        this.method = method;
+        this.statusCode = statusCode;
+        this.requestBody = requestBody;
+        this.responseBody = responseBody;
+        this.name = 'APIError';
+    }
 }
 
 export interface ExperimentationOptions {

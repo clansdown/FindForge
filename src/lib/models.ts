@@ -108,7 +108,24 @@ export async function callOpenRouterStreaming(
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    let responseBody;
+    try {
+        responseBody = await response.clone().json();
+    } catch {
+        try {
+            responseBody = await response.clone().text();
+        } catch {
+            responseBody = null;
+        }
+    }
+    throw new APIError(
+        `API request failed: ${response.status} ${response.statusText}`,
+        url,
+        'POST',
+        response.status,
+        body,
+        responseBody
+    );
   }
 
   const requestID = response.headers.get('X-Request-ID') || '';
@@ -209,7 +226,24 @@ export async function callOpenRouterChat(
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    let responseBody;
+    try {
+        responseBody = await response.clone().json();
+    } catch {
+        try {
+            responseBody = await response.clone().text();
+        } catch {
+            responseBody = null;
+        }
+    }
+    throw new APIError(
+        `API request failed: ${response.status} ${response.statusText}`,
+        url,
+        'POST', 
+        response.status,
+        body,
+        responseBody
+    );
   }
 
   const data = await response.json();
