@@ -4,20 +4,14 @@
 
 * Add the ability to clear individual settings back to default, especially system prompts.
 
-* Add the ability to have multiple system prompts (the default might be unremovable from the list to accomplish resetting to default)
-
 * card catalog functionality (reading many documents and characterizing them according to characteristics the user picks for the card catalog)
 
 * add the ability to copy code samples and other block quotes in the markdown rather than the whole markdown
-
-* add the ability to run the same user prompt with multiple system prompts in parallel.
-
-* add the ability to run the same user prompt with multiple models in parallel.
-
-* add the ability to run, in paralle, particular combinations of model and user prompt
 
 * add locking to storage in case of multiple tabs
 
 * abstract out the instructions for appending resources and then use that in the planning stage, too
 
 * modify message generation to be able to go on in the background so the user can start a new conversation and the generation keeps happening
+
+* use the remote-storage library ( https://github.com/FrigadeHQ/remote-storage )
