@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getModels } from './lib/models';
-  import type { Config, Model, ExperimentationOptions, SystemPrompt } from './lib/types';
+  import type { Config, Model, ExperimentationOptions, SystemPrompt, ParallelResearchModel } from './lib/types';
   import { onMount } from 'svelte';
   import PushButton from './lib/PushButton.svelte';
   import { formatModelName } from './lib/util';
@@ -24,7 +24,17 @@
   }
 
   let selectedSystemPrompts : SelectItem[] = [];
-  $: experimentationOptions.standardResearchPrompts = selectedSystemPrompts.map(item => item.value);
+  let selectedParallelModels: {value: ParallelResearchModel, label: string}[] = [];
+  
+  $: {
+    experimentationOptions.standardResearchPrompts = selectedSystemPrompts.map(item => item.value);
+    experimentationOptions.standardResearchModels = selectedParallelModels.map(item => item.value);
+  }
+  
+  $: parallelModelOptions = filteredModels.map(model => ({
+    value: { modelId: model.id } as ParallelResearchModel,
+    label: formatModelName(model.name)
+  }));
 
   $: filteredModels = allModels
     .filter(model => config.availableModels.includes(model.id))
@@ -149,6 +159,15 @@
           items={config.systemPrompts.map(p => ({ value: p, label: p.name }))}
           bind:value={selectedSystemPrompts}
           placeholder="Select prompts..."
+        />
+      </div>
+      <div class="toolbar-group" title="Select models to use in parallel research">
+        <label>Models:</label>
+        <Select
+          multiple
+          items={parallelModelOptions}
+          bind:value={selectedParallelModels}
+          placeholder="Select models..."
         />
       </div>
     {/if}

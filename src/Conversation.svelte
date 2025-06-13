@@ -62,7 +62,8 @@
     let lastMessageCount = currentConversation.messages.length;
     let experimentationOptions: ExperimentationOptions = {
         parallelResearch: false, // Enable parallel research mode
-        standardResearchPrompts: []
+        standardResearchPrompts: [],
+        standardResearchModels : []
     };
 
     const md = new MarkdownIt({

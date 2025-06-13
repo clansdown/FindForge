@@ -1,8 +1,4 @@
 
-export interface ExperimentationOptions {
-    parallelResearch: boolean; // If true, do research in parallel
-    standardResearchPrompts: SystemPrompt[];
-}
 
 export class Config {
     historyWidth!: number;
@@ -142,9 +138,23 @@ export interface Model {
     name: string;
     description: string;
     context_length: number;
+    architecture: {
+        input_modalities : 'text' | 'image'[];
+        output_modalities : 'text' | 'image'[];
+        tokenizer: string;
+    };
+    top_provider? : {
+        is_moderated? : boolean;
+        context_length?: number;
+        max_completion_tokens?: number;
+    }
     pricing: {
         prompt: string;
         completion: string;
+        image?: string;
+        request?: string;
+        web_search?: string;
+        internal_reasoning? : string;
     };
     allowed?: boolean;
 }
@@ -329,3 +339,10 @@ export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchRe
     
     return sanitized;
 }
+
+export interface ExperimentationOptions {
+    parallelResearch: boolean; // If true, do research in parallel
+    standardResearchPrompts: SystemPrompt[];
+    standardResearchModels: ParallelResearchModel[];
+}
+
