@@ -39,8 +39,10 @@ export class Config {
         this.apiKey = '';
         this.defaultModel = 'deepseek/deepseek-chat-v3-0324:free';
         this.defaultReasoningModel = 'deepseek/deepseek-chat-v3-0324:free';
-        this.defaultReasoningEffort = 'low'; // default thinking effort for reasoning
+        this.defaultReasoningEffort = 'medium'; // default thinking effort for reasoning
         this.availableModels = [
+            'deepseek/deepseek-chat-v3-0324:free',
+            'deepseek/deepseek-chat-v3-0324',
             'deepseek/deepseek-chat-v3-0324:free',
             'deepseek/deepseek-chat-v3-0324',
             'google/gemini-2.5-pro-preview',
