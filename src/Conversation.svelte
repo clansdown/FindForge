@@ -331,12 +331,17 @@
             } else if (experimentationOptions.parallelResearch) {
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
                 const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
+                const model = {
+                    modelId: localConfig.defaultModel,
+                    modelName: models.find((m) => m.id === localConfig.defaultModel)?.name || "Unknown"
+                };
                 const results = await doParallelResearch(
                     8192, // maxTokens
                     localConfig,
                     convertMessageToApiCallMessage(userMessage), // user message
                     currentConversation.messages.slice(0, -2), // history
                     experimentationOptions.standardResearchPrompts,
+                    [model], // Single model initially
                     abortController
                 );
                 

@@ -245,6 +245,12 @@ export interface SystemPrompt {
     prompt: string;
 }
 
+export interface ParallelResearchModel {
+    modelId: string;
+    modelName?: string;
+    providers?: string[]; // Optional list of acceptable providers
+}
+
 export interface ResearchResult {
     systemPrompt?: string;
     systemPromptName?: string;

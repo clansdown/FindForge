@@ -1,5 +1,5 @@
 import { callOpenRouterChat, callOpenRouterStreaming, fetchGenerationData } from './models';
-import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt } from './types';
+import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel } from './types';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -112,6 +112,7 @@ export async function doParallelResearch(
     userMessage: ApiCallMessage,
     history: MessageData[],
     systemPrompts: SystemPrompt[],
+    models: ParallelResearchModel[],
     abortController?: AbortController
 ): Promise<ResearchResult[]> {
     const resources: Resource[] = [];
@@ -127,7 +128,9 @@ export async function doParallelResearch(
         }
     }
 
+    // TODO: also iterate over models so every combination gets done
     // Process each system prompt in parallel
+    let model_index = 0;
     const results = await Promise.all(systemPrompts.map(async (systemPrompt) => {
         console.log('Processing system prompt:', systemPrompt.prompt);
         // Create full message list for this request
@@ -143,7 +146,7 @@ export async function doParallelResearch(
         try {
             const chatResult = await callOpenRouterChat(
                 config.apiKey,
-                config.defaultModel,
+                models[model_index].modelId, // cycle through provided models
                 maxTokens,
                 maxWebRequests,
                 messagesForAPI,
