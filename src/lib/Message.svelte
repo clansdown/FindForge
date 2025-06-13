@@ -93,6 +93,7 @@
         <button class="edit-button" on:click={() => onEdit(message)}>✏️</button>
     {/if}
     <div class="message {message.role}">
+        <!-- Toolbar -->
         <div class="message-header">
             {#if message.role === "assistant"}
                 <div class="role">
@@ -123,9 +124,11 @@
                 </div>
             {/if}
         </div>
+        <!-- Message Body -->
         {#if !message.hidden}
             <div class="content">
                 {#if message.role === "user"}
+                    <!-- User Message -->
                     {message.content}
                     <div class="attachments">
                         {#each message.attachments || [] as attachment, index}
@@ -137,6 +140,7 @@
                         {/each}
                     </div>
                 {:else} 
+                    <!-- Assistant Message -->
                     {#if message.isGenerating}
                         {#if message.status}
                             <div class="status">{@html message.status}</div>
