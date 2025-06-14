@@ -20,10 +20,10 @@ export class Config {
     deepResearchMaxSynthesisTokens!: number;
     parallelSystemPromptNames: string[] = []; // names of selected system prompts for parallel research
     deepResearchPhases: number = 1; // number of phases in deep research;
-    deepResearchPlanningModel: string = 'deepseek/deepseek-chat-v3-0324:free';
-    deepResearchResearchModel: string = 'deepseek/deepseek-chat-v3-0324:free';
-    deepResearchRefiningModel: string = 'deepseek/deepseek-chat-v3-0324:free';
-    deepResearchSynthesisModel: string = 'deepseek/deepseek-chat-v3-0324:free';
+    deepResearchPlanningModel: string;
+    deepResearchResearchModel: string;
+    deepResearchRefiningModel: string;
+    deepResearchSynthesisModel: string;
     systemPrompts: SystemPrompt[];
     synthesisPrompts : SystemPrompt[];
 
@@ -34,7 +34,7 @@ export class Config {
         this.historyWidth = 400;
         this.apiKey = '';
         this.defaultModel = 'deepseek/deepseek-chat-v3-0324:free';
-        this.defaultReasoningModel = 'deepseek/deepseek-chat-v3-0324:free';
+        this.defaultReasoningModel = 'deepseek/deepseek-r1-0528:free';
         this.defaultReasoningEffort = 'medium'; // default thinking effort for reasoning
         this.availableModels = [
             'deepseek/deepseek-chat-v3-0324:free',
@@ -59,6 +59,10 @@ export class Config {
         this.deepResearchWebRequestsPerSubrequest = 6;
         this.deepResearchMaxPlanningTokens = 16384;
         this.deepResearchMaxSynthesisTokens = 16384;
+        this.deepResearchPlanningModel = this.defaultReasoningModel;
+        this.deepResearchResearchModel = this.defaultReasoningModel;
+        this.deepResearchRefiningModel = this.defaultModel;
+        this.deepResearchSynthesisModel = this.defaultModel;
         this.systemPrompts = [
             {
                 name: 'Default',
