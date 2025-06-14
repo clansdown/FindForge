@@ -95,11 +95,15 @@
     }
 
     function saveMessageToFile() {
-        const safeTitle = conversationTitle.replace(/[^a-z0-9]+/gi, '_');
-        const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
-        const filename = `${safeTitle}_${timestamp}.md`;
+        saveToFile(conversationTitle, message.content);
+    }
 
-        const blob = new Blob([message.content], { type: 'text/markdown' });
+    function saveToFile(defaultFilename: string, content: string) {
+        const safeTitle = defaultFilename.replace(/[^a-z0-9]+/gi, '_');
+        const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
+        const filename = `${safeTitle}_${timestamp}.json`;
+
+        const blob = new Blob([content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -112,6 +116,7 @@
             URL.revokeObjectURL(url);
         }, 0);
     }
+
 </script>
 
 <div class="message-container {message.role}">
@@ -189,6 +194,32 @@
                         {/if}
                     {/if}
                 {/if}
+            </div>
+        {/if}
+        {#if message.error}
+            <div class="error-container">
+                <div class="error-message">
+                    <strong>Error:</strong> {message.error.message}
+                    {#if message.error.url}
+                        <div><strong>URL:</strong> {message.error.url}</div>
+                    {/if}
+                    {#if message.error.method}
+                        <div><strong>Method:</strong> {message.error.method}</div>
+                    {/if}
+                    {#if message.error.statusCode}
+                        <div><strong>Status:</strong> {message.error.statusCode}</div>
+                    {/if}
+                    <div class="error-actions">
+                        {#if message.error.requestBody}
+                            <button on:click={() => saveToFile('request.json', JSON.stringify(message.error!.requestBody, null, 2))}>Save Request</button>
+                            <button on:click={() => navigator.clipboard.writeText(JSON.stringify(message.error!.requestBody, null, 2))}>Copy Request</button>
+                        {/if}
+                        {#if message.error.responseBody}
+                            <button on:click={() => saveToFile('response.json', typeof message.error!.responseBody === 'string' ? message.error!.responseBody : JSON.stringify(message.error!.responseBody, null, 2))}>Save Response</button>
+                            <button on:click={() => navigator.clipboard.writeText(typeof message.error!.responseBody === 'string' ? message.error!.responseBody : JSON.stringify(message.error!.responseBody, null, 2))}>Copy Response</button>
+                        {/if}
+                    </div>
+                </div>
             </div>
         {/if}
         {#if message.totalCost}
@@ -353,6 +384,39 @@
         padding: 0.25rem 0.5rem;
         border-radius: 10px;
         font-size: 0.8rem;
+    }
+
+    .error-container {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background-color: #4a1e1e;
+        border-radius: 6px;
+    }
+
+    .error-message {
+        font-size: 0.85rem;
+        color: #ff8383;
+    }
+
+    .error-actions {
+        margin-top: 0.5rem;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .error-actions button {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        background-color: #2a2a2a;
+        border: 1px solid #666;
+        border-radius: 4px;
+        color: #ddd;
+        cursor: pointer;
+    }
+
+    .error-actions button:hover {
+        background-color: #3a3a3a;
     }
 </style>
 

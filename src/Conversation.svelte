@@ -23,7 +23,7 @@
         ExperimentationOptions,
         SystemPrompt
     } from "./lib/types";
-    import { Config, type ConversationData } from "./lib/types";
+    import { APIError, Config, type ConversationData } from "./lib/types";
     import SearchToolbar from "./SearchToolbar.svelte";
     import Resources from "./lib/Resources.svelte";
     import MessageInfo from "./lib/MessageInfo.svelte";

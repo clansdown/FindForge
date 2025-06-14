@@ -351,8 +351,8 @@ export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchRe
 export class APIError extends Error {
     url: string;
     method: string;
-    requestBody?: any;
-    responseBody?: any;
+    requestBody?: string;
+    responseBody?: string;
     statusCode?: number;
 
     constructor(
@@ -360,8 +360,8 @@ export class APIError extends Error {
         url: string,
         method: string,
         statusCode?: number,
-        requestBody?: any,
-        responseBody?: any
+        requestBody?: string,
+        responseBody?: string
     ) {
         super(message);
         this.url = url;

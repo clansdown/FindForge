@@ -1,4 +1,4 @@
-import type { Config, Model, StreamingResult, GenerationData, OpenRouterCredits, ChatResult, ApiCallMessage } from './types';
+import { type Config, type Model, type StreamingResult, type GenerationData, type OpenRouterCredits, type ChatResult, type ApiCallMessage, APIError } from './types';
 import { sleep } from './util';
 
 
@@ -99,11 +99,12 @@ export async function callOpenRouterStreaming(
     stream: true,
     plugins: maxWebRequests > 0 ? [{ id: "web", max_results: maxWebRequests }] : [],
   };
+  const body_string = JSON.stringify(body);
 
   const response = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: body_string,
     signal: abortController?.signal
   });
 
@@ -123,7 +124,7 @@ export async function callOpenRouterStreaming(
         url,
         'POST',
         response.status,
-        body,
+        body_string,
         responseBody
     );
   }
@@ -217,32 +218,24 @@ export async function callOpenRouterChat(
   if (reasoning_effort) {
     body.reasoning_effort = reasoning_effort;
   }
+  const body_string = JSON.stringify(body);
 
   const response = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: body_string,
     signal: abortController?.signal
   });
+  
 
   if (!response.ok) {
-    let responseBody;
-    try {
-        responseBody = await response.clone().json();
-    } catch {
-        try {
-            responseBody = await response.clone().text();
-        } catch {
-            responseBody = null;
-        }
-    }
     throw new APIError(
         `API request failed: ${response.status} ${response.statusText}`,
         url,
-        'POST', 
+        'POST',
         response.status,
-        body,
-        responseBody
+        body_string,
+        await response.clone().text()
     );
   }
 
