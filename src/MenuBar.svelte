@@ -7,6 +7,13 @@
   import { onMount } from 'svelte';
   
   export let config: Config;
+
+  function copyConfig() {
+    const configCopy = JSON.parse(JSON.stringify(config));
+    configCopy.apiKey = '[redacted]';
+    navigator.clipboard.writeText(JSON.stringify(configCopy, null, 2));
+  }
+  
   export let showHistory: boolean;
   export let newConversation: () => void;
   export let credits: OpenRouterCredits | undefined;
@@ -68,6 +75,7 @@
         <button on:click={() => { window.open('https://github.com/clansdown/MachineLearner', '_blank'); closeMenu(); }}>Source Code</button>
         <button on:click={() => { showGettingStarted = true; closeMenu(); }}>Getting Started</button>
         <button on:click={() => { showAbout = true; closeMenu(); }}>About</button>
+        <button on:click={() => { copyConfig(); closeMenu(); }}>Copy Config</button>
       </div>
     {/if}
   </div>
