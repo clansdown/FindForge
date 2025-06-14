@@ -211,12 +211,12 @@
                     {/if}
                     <div class="error-actions">
                         {#if message.error.requestBody}
-                            <button on:click={() => saveToFile('request.json', JSON.stringify(message.error!.requestBody, null, 2))}>Save Request</button>
-                            <button on:click={() => navigator.clipboard.writeText(JSON.stringify(message.error!.requestBody, null, 2))}>Copy Request</button>
+                            <button on:click={() => saveToFile('request.txt', message.error!.requestBody)}>Save Request</button>
+                            <button on:click={() => navigator.clipboard.writeText(message.error!.requestBody)}>Copy Request</button>
                         {/if}
                         {#if message.error.responseBody}
-                            <button on:click={() => saveToFile('response.json', typeof message.error!.responseBody === 'string' ? message.error!.responseBody : JSON.stringify(message.error!.responseBody, null, 2))}>Save Response</button>
-                            <button on:click={() => navigator.clipboard.writeText(typeof message.error!.responseBody === 'string' ? message.error!.responseBody : JSON.stringify(message.error!.responseBody, null, 2))}>Copy Response</button>
+                            <button on:click={() => saveToFile('response.txt', message.error!.responseBody)}>Save Response</button>
+                            <button on:click={() => navigator.clipboard.writeText(message.error!.responseBody)}>Copy Response</button>
                         {/if}
                     </div>
                 </div>
