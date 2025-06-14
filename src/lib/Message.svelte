@@ -218,6 +218,10 @@
                             <button on:click={() => saveToFile('response.txt', message.error!.responseBody)}>Save Response</button>
                             <button on:click={() => navigator.clipboard.writeText(message.error!.responseBody)}>Copy Response</button>
                         {/if}
+                        {#if message.config}
+                            <button on:click={() => saveToFile('config.json', JSON.stringify(message.config, null, 2))}>Save Config</button>
+                            <button on:click={() => navigator.clipboard.writeText(JSON.stringify(message.config, null, 2))}>Copy Config</button>
+                        {/if}
                     </div>
                 </div>
             </div>

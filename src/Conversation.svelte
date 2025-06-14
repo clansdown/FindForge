@@ -280,6 +280,9 @@
         }
 
         // Create assistant message placeholder
+        const configCopy = createConfigCopy(localConfig);
+        configCopy.apiKey = ''; // Remove API key from stored config
+        
         const assistantMessage: MessageData = {
             id: generateID(),
             role: "assistant",
@@ -290,6 +293,7 @@
             totalCost: 0,
             isGenerating: true, // true for standard research, false for deep
             status: deepSearch ? '' : undefined,
+            config: configCopy,
         };
         currentConversation.messages.push(assistantMessage);
         currentConversation.messages = currentConversation.messages; // Trigger reactivity

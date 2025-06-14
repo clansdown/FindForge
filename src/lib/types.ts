@@ -183,6 +183,7 @@ export interface MessageData {
     id: string; // Add ID for message tracking
     role: 'user' | 'assistant' | 'system';
     content: string;
+    config?: Config; // Copy of config used when message was generated
     timestamp?: number;
     totalCost?: number;
     model?: string; // the model ID
