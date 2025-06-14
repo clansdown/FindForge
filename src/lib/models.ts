@@ -109,23 +109,13 @@ export async function callOpenRouterStreaming(
   });
 
   if (!response.ok) {
-    let responseBody;
-    try {
-        responseBody = await response.clone().json();
-    } catch {
-        try {
-            responseBody = await response.clone().text();
-        } catch {
-            responseBody = null;
-        }
-    }
     throw new APIError(
         `API request failed: ${response.status} ${response.statusText}`,
         url,
         'POST',
         response.status,
         body_string,
-        responseBody
+        await response.clone().text()
     );
   }
 
