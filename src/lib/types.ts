@@ -27,6 +27,8 @@ export class Config {
     deepResearchSynthesisModel: string;
     systemPrompts: SystemPrompt[];
     synthesisPrompts : SystemPrompt[];
+    defaultSystemPromptId: string;
+    defaultSynthesisPromptId: string;
 
     static defaultSystemPrompt ='You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
     static defaultDeepResearchSynthesisPrompt = `Address the user's question or goal directly. The answer should be detailed, accurate, informative, clear, and dense, without omitting key details. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant. Focus on clear, precise, and factual prose with section headings, but use tables and lists if they aid in clarity or readability.`; // appended to the internal system prompt
@@ -64,6 +66,9 @@ export class Config {
         this.deepResearchResearchModel = this.defaultReasoningModel;
         this.deepResearchRefiningModel = this.defaultModel;
         this.deepResearchSynthesisModel = this.defaultModel;
+        this.defaultSystemPromptId = 'default';
+        this.defaultSynthesisPromptId = 'synthesis_default';
+
         this.systemPrompts = [
             {
                 id: 'default',
@@ -84,11 +89,11 @@ export class Config {
         // Ensure all prompts have IDs
         this.systemPrompts = this.systemPrompts.map(prompt => ({
             ...prompt,
-            id: prompt.id || `system_${generateID()}`
+            id: prompt.id || prompt.name === "Default" ? 'default' : `system_${generateID()}`
         }));
         this.synthesisPrompts = this.synthesisPrompts.map(prompt => ({
             ...prompt,
-            id: prompt.id || `synthesis_${generateID()}`
+            id: prompt.id || prompt.name === "Default" ? 'synthesis_default' : `synthesis_${generateID()}`
         }));
 
         // Ensure systemPrompts has a Default prompt

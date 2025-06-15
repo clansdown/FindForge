@@ -21,6 +21,7 @@
     let modelFilter = "";
     let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;
+    let showPromptEditor: boolean = false;
     let currentSystemPromptIndex: number = 0;
     let currentSystemPromptName: string = '';
     let currentSystemPromptText: string = '';
@@ -241,30 +242,46 @@
     <!---------------------------->
     {#if currentTab === "general"}
         <div class="form-group">
-            <label for="system-prompt-select">System Prompt:</label>
-            <select id="system-prompt-select" bind:value={currentSystemPromptIndex}>
-                {#each localConfig.systemPrompts as prompt, index (index)}
-                    <option value={index}>{prompt.name}</option>
+            <label for="default-system-prompt-select">Default System Prompt:</label>
+            <select id="default-system-prompt-select" bind:value={localConfig.defaultSystemPromptId}>
+                {#each localConfig.systemPrompts as prompt}
+                    <option value={prompt.id}>{prompt.name}</option>
                 {/each}
-                <option value={-1}>New...</option>
             </select>
         </div>
 
-        <div class="form-group">
-            <label for="system-prompt-name">Name:</label>
-            <input type="text" id="system-prompt-name" bind:value={currentSystemPromptName} />
-        </div>
+        <button class="small" on:click={() => showPromptEditor = !showPromptEditor}>
+            {showPromptEditor ? 'Hide' : 'Manage'} Prompts
+        </button>
 
-        <div class="form-group">
-            <label for="system-prompt">Prompt:</label>
-            <textarea id="system-prompt" bind:value={currentSystemPromptText} rows="4"></textarea>
-        </div>
+        {#if showPromptEditor}
+            <div class="form-group">
+                <label for="system-prompt-select">Prompt to Edit:</label>
+                <select id="system-prompt-select" bind:value={currentSystemPromptIndex}>
+                    {#each localConfig.systemPrompts as prompt, index (index)}
+                        <option value={index}>{prompt.name}</option>
+                    {/each}
+                    <option value={-1}>New...</option>
+                </select>
+            </div>
+        <div class="form-group prompt-editor">
+            <div class="form-group">
+                <label for="system-prompt-name">Name:</label>
+                <input type="text" id="system-prompt-name" bind:value={currentSystemPromptName} />
+            </div>
 
-        <div class="form-group button-group">
-            <button on:click={deleteSystemPrompt} disabled={currentSystemPromptIndex === 0}>Delete</button>
-            <button on:click={discardSystemPrompt}>Discard</button>
-            <button on:click={saveSystemPrompt}>Save</button>
+            <div class="form-group">
+                <label for="system-prompt">Prompt:</label>
+                <textarea id="system-prompt" bind:value={currentSystemPromptText} rows="4"></textarea>
+            </div>
+
+            <div class="form-group button-group">
+                <button on:click={deleteSystemPrompt} disabled={currentSystemPromptIndex === 0}>Delete</button>
+                <button on:click={discardSystemPrompt}>Discard</button>
+                <button on:click={saveSystemPrompt}>Save</button>
+            </div>
         </div>
+        {/if}
 
         <div class="form-group">
             <label for="allow-web-search">
@@ -550,6 +567,17 @@
     .button-group button {
         padding: 0.5rem 1rem;
         cursor: pointer;
+    }
+    
+    button.small {
+        padding: 0.25rem 0.5rem;
+        margin-left: 0.5rem;
+    }
+    
+    .prompt-editor {
+        background-color: #333;
+        padding: 1rem;
+        border-radius: 4px;
     }
 
     .error {
