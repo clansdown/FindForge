@@ -168,6 +168,7 @@
         if (currentSystemPromptIndex === -1) {
             // Add new
             localConfig.systemPrompts.push({
+                id: generateID(),
                 name: currentSystemPromptName,
                 prompt: currentSystemPromptText
             });
@@ -175,10 +176,8 @@
         } else {
             // Update existing
             if (currentSystemPromptIndex >= 0 && currentSystemPromptIndex < localConfig.systemPrompts.length) {
-                localConfig.systemPrompts[currentSystemPromptIndex] = {
-                    name: currentSystemPromptName,
-                    prompt: currentSystemPromptText
-                };
+                localConfig.systemPrompts[currentSystemPromptIndex].name = currentSystemPromptName;
+                localConfig.systemPrompts[currentSystemPromptIndex].prompt = currentSystemPromptText;
             }
         }
     }
@@ -200,6 +199,7 @@
         if (currentSynthesisPromptIndex === -1) {
             // Add new
             localConfig.synthesisPrompts.push({
+                id: generateID(),
                 name: currentSynthesisPromptName,
                 prompt: currentSynthesisPromptText
             });
@@ -207,10 +207,8 @@
         } else {
             // Update existing
             if (currentSynthesisPromptIndex >= 0 && currentSynthesisPromptIndex < localConfig.synthesisPrompts.length) {
-                localConfig.synthesisPrompts[currentSynthesisPromptIndex] = {
-                    name: currentSynthesisPromptName,
-                    prompt: currentSynthesisPromptText
-                };
+                localConfig.synthesisPrompts[currentSynthesisPromptIndex].name = currentSynthesisPromptName;
+                localConfig.synthesisPrompts[currentSynthesisPromptIndex].prompt = currentSynthesisPromptText;
             }
         }
     }

@@ -1,3 +1,4 @@
+import { generateID } from "./util";
 
 
 export class Config {
@@ -65,12 +66,14 @@ export class Config {
         this.deepResearchSynthesisModel = this.defaultModel;
         this.systemPrompts = [
             {
+                id: 'default',
                 name: 'Default',
                 prompt: this.systemPrompt
             },
         ];
         this.synthesisPrompts = [
             {
+                id: 'synthesis_default',
                 name: 'Default',
                 prompt: this.deepResearchSystemPrompt,
             }
@@ -78,23 +81,35 @@ export class Config {
     }
 
     ensureDefaults() {
+        // Ensure all prompts have IDs
+        this.systemPrompts = this.systemPrompts.map(prompt => ({
+            ...prompt,
+            id: prompt.id || `system_${generateID()}`
+        }));
+        this.synthesisPrompts = this.synthesisPrompts.map(prompt => ({
+            ...prompt,
+            id: prompt.id || `synthesis_${generateID()}`
+        }));
+
         // Ensure systemPrompts has a Default prompt
-        const defaultSystemPrompt = this.systemPrompts.find(p => p.name === 'Default');
+        const defaultSystemPrompt = this.systemPrompts.find(p => p.id === 'default');
         if (defaultSystemPrompt) {
             defaultSystemPrompt.prompt = Config.defaultSystemPrompt;
         } else {
             this.systemPrompts.unshift({
+                id : 'default',
                 name: 'Default',
                 prompt: Config.defaultSystemPrompt
             });
         }
 
         // Ensure synthesisPrompts has a Default prompt
-        const defaultSynthesisPrompt = this.synthesisPrompts.find(p => p.name === 'Default');
+        const defaultSynthesisPrompt = this.synthesisPrompts.find(p => p.id === 'synthesis_default');
         if (defaultSynthesisPrompt) {
             defaultSynthesisPrompt.prompt = Config.defaultDeepResearchSynthesisPrompt;
         } else {
             this.synthesisPrompts.unshift({
+                id: 'synthesis_default',
                 name: 'Default',
                 prompt: Config.defaultDeepResearchSynthesisPrompt
             });
@@ -266,6 +281,7 @@ export interface Resource {
 }
 
 export interface SystemPrompt {
+    id : string;
     name: string;
     prompt: string;
 }
