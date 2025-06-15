@@ -289,3 +289,26 @@ export function createAssistantApiCallMessage(text: string): ApiCallMessage {
         }]
     };
 }
+
+export function errorCodeToMeaning(code : number): string {
+  switch(code) {
+    case 400:
+      return 'Bad Request (invalid or missing parameters, CORS error)';
+    case 401:
+      return 'Invalid credentials (OAuth session expired, disabled/invalid API key)';
+    case 402:
+      return 'Your account or API key has insufficient credits. Add more credits and retry the request.';
+    case 403:
+      return 'Your chosen model requires moderation and your input was flagged';
+    case 408:
+      return 'Your request timed out';
+    case 429:
+      return 'You are being rate limited';
+    case 502:
+      return 'Your chosen model is down or we received an invalid response from it';
+    case 503:
+      return 'There is no available model provider that meets your routing requirements';
+    default:
+      return `Unknown error (code ${code})`;
+  }
+}

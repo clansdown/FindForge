@@ -10,7 +10,10 @@
         Annotation,
         Resource,
 
-        ResearchResult
+        ResearchResult,
+
+        OpenRouterErrorResponse
+
 
     } from "./types";
     import Resources from "./Resources.svelte";
@@ -29,6 +32,17 @@
     let currentResearchResult: ResearchResult | undefined;
     let currentGenerationData: GenerationData | undefined;
     let currentRequestID: string | undefined;
+    let openRouterError: OpenRouterErrorResponse | undefined = undefined;
+    
+    // Try to parse OpenRouter error response if present
+    $: if (message?.error?.responseBody) {
+        try {
+            openRouterError = JSON.parse(message.error.responseBody) as OpenRouterErrorResponse;
+        } catch (e) {
+            // Ignore parse errors - responseBody may not be JSON
+            openRouterError = undefined;
+        }
+    }
 //console.log(message?.researchResults);
     // Update current variables when selected research result changes
     $: if (message.researchResults && message.researchResults.length > 0) {
@@ -209,6 +223,10 @@
                     {/if}
                     {#if message.error.statusCode}
                         <div><strong>Status:</strong> {message.error.statusCode}</div>
+                    {/if}
+                    {#if openRouterError}
+                        <div><strong>Error Code:</strong> {openRouterError.error.code}</div>
+                        <div><strong>Error Message:</strong> {openRouterError.error.message}</div>
                     {/if}
                     <div class="error-actions">
                         {#if message.error.requestBody}
