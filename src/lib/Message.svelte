@@ -1,5 +1,6 @@
 <script lang="ts">
     import { formatModelName } from "./util";
+    import { errorCodeToMeaning } from './models'
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
@@ -225,7 +226,7 @@
                         <div><strong>Status:</strong> {message.error.statusCode}</div>
                     {/if}
                     {#if openRouterError}
-                        <div><strong>Error Code:</strong> {openRouterError.error.code}</div>
+                        <div><strong>Error Code:</strong> {openRouterError.error.code} ({errorCodeToMeaning(parseInt(openRouterError.error.code))})</div>
                         <div><strong>Error Message:</strong> {openRouterError.error.message}</div>
                     {/if}
                     <div class="error-actions">
