@@ -117,6 +117,7 @@
 {#if deepSearch}
 <div class="toolbar deep-search-toolbar flex flex-row flex-between">
   <div class="flex flex-row flex-wrap gap-2">
+    <!--
     <div class="toolbar-group" title='"Reasoning" model to use for deep searching'>
       <select id="reasoning-model" bind:value={config.defaultReasoningModel}>
         {#each filteredModels as model}
@@ -127,6 +128,7 @@
         {/each}
       </select>
     </div>
+    -->
     <div class="toolbar-group" title="Synthesis prompt for deep research">
       <select id="synthesis-prompt" bind:value={config.deepResearchSystemPrompt}>
         {#each config.synthesisPrompts as prompt}
