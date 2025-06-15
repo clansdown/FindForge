@@ -384,3 +384,24 @@ export interface ExperimentationOptions {
     standardResearchModels: ParallelResearchModel[];
 }
 
+type ModerationErrorMetadata = {
+  reasons: string[]; // Why your input was flagged
+  flagged_input: string; // The text segment that was flagged, limited to 100 characters. If the flagged input is longer than 100 characters, it will be truncated in the middle and replaced with ...
+  provider_name: string; // The name of the provider that requested moderation
+  model_slug: string;
+};
+
+type ProviderErrorMetadata = {
+  provider_name: string; // The name of the provider that encountered the error
+  raw: unknown; // The raw error from the provider
+};
+
+
+export interface OpenRouterErrorResponse {
+    error: {
+        code: string;
+        message: string;
+        metadata?: ModerationErrorMetadata | ProviderErrorMetadata;
+    };
+}
+
