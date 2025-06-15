@@ -50,7 +50,7 @@
         border-color: #999;
         cursor: not-allowed;
         box-shadow: none;
-        filter: greyscale(100%);
-        opacity: 0.7;
+        filter: grayscale(100%);
+        opacity: 0.8;
     }
 </style>
