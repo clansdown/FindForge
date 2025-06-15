@@ -22,6 +22,7 @@
     let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;
     let showPromptEditor: boolean = false;
+    let showSynthesisPromptEditor: boolean = false;
     let currentSystemPromptIndex: number = 0;
     let currentSystemPromptName: string = '';
     let currentSystemPromptText: string = '';
@@ -318,30 +319,47 @@
         <!------------------------------>
     {:else if currentTab === "deep-research"}
         <div class="form-group">
-            <label for="synthesis-prompt-select">Synthesis System Prompt:</label>
-            <select id="synthesis-prompt-select" bind:value={currentSynthesisPromptIndex}>
-                {#each localConfig.synthesisPrompts as prompt, index (index)}
-                    <option value={index}>{prompt.name}</option>
+            <label for="default-synthesis-prompt-select">Default Synthesis Prompt:</label>
+            <select id="default-synthesis-prompt-select" bind:value={localConfig.defaultSynthesisPromptId}>
+                {#each localConfig.synthesisPrompts as prompt}
+                    <option value={prompt.id}>{prompt.name}</option>
                 {/each}
-                <option value={-1}>New...</option>
             </select>
         </div>
 
-        <div class="form-group">
-            <label for="synthesis-prompt-name">Name:</label>
-            <input type="text" id="synthesis-prompt-name" bind:value={currentSynthesisPromptName} />
-        </div>
+        <button class="small" on:click={() => showSynthesisPromptEditor = !showSynthesisPromptEditor}>
+            {showSynthesisPromptEditor ? 'Hide' : 'Manage'} Prompts
+        </button>
 
-        <div class="form-group">
-            <label for="synthesis-prompt">Prompt:</label>
-            <textarea id="synthesis-prompt" bind:value={currentSynthesisPromptText} rows="4"></textarea>
-        </div>
+        {#if showSynthesisPromptEditor}
+            <div class="form-group">
+                <label for="synthesis-prompt-select">Prompt to Edit:</label>
+                <select id="synthesis-prompt-select" bind:value={currentSynthesisPromptIndex}>
+                    {#each localConfig.synthesisPrompts as prompt, index (index)}
+                        <option value={index}>{prompt.name}</option>
+                    {/each}
+                    <option value={-1}>New...</option>
+                </select>
+            </div>
 
-        <div class="form-group button-group">
-            <button on:click={deleteSynthesisPrompt} disabled={currentSynthesisPromptIndex === 0}>Delete</button>
-            <button on:click={discardSynthesisPrompt}>Discard</button>
-            <button on:click={saveSynthesisPrompt}>Save</button>
-        </div>
+            <div class="form-group prompt-editor">
+                <div class="form-group">
+                    <label for="synthesis-prompt-name">Name:</label>
+                    <input type="text" id="synthesis-prompt-name" bind:value={currentSynthesisPromptName} />
+                </div>
+
+                <div class="form-group">
+                    <label for="synthesis-prompt">Prompt:</label>
+                    <textarea id="synthesis-prompt" bind:value={currentSynthesisPromptText} rows="4"></textarea>
+                </div>
+
+                <div class="form-group button-group">
+                    <button on:click={deleteSynthesisPrompt} disabled={currentSynthesisPromptIndex === 0}>Delete</button>
+                    <button on:click={discardSynthesisPrompt}>Discard</button>
+                    <button on:click={saveSynthesisPrompt}>Save</button>
+                </div>
+            </div>
+        {/if}
 
         <div class="form-group">
             <label for="deep-research-web-search-max-results">Deep Research Planning Max Web Search Results:</label>
