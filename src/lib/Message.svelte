@@ -228,6 +228,9 @@
                     {#if openRouterError}
                         <div><strong>Error Code:</strong> {openRouterError.error.code} ({errorCodeToMeaning(parseInt(openRouterError.error.code))})</div>
                         <div><strong>Error Message:</strong> {openRouterError.error.message}</div>
+                        {#if openRouterError.error.message.indexOf('matching your data policy') !== -1}
+                            <div><strong>Suggestion:</strong> This can be caused by having set your data policy to not permit your data to be used for training and also selecting a free provider (or a model where all the providers are free)—all free providers pay for the LLM execution by using input data as training data. If you wish to use free providers, you'll need to enable prompt training. If you prefer your privacy, you'll need to select non-free providers.</div>
+                        {/if}
                     {/if}
                     <div class="error-actions">
                         {#if message.error.requestBody}
