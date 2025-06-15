@@ -321,7 +321,6 @@
                     localConfig,
                     localConfig.apiKey,
                     8192, // maxTokens
-                    50, // maxWebRequests
                     modelsForResearch,
                     deepSearchStrategy, // strategy
                     userInput.trim(),

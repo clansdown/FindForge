@@ -15,7 +15,6 @@ export async function doDeepResearch(
     config: Config,
     apiKey : string, 
     maxTokens : number, 
-    maxWebRequests : number, 
     models : ModelsForResearch,
     strategy : 'deep' | 'broad' | 'auto',
     userMessage: string,
