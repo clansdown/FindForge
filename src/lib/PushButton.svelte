@@ -1,9 +1,10 @@
 <script lang="ts">
     export let pushed = false;
     export let title: string;
+    export let disabled : boolean = false;
 </script>
 
-<button class="push-button" class:pressed={pushed} on:click={() => pushed = !pushed} aria-pressed={pushed} title={title}>
+<button class="push-button" class:pressed={pushed} on:click={() => pushed = !pushed} aria-pressed={pushed} title={title} {disabled}>
     <slot></slot>
 </button>
 
@@ -42,5 +43,14 @@
     }
     .push-button:active {
         outline: none;
+    }
+
+    .push-button:disabled {
+        background-color: #444;
+        border-color: #999;
+        cursor: not-allowed;
+        box-shadow: none;
+        filter: greyscale(100%);
+        opacity: 0.7;
     }
 </style>

@@ -107,10 +107,10 @@
   </div>
 
   <div class="toolbar-group">
-    <PushButton title="Enable deep searching" bind:pushed={deepSearch}>⛏️</PushButton>
+    <PushButton title="Enable deep searching" bind:pushed={deepSearch} disabled={experimentMode}>⛏️</PushButton>
   </div>
   <div class="toolbar-group">
-    <PushButton title="Enable experimentation features" bind:pushed={experimentMode}>🔬</PushButton>
+    <PushButton title="Enable experimentation features" bind:pushed={experimentMode} disabled={deepSearch}>🔬</PushButton>
   </div>
 </div>
 
