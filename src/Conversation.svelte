@@ -537,7 +537,7 @@
     <div class="conversation-header">
         <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
         {#if allConversationResources.length > 0 || allConversationAnnotations.length > 0}
-            <button class="resources-button" on:click={() => showAllResources = true}>🌐</button>
+            <button class="resources-button" on:click={() => showAllResources = true} title="View all web resources used in this conversation">🌐</button>
         {/if}
     </div>
     <!-- Toolbar goes here -->
