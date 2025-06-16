@@ -14,4 +14,5 @@
 
 * modify message generation to be able to go on in the background so the user can start a new conversation and the generation keeps happening
 
-* use the remote-storage library ( https://github.com/FrigadeHQ/remote-storage )
+* use the remote-storage library ( https://remotestorage.io/ )
+
