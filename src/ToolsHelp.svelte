@@ -7,16 +7,60 @@
 
     <h2>Standard Research</h2>
 
+    <p></p>
+
     <h2>Web Results</h2>
 
     <h2>System Prompts</h2>
+    
+    <p>System prompts define how the AI behaves and responds. They influence the style, tone, and depth of responses:</p>
+    
+    <ul>
+        <li><strong>Standard Prompts</strong> - Control the AI's default conversation behavior (shown in main dropdown)</li>
+        <li><strong>Synthesis Prompts</strong> - Define how Deep Research compiles and presents its findings</li>
+        <li><strong>Default Prompt</strong> - Basic helpful assistant behavior with academic citations</li>
+    </ul>
+    
+    <p>Tips for effective prompts:</p>
+    <ul>
+        <li>Be clear about desired tone (professional, casual, academic)</li>
+        <li>Specify citation and formatting preferences</li>
+        <li>Define response length expectations</li>
+        <li>State any domain expertise requirements</li>
+    </ul>
 
     <h2>Deep Research</h2>
+    
+    <p>Deep Research performs multi-phase, thorough investigation of complex questions:</p>
+    
+    <ul>
+        <li><strong>Research Strategy</strong>:
+            <ul>
+                <li><strong>Auto</strong> - Let the AI choose between deep or broad research</li>
+                <li><strong>Deep</strong> - Focused, detailed investigation of specific aspects</li>
+                <li><strong>Broad</strong> - Wider overview of multiple related topics</li>
+            </ul>
+        </li>
+        <li><strong>Phases</strong> - Multiple iterative research cycles (1-3) to refine results</li>
+        <li><strong>Research Threads</strong> - Parallel sub-queries (1-16) to explore different angles</li>
+        <li><strong>Web Requests</strong> - Each thread can make multiple web searches (1-32)</li>
+        <li><strong>Synthesis</strong> - Automated compilation and refinement of results</li>
+    </ul>
+
+    <p>Deep Research uses more computing resources but produces more thorough, well-sourced answers.</p>
+    <p>Note: Deep Research cannot be used at the same time as Experiment Mode.</p>
 
     <h2>Experimentation Options</h2>
+    
+    <p>Experiment Mode allows you to compare different configurations in parallel:</p>
+    
+    <ul>
+        <li><strong>Parallel Research</strong> - When enabled, runs multiple research requests simultaneously using different combinations of system prompts and models</li>
+        <li><strong>System Prompts</strong> - Select multiple prompts to test how they affect the results</li>
+        <li><strong>Models</strong> - Compare output from different LLMs side by side</li>
+    </ul>
 
-
-
+    <p>Note: Experiment Mode cannot be used at the same time as Deep Research. Each experiment will use your current web search and context settings.</p>
 
 
 </div>
