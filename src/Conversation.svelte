@@ -4,7 +4,7 @@
     import { doStandardResearch, convertMessageToApiCallMessage, doParallelResearch } from "./lib/research";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
-    import { generateID, escapeHtml, formatModelName } from "./lib/util";
+    import { generateID, escapeHtml, formatModelName, extractConversationReferences } from "./lib/util";
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
@@ -21,7 +21,10 @@
         StreamingResult,
         Annotation,
         ExperimentationOptions,
-        SystemPrompt
+        SystemPrompt,
+
+        Resource
+
     } from "./lib/types";
     import { APIError, Config, type ConversationData } from "./lib/types";
     import SearchToolbar from "./SearchToolbar.svelte";
@@ -65,6 +68,11 @@
         standardResearchPrompts: [],
         standardResearchModels : []
     };
+    
+    let allConversationResources: Resource[] = [];
+    let allConversationAnnotations: Annotation[] = [];
+    let showAllResources = false;
+
 
     const md = new MarkdownIt({
         html: false,
@@ -119,6 +127,13 @@
             localConfig.allowWebSearch = false;
         }
     }
+
+    $: { // Get all resources from conversation
+        const refs = extractConversationReferences(currentConversation);
+        allConversationResources = refs.resources;
+        allConversationAnnotations = refs.annotations;
+    }
+
 
     /*************/
     /* Functions */
@@ -518,9 +533,13 @@
 </script>
 
 <!---------------------------------------------------------------------------------------------------------------------------------------------------->
-
 <div class="conversation">
-    <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
+    <div class="conversation-header">
+        <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
+        {#if allConversationResources.length > 0 || allConversationAnnotations.length > 0}
+            <button class="resources-button" on:click={() => showAllResources = true}>🌐</button>
+        {/if}
+    </div>
     <!-- Toolbar goes here -->
     <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions />
 
@@ -596,6 +615,14 @@
     />
 {/if}
 
+{#if showAllResources}
+    <Resources 
+        resources={allConversationResources} 
+        annotations={allConversationAnnotations}
+        onClose={() => showAllResources = false}
+    />
+{/if}
+
 <!------------------------------------------------------------------------------------------------------------------------------------------------->
 
 <style>
@@ -606,16 +633,34 @@
         flex-direction: column;
     }
 
+    .conversation-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
     .conversation-title {
         font-size: 1.5rem;
         font-weight: bold;
         margin: 0.1rem 0;
-        width: 100%;
+        flex-grow: 1;
         border: none;
         border-bottom: 1px solid transparent;
         background: transparent;
         color: inherit;
         padding: 0;
+    }
+    
+    .resources-button {
+        background: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        opacity: 0.7;
+        padding: 0.25rem;
+    }
+    
+    .resources-button:hover {
+        opacity: 1;
     }
 
     .conversation-title:focus {
