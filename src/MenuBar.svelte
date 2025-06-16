@@ -72,10 +72,10 @@
     <button on:click={() => toggleMenu('help')}>Help</button>
     {#if activeMenu === 'help'}
       <div class="dropdown">
-        <button on:click={() => { window.open('https://github.com/clansdown/MachineLearner', '_blank'); closeMenu(); }}>Source Code</button>
         <button on:click={() => { showGettingStarted = true; closeMenu(); }}>Getting Started</button>
         <button on:click={() => { showAbout = true; closeMenu(); }}>About</button>
         <button on:click={() => { copyConfig(); closeMenu(); }}>Copy Config</button>
+        <button on:click={() => { window.open('https://github.com/clansdown/MachineLearner', '_blank'); closeMenu(); }}>Source Code</button>
       </div>
     {/if}
   </div>
