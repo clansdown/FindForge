@@ -7,6 +7,8 @@
     export let onClose: () => void;
 
     let filterResources = '';
+    let mergedResources: Resource[] = [];
+    let mergedAnnotations: Annotation[] = [];
     let filterAnnotations = '';
     let resourceSort: 'unsorted' | 'type' | 'purpose' | 'author' | 'domain' | 'date' | 'title' = 'unsorted';
     let activeTab: 'resources' | 'annotations' = resources.length > 0 ? 'resources' : 'annotations';
@@ -64,9 +66,82 @@
         });
     }
 
-    $: filteredResources = filterResources ? resources.filter(r => resourceMatches(r, filterResources)) : resources;
+    function mergeResources(input: Resource[]): Resource[] {
+        const urlMap = new Map<string, Resource>();
+        for (const resource of input) {
+            const existing = urlMap.get(resource.url);
+            if (!existing) {
+                urlMap.set(resource.url, {...resource});
+                continue;
+            }
+
+            // Merge properties
+            if (resource.title && (!existing.title || resource.title.length > existing.title.length)) {
+                existing.title = resource.title;
+            }
+            if (resource.author && !existing.author?.includes(resource.author)) {
+                existing.author = existing.author 
+                    ? `${existing.author}, ${resource.author}`
+                    : resource.author;
+            }
+            if (resource.purpose) {
+                existing.purpose = existing.purpose 
+                    ? `${existing.purpose} / ${resource.purpose}`
+                    : resource.purpose;
+            }
+            if (resource.summary) {
+                existing.summary = existing.summary 
+                    ? `${existing.summary}... ${resource.summary}`
+                    : resource.summary;
+            }
+            // Keep earliest date if exists
+            if (resource.date && (!existing.date || resource.date < existing.date)) {
+                existing.date = resource.date;
+            }
+            if (resource.type && !existing.type?.includes(resource.type)) {
+                existing.type = existing.type 
+                    ? `${existing.type}, ${resource.type}`
+                    : resource.type;
+            }
+        }
+        return Array.from(urlMap.values());
+    }
+
+    function mergeAnnotations(input: Annotation[]): Annotation[] {
+        const urlMap = new Map<string, Annotation>();
+        for (const annotation of input) {
+            if (annotation.type !== 'url_citation') continue;
+            
+            const url = annotation.url_citation.url;
+            const existing = urlMap.get(url);
+            if (!existing) {
+                urlMap.set(url, {...annotation});
+                continue;
+            }
+            console.log(`Merging annotation for ${url}`, existing, annotation);
+
+            // Merge properties
+            if (annotation.url_citation.title && (
+                !existing.url_citation.title || 
+                annotation.url_citation.title.length > existing.url_citation.title.length
+            )) {
+                existing.url_citation.title = annotation.url_citation.title;
+            }
+            const originalLength = existing.url_citation.content?.length || 0;
+            const additionalLength = annotation.url_citation.content?.length || 0;
+            existing.url_citation.content = existing.url_citation.content
+                ? `${existing.url_citation.content}... ${annotation.url_citation.content}`
+                : annotation.url_citation.content;
+            console.log(`Merged citation for ${url} - original: ${originalLength} chars, added: ${additionalLength} chars, total: ${existing.url_citation.content.length} chars`);
+        }
+        return Array.from(urlMap.values());
+    }
+
+    $: mergedResources = mergeResources(resources);
+    $: mergedAnnotations = mergeAnnotations(annotations);
+    $: filteredResources = filterResources ? mergedResources.filter(r => resourceMatches(r, filterResources)) : mergedResources;
     $: sortedResources = sortResources(filteredResources, resourceSort);
-    $: filteredAnnotations = filterAnnotations ? annotations.filter(a => annotationMatches(a, filterAnnotations)) : annotations;
+    $: filteredAnnotations = filterAnnotations ? mergedAnnotations.filter(a => annotationMatches(a, filterAnnotations)) : mergedAnnotations;
 </script>
 
 <ModalDialog isOpen={true} scrollOverflow={false} onClose={onClose}>
@@ -173,7 +248,7 @@
                                                 <span class="domain">({getDomain(annotation.url_citation.url)})</span>
                                                 <button class="copy-button" on:click={() => copyToClipboard(annotation.url_citation.url)}>📋</button>
                                             </div>
-                                            <p>{annotation.url_citation.content.slice(0, 200)}...</p>
+                                            <p>{annotation.url_citation.content}</p>
                                         </li>
                                     {/if}
                                 {/each}
