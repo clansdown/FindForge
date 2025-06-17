@@ -127,12 +127,21 @@
             )) {
                 existing.url_citation.title = annotation.url_citation.title;
             }
-            const originalLength = existing.url_citation.content?.length || 0;
-            const additionalLength = annotation.url_citation.content?.length || 0;
-            existing.url_citation.content = existing.url_citation.content
-                ? `${existing.url_citation.content}... ${annotation.url_citation.content}`
-                : annotation.url_citation.content;
-            console.log(`Merged citation for ${url} - original: ${originalLength} chars, added: ${additionalLength} chars, total: ${existing.url_citation.content.length} chars`);
+            const originalContent = existing.url_citation.content || '';
+            const additionalContent = annotation.url_citation.content || '';
+            
+            if (originalContent.includes(additionalContent)) {
+                // Existing content already contains the new content - keep original
+                existing.url_citation.content = originalContent;
+            } else if (additionalContent.includes(originalContent)) {
+                // New content contains existing content - replace
+                existing.url_citation.content = additionalContent;
+            } else {
+                // Neither contains the other - concatenate
+                existing.url_citation.content = originalContent 
+                    ? `${originalContent}... ${additionalContent}`
+                    : additionalContent;
+            }
         }
         return Array.from(urlMap.values());
     }
