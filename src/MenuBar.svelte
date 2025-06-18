@@ -49,7 +49,7 @@
     <button on:click={() => toggleMenu('file')}>File</button>
     {#if activeMenu === 'file'}
       <div class="dropdown">
-        <button on:click={() => { newConversation(); closeMenu(); }}>New Conversation</button>
+        <button on:click={() => { newConversation(); closeMenu(); }}>New "Conversation"</button>
         <button on:click={() => { showSettings = true; closeMenu(); }}>
           Settings
         </button>

@@ -7,8 +7,9 @@
 
     <h2>Standard Research</h2>
 
-    <!-- TODO: standard research looks like a chat conversation, can include or exclude previous messages for context. -->
-    <p></p>
+    <p>Standard Research is the default mode of operation. It uses a single LLM to answer your questions, optionally using web results and context from the conversation history. It uses the LLM in streaming mode, so you can see the response being generated a word at a time, with the option to stop the generation if it's clearly headed in the wrong direction.</p>
+
+    <p>Including previous messages as context uses more tokens with costs more money if you are not using a free model and, for longs "conversations", strains a model's "attention window" making it more likely to search for the wrong patterns. For shorter "conversations" it can be very useful by allowing you to briefly refer to something already mentioned, either in your text or the LLM's text.</p>
 
     <h2>Web Results</h2>
 
