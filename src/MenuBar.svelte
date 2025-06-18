@@ -3,6 +3,7 @@
   import Settings from './Settings.svelte';
   import About from './About.svelte';
   import GettingStarted from './GettingStarted.svelte';
+  import ToolsHelp from './ToolsHelp.svelte';
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
   
@@ -22,6 +23,7 @@
   let showSettings = false;
   let showAbout = false;
   let showGettingStarted = false;
+  let showTools = false;
   
   function toggleMenu(menu: string) {
     activeMenu = activeMenu === menu ? null : menu;
@@ -73,6 +75,7 @@
     {#if activeMenu === 'help'}
       <div class="dropdown">
         <button on:click={() => { showGettingStarted = true; closeMenu(); }}>Getting Started</button>
+        <button on:click={() => { showTools = true; closeMenu(); }}>Tools</button>
         <button on:click={() => { showAbout = true; closeMenu(); }}>About</button>
         <button on:click={() => { copyConfig(); closeMenu(); }}>Copy Config</button>
         <button on:click={() => { window.open('https://github.com/clansdown/MachineLearner', '_blank'); closeMenu(); }}>Source Code</button>
@@ -91,6 +94,9 @@
 <About bind:isOpen={showAbout} onClose={() => showAbout = false} />
 <ModalDialog isOpen={showGettingStarted} onClose={() => showGettingStarted = false}>
   <GettingStarted />
+</ModalDialog>
+<ModalDialog isOpen={showTools} onClose={() => showTools = false}>
+  <ToolsHelp />
 </ModalDialog>
 
 <style>
