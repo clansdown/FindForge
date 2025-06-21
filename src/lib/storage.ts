@@ -83,17 +83,42 @@ export function loadConfig(): Config {
 }
 
 export async function storeConversation(conversation: ConversationData): Promise<void> {
-    // Reload IDs fresh from storage to avoid race conditions with other tabs
+    // Reload IDs fresh from storage to avoid race conditions
     const ids = await loadConversationIDs();
-    if (!ids.includes(conversation.id)) {
-        ids.push(conversation.id);
-        localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
-    }
-    localStorage.setItem(`conversation_${conversation.id}`, JSON.stringify(conversation));
+    const dirHandle = getConversationsDirHandle();
+    
+    try {
+        if (!ids.includes(conversation.id)) {
+            ids.push(conversation.id);
+            if (dirHandle) {
+                // Update the conversation list in OPFS
+                const fileHandle = await dirHandle.getFileHandle('conversation_list.json', { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(JSON.stringify(ids));
+                await writable.close();
+            } else {
+                // Fall back to localStorage
+                localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
+            }
+        }
 
-    // Invalidate cache and reload it
-    conversationsCache = null;
-    loadConversations();
+        // Store the conversation
+        if (dirHandle) {
+            const fileHandle = await dirHandle.getFileHandle(`conversation_${conversation.id}.json`, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(JSON.stringify(conversation));
+            await writable.close();
+        } else {
+            localStorage.setItem(`conversation_${conversation.id}`, JSON.stringify(conversation));
+        }
+
+        // Invalidate cache and reload it
+        conversationsCache = null;
+        loadConversations();
+    } catch (e) {
+        console.error('Failed to store conversation', e);
+        throw e;
+    }
 }
 
 export async function loadConversations(): Promise<ConversationData[]> {
