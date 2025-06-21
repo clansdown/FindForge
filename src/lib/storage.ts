@@ -1,5 +1,11 @@
 import { Config, type ConversationData } from './types';
 
+declare global {
+    interface Window {
+        showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle>;
+    }
+}
+
 const STORAGE_KEY = 'appConfig';
 const CONVERSATION_IDS_KEY = 'conversationIDs';
 const STORAGE_LOCK_KEY = 'storageLock';
@@ -128,6 +134,30 @@ export function deleteConversation(id: string): void {
         if (cacheIndex >= 0) {
             conversationsCache.splice(cacheIndex, 1);
         }
+    }
+}
+
+/**
+ * Initializes the Origin Private File System storage and gets a directory handle
+ * for the 'conversations' directory.
+ * @returns Promise that resolves with the directory handle
+ */
+export async function initializeConversationStorage(): Promise<FileSystemDirectoryHandle> {
+    if (!window.showDirectoryPicker) {
+        throw new Error('OPFS is not supported in this browser');
+    }
+    
+    try {
+        const root = await navigator.storage.getDirectory();
+        try {
+            return await root.getDirectoryHandle('conversations', { create: true });
+        } catch (e) {
+            console.error('Failed to get conversations directory handle', e);
+            throw e;
+        }
+    } catch (e) {
+        console.error('Failed to access OPFS', e);
+        throw e;
     }
 }
 
