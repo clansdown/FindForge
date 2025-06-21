@@ -235,19 +235,9 @@ export function getConversationsDirHandle(): FileSystemDirectoryHandle | null {
 }
 
 async function loadConversationIDs(): Promise<string[]> {
-    // Check localStorage first
-    const item = localStorage.getItem(CONVERSATION_IDS_KEY);
     let ids: string[] = [];
-    if (item) {
-        try {
-            ids = JSON.parse(item) as string[];
-        } catch (e) {
-            console.error('Failed to parse conversation IDs from localStorage', e);
-        }
-    }
-    console.log('Loaded conversation IDs from localStorage:', ids);
-
-    // Check OPFS directory if available
+    
+    // Try OPFS directory first if available
     try {
         const dirHandle = getConversationsDirHandle();
         if (dirHandle) {
@@ -256,21 +246,29 @@ async function loadConversationIDs(): Promise<string[]> {
                 const fileHandle = await dirHandle.getFileHandle('conversation_list.json', { create: false });
                 const file = await fileHandle.getFile();
                 const content = await file.text();
-                const opfsIds = JSON.parse(content) as string[];
-                // Merge with localStorage IDs, removing duplicates
-                console.log('Loaded conversation IDs from OPFS:', opfsIds);
-                ids = [...ids, ...opfsIds];
-            } catch (e : any) {
+                ids = JSON.parse(content) as string[];
+                console.log('Loaded conversation IDs from OPFS:', ids);
+                return ids;
+            } catch (e: any) {
                 if (e.name !== 'NotFoundError') {
                     console.error('Failed to read conversation_list.json from OPFS', e);
                 }
             }
-        } else {
-            console.warn('OPFS directory handle is not initialized, using localStorage only');
         }
     } catch (e) {
         console.error('Error accessing OPFS for conversation IDs', e);
     }
+
+    // Fall back to localStorage if OPFS failed or isn't available
+    const item = localStorage.getItem(CONVERSATION_IDS_KEY);
+    if (item) {
+        try {
+            ids = JSON.parse(item) as string[];
+        } catch (e) {
+            console.error('Failed to parse conversation IDs from localStorage', e);
+        }
+    }
+    console.log('Loaded conversation IDs from localStorage:', ids);
 
     return ids;
 }

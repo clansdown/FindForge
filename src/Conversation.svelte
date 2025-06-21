@@ -420,6 +420,9 @@
                 if (result.streamingResult.annotations) {
                     assistantMessage.annotations = result.streamingResult.annotations;
                 }
+                if(result.resources) {
+                    assistantMessage.resources = result.resources;
+                }
             }
             userInput = ""; // Clear input after sending
         } catch (error: any) {
