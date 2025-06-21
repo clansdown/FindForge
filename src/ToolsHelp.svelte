@@ -6,7 +6,7 @@
 <div class="main">
     <h2>System Prompts</h2>
     
-    <p>System prompts define how the AI behaves and responds. They influence the style, tone, and depth of responses:</p>
+    <p>System prompts define how the AI behaves and responds. They influence the style, tone, and depth of responses. This is also one of the primary ways that commercial AI chat interfaces try to prevent you from "misusing" them by telling the LLM to lecture you about seeking proper medical advice or what have you.</p>
     
     <ul>
         <li><strong>Standard Prompts</strong> - Control the AI's default conversation behavior (shown in main dropdown)</li>
@@ -40,23 +40,34 @@
 
     <h2>Deep Research</h2>
     
-    <p>Deep Research performs multi-phase, thorough investigation of complex questions:</p>
+    <p>Deep Research performs multi-phase, thorough investigation of complex questions. Each phase consists of:</p>
+    invoking an LLM to define a number of research prompts, then, for each prompt, invoking an LLM to generate an answer, including using web search, refining the answer in light of the user question, then invoking an LLM on the question and refined results to synthesizing the results into an answer to the user. Each phase consists of several steps:
+    <ol>
+        <li>Invoking the LLM to generate research prompts to gather information which might be helpful to answering the question or, on phases 2+, improving the previous answer.</li>
+        <li>For each prompt, invoking an LLM to generate an answer to this prompt</li>
+        <li>For each answer, an LLM is invoked with the answer, the prompt, and the user question, and the answer is refined to only include what is relevant to the user's question</li>
+        <li>An LLM is invoked with the user's question and the refined research results, and on phases 2+ the previous answer, to synthesize them into an answer to the question.</li>
+    </ol> 
     
+    <p>The research and refinement steps are invoked in parallel. These parallel invocations of LLMs are called "research threads."</p>
+
+    <p>There are several parameters to deep research which you can control for each question:</p>
+
     <ul>
         <li><strong>Research Strategy</strong>:
             <ul>
-                <li><strong>Auto</strong> - Let the AI choose between deep or broad research</li>
                 <li><strong>Deep</strong> - Focused, detailed investigation of specific aspects</li>
                 <li><strong>Broad</strong> - Wider overview of multiple related topics</li>
+                <li><strong>Auto</strong> - The LLM will be invoked to guess based on your prompt</li>
             </ul>
         </li>
-        <li><strong>Phases</strong> - Multiple iterative research cycles (1-3) to refine results</li>
-        <li><strong>Research Threads</strong> - Parallel sub-queries (1-16) to explore different angles</li>
-        <li><strong>Web Requests</strong> - Each thread can make multiple web searches (1-32)</li>
-        <li><strong>Synthesis</strong> - Automated compilation and refinement of results</li>
+        <li><strong>Phases</strong> - The number of phases to use. More phases take more time and use more LLM resources, but at least for 1-3 phases, more phases tend to produce better results.</li>
+        <li><strong>Research Threads</strong> - The number of prompts that a phase is permitted to generate. The answers to these will be generated in parallel, so more research threads consume more LLM time (and thus cost more money) but don't tend to make the research take substantially longer.</li>
+        <li><strong>Web Requests</strong> - The number of web requests each research thread is permitted to use to generate its research result. Until you overwhelm the LLM's "attention" window (this varies with the LLM, but most will start to fall off after about 10), more web requests tend to produce better results, but (at the time of writing) each web request costs $.004 so this very directly scales the cost of research.</li>
     </ul>
 
-    <p>Deep Research uses more computing resources but produces more thorough, well-sourced answers.</p>
+    <p>In Settings, you can select the LLM used for each step of deep research to get what you find to be the best results (or the best results at prices you're willing to pay).</p>
+
     <p>Note: Deep Research cannot be used at the same time as Experiment Mode.</p>
 
     <h2>Experimentation Options</h2>
