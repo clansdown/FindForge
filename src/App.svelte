@@ -26,9 +26,6 @@
   initializeConversationStorage();
   loadConversations().then((loadedConversations) => {
     conversations = loadedConversations;
-    if (conversations.length > 0) {
-      currentConversation = conversations[0];
-    }
   });
 
 

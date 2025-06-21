@@ -214,7 +214,7 @@ export async function initializeConversationStorage(): Promise<FileSystemDirecto
         return conversationsDirHandle;
     }
 
-    if (!window.showDirectoryPicker) {
+    if (!('storage' in navigator && 'getDirectory' in navigator.storage)) {
         throw new Error('OPFS is not supported in this browser');
     }
     
