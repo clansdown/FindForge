@@ -72,13 +72,12 @@
 
     <h2>Experimentation Options</h2>
     
-    <p>Experiment Mode allows you to compare different configurations in parallel:</p>
+    <p>Experiment Mode allows you to run experiments to help figure out which models work best for you, or to refine your system prompts. Right now, the only experimentation feature is parallel research.</p>
+
+    <h3>Parallel Research</h3>
     
-    <ul>
-        <li><strong>Parallel Research</strong> - When enabled, runs multiple research requests simultaneously using different combinations of system prompts and models</li>
-        <li><strong>System Prompts</strong> - Select multiple prompts to test how they affect the results</li>
-        <li><strong>Models</strong> - Compare output from different LLMs side by side</li>
-    </ul>
+    <p>This will run a standard research query with multiple models, multiple system prompts, or both. Each combination of model and system prompt will be run (so you must have at least one of each), and you will be able to compare the answers by selecting them from a dropdown in the message answer.</p>
+
 
     <p>Note: Experiment Mode cannot be used at the same time as Deep Research. Each experiment will use your current web search and context settings.</p>
 
