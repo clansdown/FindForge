@@ -388,7 +388,7 @@
             } else {
                 let firstChunk = true;
                 const result = await doStandardResearch(
-                    8192, // maxTokens
+                    16384, // maxTokens
                     localConfig,
                     userMessage,
                     currentConversation.messages.slice(0, -2), // history (all messages except current user and assistant)
@@ -417,12 +417,14 @@
                     assistantMessage.generationData = result.generationData;
                     assistantMessage.totalCost = result.generationData.total_cost || 0;
                 }
-                if (result.streamingResult.annotations) {
-                    assistantMessage.annotations = result.streamingResult.annotations;
+                if (result.annotations) {
+                    assistantMessage.annotations = result.annotations;
                 }
                 if(result.resources) {
                     assistantMessage.resources = result.resources;
                 }
+                currentConversation.messages = currentConversation.messages; // trigger reactivity
+                await tick(); // Ensure DOM updates
             }
             userInput = ""; // Clear input after sending
         } catch (error: any) {
