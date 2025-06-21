@@ -1,5 +1,7 @@
 import { Config, type ConversationData } from './types';
 
+let conversationsDirHandle: FileSystemDirectoryHandle | null = null;
+
 declare global {
     interface Window {
         showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle>;
@@ -143,22 +145,26 @@ export function deleteConversation(id: string): void {
  * @returns Promise that resolves with the directory handle
  */
 export async function initializeConversationStorage(): Promise<FileSystemDirectoryHandle> {
+    if (conversationsDirHandle) {
+        return conversationsDirHandle;
+    }
+
     if (!window.showDirectoryPicker) {
         throw new Error('OPFS is not supported in this browser');
     }
     
     try {
         const root = await navigator.storage.getDirectory();
-        try {
-            return await root.getDirectoryHandle('conversations', { create: true });
-        } catch (e) {
-            console.error('Failed to get conversations directory handle', e);
-            throw e;
-        }
+        conversationsDirHandle = await root.getDirectoryHandle('conversations', { create: true });
+        return conversationsDirHandle;
     } catch (e) {
-        console.error('Failed to access OPFS', e);
+        console.error('Failed to initialize conversation storage', e);
         throw e;
     }
+}
+
+export function getConversationsDirHandle(): FileSystemDirectoryHandle | null {
+    return conversationsDirHandle;
 }
 
 function loadConversationIDs(): string[] {
