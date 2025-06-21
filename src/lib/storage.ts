@@ -221,6 +221,7 @@ export async function initializeConversationStorage(): Promise<FileSystemDirecto
     
     try {
         const root = await navigator.storage.getDirectory();
+        console.log('OPFS root directory:', root);
         conversationsDirHandle = await root.getDirectoryHandle('conversations', { create: true });
         return conversationsDirHandle;
     } catch (e) {
@@ -244,23 +245,28 @@ async function loadConversationIDs(): Promise<string[]> {
             console.error('Failed to parse conversation IDs from localStorage', e);
         }
     }
+    console.log('Loaded conversation IDs from localStorage:', ids);
 
     // Check OPFS directory if available
     try {
         const dirHandle = getConversationsDirHandle();
         if (dirHandle) {
+            console.log('Loading conversation IDs from OPFS');
             try {
                 const fileHandle = await dirHandle.getFileHandle('conversation_list.json', { create: false });
                 const file = await fileHandle.getFile();
                 const content = await file.text();
                 const opfsIds = JSON.parse(content) as string[];
                 // Merge with localStorage IDs, removing duplicates
-                ids = Array.from(new Set([...ids, ...opfsIds]));
+                console.log('Loaded conversation IDs from OPFS:', opfsIds);
+                ids = [...ids, ...opfsIds];
             } catch (e : any) {
                 if (e.name !== 'NotFoundError') {
                     console.error('Failed to read conversation_list.json from OPFS', e);
                 }
             }
+        } else {
+            console.warn('OPFS directory handle is not initialized, using localStorage only');
         }
     } catch (e) {
         console.error('Error accessing OPFS for conversation IDs', e);

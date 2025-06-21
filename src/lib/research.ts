@@ -1,3 +1,4 @@
+import { parse } from 'svelte/compiler';
 import { callOpenRouterChat, callOpenRouterStreaming, fetchGenerationData } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
 import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel } from './types';
@@ -98,6 +99,7 @@ export async function doStandardResearch(
         }
         // Parse any resources from the response, using our tracked content
         if (content) {
+            console.log("parsed resources: ", parseResourcesFromContent(content));
             resources.push(...parseResourcesFromContent(content));
         }
         updateStatus('Research completed');

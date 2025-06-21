@@ -23,9 +23,10 @@
   let availableOpenrouterCredits: OpenRouterCredits | undefined;
 
   /* Initialize conversation storage and load existing conversations */
-  initializeConversationStorage();
-  loadConversations().then((loadedConversations) => {
-    conversations = loadedConversations;
+  initializeConversationStorage().then((d) => {
+    loadConversations().then((loadedConversations) => {
+      conversations = loadedConversations;
+    });
   });
 
 
