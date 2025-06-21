@@ -1,4 +1,5 @@
 import { callOpenRouterChat, callOpenRouterStreaming, fetchGenerationData } from './models';
+import { resourceInstructions, parseResourcesFromContent } from './resources';
 import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel } from './types';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
@@ -52,11 +53,11 @@ export async function doStandardResearch(
     // Prepare messages for API
     const messagesForAPI: ApiCallMessage[] = [];
     
-    // Add system prompt
+    // Add system prompt with resource instructions
     if (config.systemPrompt) {
         messagesForAPI.push({ 
             role: 'system', 
-            content: [{ type: 'text', text: config.systemPrompt }] 
+            content: [{ type: 'text', text: config.systemPrompt + '\n\n' + resourceInstructions }] 
         });
     }
     
@@ -77,13 +78,17 @@ export async function doStandardResearch(
     console.log('Messages for API:', messagesForAPI);
 
     try {
+        let content = '';
         const streamingResult = await callOpenRouterStreaming(
             config.apiKey,
             config.defaultModel,
             maxTokens,
             maxWebRequests,
             messagesForAPI,
-            callback,
+            (chunk) => {
+                content += chunk;
+                callback(chunk);
+            },
             abortController
         );
         let generationData: GenerationData | undefined = undefined;
@@ -91,9 +96,14 @@ export async function doStandardResearch(
             generationData = await fetchGenerationData(config.apiKey, streamingResult.requestID);
             if(generationData) streamingResult.generationData = generationData;
         }
+        // Parse any resources from the response, using our tracked content
+        if (content) {
+            resources.push(...parseResourcesFromContent(content));
+        }
         updateStatus('Research completed');
         return { 
             systemPrompt: systemPromptUsed,
+            content,
             streamingResult, 
             generationData, 
             annotations: streamingResult.annotations || [], 

@@ -298,8 +298,9 @@ export interface ParallelResearchModel {
 }
 
 export interface ResearchResult {
-    systemPrompt?: string;
     systemPromptName?: string;
+    systemPrompt?: string;
+    content? : string;
     modelId?: string;
     modelName?: string;
     streamingResult: StreamingResult;
