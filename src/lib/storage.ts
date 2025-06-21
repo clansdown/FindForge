@@ -2,6 +2,7 @@ import { Config, type ConversationData } from './types';
 
 let conversationsDirHandle: FileSystemDirectoryHandle | null = null;
 
+// NOTE: brave doesn't allow filesystem API other than OPFS by default, so if we ever offer it we'll need to give the user a message if window.showDirectoryPicker doesn't exist
 declare global {
     interface Window {
         showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle>;
