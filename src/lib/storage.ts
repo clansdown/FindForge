@@ -82,9 +82,9 @@ export function loadConfig(): Config {
   return config;
 }
 
-export function storeConversation(conversation: ConversationData): void {
+export async function storeConversation(conversation: ConversationData): Promise<void> {
     // Reload IDs fresh from storage to avoid race conditions with other tabs
-    const ids = loadConversationIDs();
+    const ids = await loadConversationIDs();
     if (!ids.includes(conversation.id)) {
         ids.push(conversation.id);
         localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
@@ -96,12 +96,12 @@ export function storeConversation(conversation: ConversationData): void {
     loadConversations();
 }
 
-export function loadConversations(): ConversationData[] {
+export async function loadConversations(): Promise<ConversationData[]> {
     if (conversationsCache) {
         return conversationsCache;
     }
 
-    const ids = loadConversationIDs();
+    const ids = await loadConversationIDs();
     const conversations: ConversationData[] = [];
     for (const id of ids) {
         const item = localStorage.getItem(`conversation_${id}`);
@@ -118,9 +118,9 @@ export function loadConversations(): ConversationData[] {
     return conversations;
 }
 
-export function deleteConversation(id: string): void {
+export async function deleteConversation(id: string): Promise<void> {
     // Remove from IDs list
-    const ids = loadConversationIDs();
+    const ids = await loadConversationIDs();
     const index = ids.indexOf(id);
     if (index >= 0) {
         ids.splice(index, 1);
@@ -167,15 +167,38 @@ export function getConversationsDirHandle(): FileSystemDirectoryHandle | null {
     return conversationsDirHandle;
 }
 
-function loadConversationIDs(): string[] {
+async function loadConversationIDs(): Promise<string[]> {
+    // Check localStorage first
     const item = localStorage.getItem(CONVERSATION_IDS_KEY);
+    let ids: string[] = [];
     if (item) {
         try {
-            return JSON.parse(item) as string[];
+            ids = JSON.parse(item) as string[];
         } catch (e) {
-            console.error('Failed to parse conversation IDs', e);
-            return [];
+            console.error('Failed to parse conversation IDs from localStorage', e);
         }
     }
-    return [];
+
+    // Check OPFS directory if available
+    try {
+        const dirHandle = getConversationsDirHandle();
+        if (dirHandle) {
+            try {
+                const fileHandle = await dirHandle.getFileHandle('conversation_list.json', { create: false });
+                const file = await fileHandle.getFile();
+                const content = await file.text();
+                const opfsIds = JSON.parse(content) as string[];
+                // Merge with localStorage IDs, removing duplicates
+                ids = Array.from(new Set([...ids, ...opfsIds]));
+            } catch (e : any) {
+                if (e.name !== 'NotFoundError') {
+                    console.error('Failed to read conversation_list.json from OPFS', e);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error accessing OPFS for conversation IDs', e);
+    }
+
+    return ids;
 }
