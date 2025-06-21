@@ -176,8 +176,24 @@ export async function deleteConversation(id: string): Promise<void> {
         localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
     }
     
-    // Remove the conversation data
-    localStorage.removeItem(`conversation_${id}`);
+    // Remove the conversation data from both storage locations
+    try {
+        localStorage.removeItem(`conversation_${id}`);
+        
+        // Try directory storage if available
+        const dirHandle = getConversationsDirHandle();
+        if (dirHandle) {
+            try {
+                await dirHandle.removeEntry(`conversation_${id}.json`);
+            } catch (e: any) {
+                if (e.name !== 'NotFoundError') {
+                    console.error(`Failed to delete conversation ${id} from directory storage`, e);
+                }
+            }
+        }
+    } catch (e) {
+        console.error(`Error deleting conversation ${id}`, e);
+    }
     
     // Update cache if exists
     if (conversationsCache) {

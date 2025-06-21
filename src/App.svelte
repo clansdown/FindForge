@@ -3,7 +3,7 @@
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
   import type { Config, ConversationData, OpenRouterCredits } from './lib/types';
-  import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation } from './lib/storage';
+  import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation, initializeConversationStorage } from './lib/storage';
   import { generateID, sleep } from './lib/util';
   import { fetchOpenRouterCredits } from './lib/models';
   import Intro from './Intro.svelte';
@@ -19,8 +19,24 @@
     created: new Date().valueOf(),
     updated: new Date().valueOf()
   };
-  let conversations: ConversationData[] = loadConversations();
+  let conversations: ConversationData[] = [];
   let availableOpenrouterCredits: OpenRouterCredits | undefined;
+
+  /* Initialize conversation storage and load existing conversations */
+  initializeConversationStorage();
+  loadConversations().then((loadedConversations) => {
+    conversations = loadedConversations;
+    if (conversations.length > 0) {
+      currentConversation = conversations[0];
+    }
+  });
+
+
+  // Refresh credits when the API key changes
+  $: if (config.apiKey) {
+    refreshAvailableCredits(0);
+  }
+
 
   async function refreshAvailableCredits(delay:number = 5000) {
     if (config.apiKey) {
@@ -36,10 +52,6 @@
     }
   }
 
-  // Refresh credits when the API key changes
-  $: if (config.apiKey) {
-    refreshAvailableCredits(0);
-  }
 
   function startDrag() {
     isDragging = true;
