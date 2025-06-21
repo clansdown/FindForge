@@ -128,17 +128,41 @@ export async function loadConversations(): Promise<ConversationData[]> {
 
     const ids = await loadConversationIDs();
     const conversations: ConversationData[] = [];
+    const dirHandle = getConversationsDirHandle();
+
     for (const id of ids) {
-        const item = localStorage.getItem(`conversation_${id}`);
-        if (item) {
-            try {
-                const conv = JSON.parse(item) as ConversationData;
-                conversations.push(conv);
-            } catch (e) {
-                console.error(`Failed to parse conversation ${id}`, e);
+        try {
+            // Try directory storage first
+            if (dirHandle) {
+                try {
+                    const fileHandle = await dirHandle.getFileHandle(`conversation_${id}.json`, { create: false });
+                    const file = await fileHandle.getFile();
+                    const content = await file.text();
+                    const conv = JSON.parse(content) as ConversationData;
+                    conversations.push(conv);
+                    continue; // Skip localStorage if we found it in dir storage
+                } catch (e: any) {
+                    if (e.name !== 'NotFoundError') {
+                        console.error(`Failed to read conversation ${id} from directory storage`, e);
+                    }
+                }
             }
+
+            // Fall back to localStorage
+            const item = localStorage.getItem(`conversation_${id}`);
+            if (item) {
+                try {
+                    const conv = JSON.parse(item) as ConversationData;
+                    conversations.push(conv);
+                } catch (e) {
+                    console.error(`Failed to parse conversation ${id} from localStorage`, e);
+                }
+            }
+        } catch (e) {
+            console.error(`Error loading conversation ${id}`, e);
         }
     }
+    
     conversationsCache = conversations;
     return conversations;
 }
