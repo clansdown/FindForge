@@ -219,6 +219,7 @@
         setAvailableModelsConfig(openrouterModels);
         Object.assign(config, localConfig);
         saveConfig(config);
+        config = config; // trigger reactivity
         isOpen = false;
     }
 </script>
