@@ -53,6 +53,10 @@
         currentResearchResult = result;
         currentGenerationData = result.generationData;
         currentRequestID = result.streamingResult.requestID;
+    } else {
+        currentAnnotations = message.annotations || [];
+        currentResources = message.resources || [];
+        currentGenerationData = message.generationData;
     }
 
     const md = new MarkdownIt({
