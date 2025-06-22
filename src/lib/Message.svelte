@@ -79,6 +79,18 @@
         },
     });
 
+    function filterContent(content: string): string {
+        const resourcesStart = content.indexOf('<RESOURCES>');
+        if (resourcesStart === -1) {
+            return content;
+        }
+        const resourcesEnd = content.indexOf('</RESOURCES>', resourcesStart);
+        if (resourcesEnd === -1) {
+            return content.substring(0, resourcesStart).trim();
+        }
+        return (content.substring(0, resourcesStart) + content.substring(resourcesEnd + 12)).trim();
+    }
+
     function formatMessage(text: string|null|undefined): string {
         if(!text) return '';
         return md.render(text);
@@ -210,7 +222,7 @@
                             </select>
                             {@html formatMessage(message.researchResults[selectedResearchResult].chatResult?.content)}
                         {:else}
-                            {@html formatMessage(message.content)}
+                            {@html formatMessage(filterContent(message.content))}
                         {/if}
                     {/if}
                 {/if}
