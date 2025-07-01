@@ -49,3 +49,15 @@ export function extractConversationReferences(conversation: ConversationData): {
 }
 
 
+interface BraveNavigator extends Navigator {
+  brave?: { isBrave: () => Promise<boolean> };
+}
+export async function isBraveOrChromium(): Promise<boolean> {
+    const nav = navigator as BraveNavigator;
+    // Brave sets window.navigator.brave
+    // Chromium-based browsers can be detected by user agent
+    console.log("User Agent:", navigator.userAgent);
+    return (nav.brave?.isBrave?.() ?? Promise.resolve(false)) ||
+           /Chromium/.test(navigator.userAgent);
+}
+

@@ -4,7 +4,7 @@
     import { doStandardResearch, convertMessageToApiCallMessage, doParallelResearch } from "./lib/research";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
-    import { generateID, escapeHtml, formatModelName, extractConversationReferences } from "./lib/util";
+    import { generateID, escapeHtml, formatModelName, extractConversationReferences, isBraveOrChromium } from "./lib/util";
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
@@ -42,10 +42,12 @@
     export let config: Config;
     export let availableCredits: OpenRouterCredits | undefined;
 
+    
     /*******************/
     /* Local Variables */
     /*******************/
     let localConfig = createConfigCopy(config);
+    let supportsWebSpeechTranscription : boolean;
     let speechTimeoutMS = 5000; // milliseconds of silence before auto-send
     let speechSendCommand = "Computer: send message"; // voice command to send
     let isListening = false;
@@ -78,6 +80,7 @@
     let allConversationAnnotations: Annotation[] = [];
     let showAllResources = false;
 
+    isBraveOrChromium().then(result => { console.log(result); supportsWebSpeechTranscription = !result});
     
     const md = new MarkdownIt({
         html: false,
@@ -676,9 +679,15 @@
                 placeholder="Type your message..."
                 disabled={generating}
             ></textarea>
-            <button on:click={toggleSpeechRecognition} class={isListening ? 'mic-button active' : 'mic-button'} title="Speech Input">
-                {isListening ? '🎤' : '🎤'}
-            </button>
+            {#if supportsWebSpeechTranscription}
+                <button on:click={toggleSpeechRecognition} class={isListening ? 'mic-button active' : 'mic-button'} title="Speech Input">
+                    {isListening ? '🎤' : '🎤'}
+                </button>
+            {:else}
+                <button class="mic-button disabled" title="Speech input is not supported in this browser" disabled>
+                    🎤
+                </button>
+            {/if}
             <button on:click={generating ? stopGeneration : sendMessage} class={generating ? "stop" : "send"}>
                 {generating ? "Stop" : "Send"}
             </button>
@@ -842,6 +851,10 @@
         border: none;
         cursor: pointer;
         font-size: 1.2rem;
+    }
+    .chat-input .mic-button.disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
     }
 
     .chat-input .mic-button.active {
