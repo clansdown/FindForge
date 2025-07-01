@@ -13,6 +13,7 @@ export class Config {
     webSearchMaxResults!: number;
     includePreviousMessagesAsContext!: boolean;
     searchEngine!: string;
+    autoSave: boolean = true;
     deepResearchWebSearchMaxPlanningResults!: number;
     deepResearchSystemPrompt!: string;
     deepResearchWebRequestsPerSubrequest!: number;

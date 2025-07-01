@@ -131,6 +131,12 @@
     <div class="toolbar-group">
         <PushButton title="Enable experimentation features" bind:pushed={experimentMode} disabled={deepSearch}>🔬</PushButton>
     </div>
+    <div class="toolbar-group">
+        <label title="Toggle auto-saving of conversations">
+            <PushButton title="Auto-save conversations" bind:pushed={config.autoSave} on:toggle={() => config.autoSave = !config.autoSave}>💾</PushButton>
+        </label>
+
+    </div>
 </div>
 
 {#if deepSearch}

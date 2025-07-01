@@ -207,7 +207,8 @@
     function toggleMessageHidden(message: MessageData) {
         message.hidden = !message.hidden;
         currentConversation.messages = currentConversation.messages;
-        saveConversation(currentConversation);
+        if(localConfig.autoSave)
+            saveConversation(currentConversation);
     }
 
     function editUserMessage(message: MessageData) {
@@ -230,7 +231,8 @@
         currentConversation.messages = currentConversation.messages;
 
         // Save the conversation
-        saveConversation(currentConversation);
+        if(localConfig.autoSave)
+            saveConversation(currentConversation);
     }
 
     function handleScroll() {
@@ -452,7 +454,8 @@
             abortController = null;
             assistantMessage.isGenerating = false;
             currentConversation.messages = currentConversation.messages.map((msg) => (msg.id === assistantMessage.id ? assistantMessage : msg));
-            saveConversation(currentConversation);
+            if(localConfig.autoSave)
+                saveConversation(currentConversation);
             refreshAvailableCredits();
         }
     }
