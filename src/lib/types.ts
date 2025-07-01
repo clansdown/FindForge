@@ -13,7 +13,7 @@ export class Config {
     webSearchMaxResults!: number;
     includePreviousMessagesAsContext!: boolean;
     searchEngine!: string;
-    autoSave: boolean = true;
+    autoSave: boolean;
     deepResearchWebSearchMaxPlanningResults!: number;
     deepResearchSystemPrompt!: string;
     deepResearchWebRequestsPerSubrequest!: number;
@@ -69,6 +69,7 @@ export class Config {
         this.deepResearchSynthesisModel = this.defaultModel;
         this.defaultSystemPromptId = 'default';
         this.defaultSynthesisPromptId = 'synthesis_default';
+        this.autoSave = true;
 
         this.systemPrompts = [
             {

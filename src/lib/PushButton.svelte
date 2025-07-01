@@ -12,16 +12,16 @@
     .push-button {
         position: relative;
         padding: .3rem 0.5em;
-        background-color: #222;
+        background-color: #333;
         color: #eee;
-        border: 1px solid #ccc;
+        border: 1px solid #bbb;
         border-radius: 6px;
         cursor: pointer;
         font-family: inherit;
         font-size: inherit;
         box-shadow: 
-            inset 3px 3px 3px rgba(252, 236, 40, 0.6),
-            inset -3px -3px 3px rgba(128, 128, 20, 0.8);
+            inset 3px 3px 3px rgba(211, 211, 207, 0.6),
+            inset -3px -3px 3px rgba(138, 138, 40, 0.8);
         transition: all 0.1s ease;
     }
 
@@ -29,8 +29,8 @@
         background-color: #000;
         border: 1px solid #ccc;
         box-shadow: 
-            inset 3px 3px 3px rgba(128, 128, 20, 0.8),
-            inset -3px -3px 3px rgba(252, 236, 40, 0.7);
+            inset 3px 3px 3px rgba(118, 118, 20, 0.8),
+            inset -2px -2px 2px rgba(232, 226, 80, 0.7);
         transform: translateY(1px);
     }
 
