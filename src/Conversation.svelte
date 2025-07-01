@@ -46,6 +46,11 @@
     /* Local Variables */
     /*******************/
     let localConfig = createConfigCopy(config);
+    let speechTimeoutMS = 5000; // milliseconds of silence before auto-send
+    let speechSendCommand = "Computer: send message"; // voice command to send
+    let isListening = false;
+    let speechRecognition: SpeechRecognition | null = null;
+    let speechTimeout: number | null = null;
     let conversationDiv: HTMLDivElement;
     let userInput = "";
     let generating = false;
@@ -73,7 +78,7 @@
     let allConversationAnnotations: Annotation[] = [];
     let showAllResources = false;
 
-
+    
     const md = new MarkdownIt({
         html: false,
         breaks: true,
@@ -138,6 +143,77 @@
     /*************/
     /* Functions */
     /*************/
+    function startSpeechRecognition() {
+        if (isListening) return;
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Speech recognition not supported in your browser");
+            return;
+        }
+
+        speechRecognition = new SpeechRecognition();
+        speechRecognition.continuous = true;
+        speechRecognition.interimResults = true;
+
+        speechRecognition.onstart = () => {
+            isListening = true;
+            userInput = "(Listening...) ";
+        };
+
+        speechRecognition.onresult = (event) => {
+            const transcript = Array.from(event.results)
+                .map(result => result[0])
+                .map(result => result.transcript)
+                .join('');
+
+            userInput = transcript;
+            
+            // Check for send command
+            const normalizedInput = transcript.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+            const normalizedCommand = speechSendCommand.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+            
+            if (normalizedInput.includes(normalizedCommand)) {
+                console.log("Send command detected, sending message...");
+                sendMessage();
+                return;
+            }
+
+            // Reset timeout on speech activity
+            if (speechTimeout) clearTimeout(speechTimeout);
+            speechTimeout = setTimeout(() => {
+                if (isListening && userInput.trim() !== "(Listening...)") {
+                    console.log("Silence timeout reached, sending message...");
+                    sendMessage();
+                }
+            }, speechTimeoutMS);
+        };
+
+        speechRecognition.onerror = (event) => {
+            console.error("Speech recognition error: ", event);
+            stopSpeechRecognition();
+        };
+
+        speechRecognition.onend = stopSpeechRecognition;
+        speechRecognition.start();
+    }
+
+    function stopSpeechRecognition() {
+        if (speechRecognition) speechRecognition.stop();
+        if (speechTimeout) clearTimeout(speechTimeout);
+        isListening = false;
+        speechRecognition = null;
+        speechTimeout = null;
+        
+        // Remove listening prefix if present
+        if (userInput.startsWith("(Listening...) ")) {
+            userInput = userInput.substring("(Listening...) ".length);
+        }
+    }
+
+    function toggleSpeechRecognition() {
+        isListening ? stopSpeechRecognition() : startSpeechRecognition();
+    }
     function createConfigCopy(source: Config): Config {
         const newConfig = new Config();
         Object.assign(newConfig, source);
@@ -600,6 +676,9 @@
                 placeholder="Type your message..."
                 disabled={generating}
             ></textarea>
+            <button on:click={toggleSpeechRecognition} class={isListening ? 'mic-button active' : 'mic-button'} title="Speech Input">
+                {isListening ? '🎤' : '🎤'}
+            </button>
             <button on:click={generating ? stopGeneration : sendMessage} class={generating ? "stop" : "send"}>
                 {generating ? "Stop" : "Send"}
             </button>
@@ -754,6 +833,26 @@
 
     .chat-input .input-row {
         display: flex;
+    }
+
+    .chat-input .mic-button {
+        margin-right: 0.5rem;
+        padding: 0.5rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+    }
+
+    .chat-input .mic-button.active {
+        color: #f00;
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
     }
 
     .chat-input .attach-button {
