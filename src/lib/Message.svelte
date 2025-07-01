@@ -101,13 +101,22 @@
     }
 
     function saveMessageToFile() {
-        saveToFile(conversationTitle, message.content);
+        saveToFile(conversationTitle + ".md", message.content);
     }
 
     function saveToFile(defaultFilename: string, content: string) {
-        const safeTitle = defaultFilename.replace(/[^a-z0-9]+/gi, '_');
+        const safeTitle = defaultFilename.replace(/[^a-z0-9.]+/gi, '_');
         const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
-        const filename = `${safeTitle}_${timestamp}.json`;
+        
+        // Check for valid extension (2-5 letters at end of string)
+        const extensionMatch = safeTitle.match(/\.([a-zA-Z]{2,5})$/);
+        const hasExtension = Boolean(extensionMatch);
+        const extension = hasExtension ? extensionMatch![1] : 'json';
+        const basename = hasExtension 
+            ? safeTitle.substring(0, safeTitle.lastIndexOf('.')) 
+            : safeTitle;
+        
+        const filename = `${basename}_${timestamp}.${extension}`;
 
         const blob = new Blob([content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
