@@ -117,12 +117,12 @@
     </div>
 
     <div class="toolbar-group">
-        <label>
-            <input id="previous-messages" type="checkbox" bind:checked={config.includePreviousMessagesAsContext} />
-            <label for="previous-messages" title="Include previous messages as context. This uses more tokens and thus costs more."
-                >Include Context</label
-            >
-        </label>
+        <PushButton 
+            title="Include previous messages as context. This uses more tokens and thus costs more."
+            bind:pushed={config.includePreviousMessagesAsContext}
+            disabled={experimentMode || deepSearch}>
+            💬
+        </PushButton>
     </div>
 
     <div class="toolbar-group">
@@ -130,6 +130,9 @@
     </div>
     <div class="toolbar-group">
         <PushButton title="Enable experimentation features" bind:pushed={experimentMode} disabled={deepSearch}>🔬</PushButton>
+    </div>
+    <div class="toolbar-group">
+        <PushButton title="Use Text-to-speech to read out the LLM's response" bind:pushed={config.speakMessages} disabled={experimentMode || deepSearch}>🔊</PushButton>
     </div>
     <div class="toolbar-group">
         <label title="Toggle auto-saving of conversations">
