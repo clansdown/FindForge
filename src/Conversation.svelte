@@ -407,6 +407,9 @@
         let speechSynthesis: SpeechSynthesis | null = null;
         if (localConfig.speakMessages && 'speechSynthesis' in window) {
             speechSynthesis = window.speechSynthesis;
+            const voices = speechSynthesis.getVoices();
+        } else {
+            console.log("Speech synthesis is not being used.", localConfig.speakMessages, window.speechSynthesis);
         }
 
         try {
@@ -474,6 +477,7 @@
                 }
             } else {
                 let firstChunk = true;
+                let speechText = '';
                 const result = await doStandardResearch(
                     16384, // maxTokens
                     localConfig,
@@ -494,12 +498,30 @@
                         // Only speak new chunks if enabled and no resources tag seen yet
                         const hasResourcesTag = /<RESOURCES>/.test(assistantMessage.content);
                         if (localConfig.speakMessages && speechSynthesis && !hasResourcesTag) {
-                            const utterance = new SpeechSynthesisUtterance();
-                            utterance.lang = 'en-US';
-                            utterance.rate = 1;
-                            utterance.pitch = 1;
-                            utterance.text = chunk;
-                            speechSynthesis.speak(utterance);
+                            // Buffer text for speech until we hit a sentence boundary
+                            let buffer = '';
+                            let lastPeriod = chunk.lastIndexOf('.');
+                            
+                            if (lastPeriod !== -1) {
+                                // Split at the last period
+                                buffer = chunk.substring(0, lastPeriod + 1);
+                                const remaining = chunk.substring(lastPeriod + 1);
+                                
+                                // Speak the complete sentences
+                                if (buffer) {
+                                    const utterance = new SpeechSynthesisUtterance(speechText + buffer);
+                                    utterance.lang = 'en-US';
+                                    utterance.rate = 1;
+                                    utterance.pitch = 1;
+                                    speechSynthesis.speak(utterance);
+                                }
+                                
+                                // Store any remaining text after the last period
+                                speechText = remaining;
+                            } else {
+                                // No period found - just buffer the text
+                                speechText += chunk;
+                            }
                         }
                     },
                     (status) => {

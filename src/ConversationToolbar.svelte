@@ -84,6 +84,37 @@
             console.error("Failed to fetch models", error);
         }
     });
+
+    async function testSournd() {
+        if (window.speechSynthesis) {
+            const speak = () => {
+                const utterance = new SpeechSynthesisUtterance("This is a test of the text-to-speech system.");
+                utterance.lang = "en-US";
+                utterance.rate = 1;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                utterance.onerror = (event) => {
+                    console.error("Speech synthesis error:", event.error);
+                };
+                utterance.onstart = () => {
+                    console.log("Speech synthesis started.");
+                };
+                window.speechSynthesis.getVoices(); // Ensure voices are loaded
+                window.speechSynthesis.speak(utterance);
+                console.log("Speech should be happening now.");
+            };
+            if(window.speechSynthesis.getVoices().length > 0) {
+                speak();
+            } else {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    console.log("Voices changed, speaking now.", window.speechSynthesis.getVoices());
+                    speak();
+                };
+            }
+        } else {
+            console.warn("Speech synthesis is not supported in this browser.");
+        }
+    }
 </script>
 
 <div class="toolbar">
