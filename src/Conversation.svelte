@@ -403,6 +403,12 @@
         generating = true;
         abortController = new AbortController();
 
+        // Setup speech synthesis if enabled
+        let speechSynthesis: SpeechSynthesis | null = null;
+        if (localConfig.speakMessages && 'speechSynthesis' in window) {
+            speechSynthesis = window.speechSynthesis;
+        }
+
         try {
             if (deepSearch) {
                 console.log("Starting deep research...");
@@ -416,7 +422,7 @@
                 const deepResult = await doDeepResearch(
                     localConfig,
                     localConfig.apiKey,
-                    8192, // maxTokens
+                    16384, // maxTokens
                     modelsForResearch,
                     deepSearchStrategy, // strategy
                     userInput.trim(),
@@ -444,7 +450,7 @@
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
                 const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
                 const results = await doParallelResearch(
-                    8192, // maxTokens
+                    16384, // maxTokens
                     localConfig,
                     convertMessageToApiCallMessage(userMessage), // user message
                     currentConversation.messages.slice(0, -2), // history
@@ -484,6 +490,17 @@
                         );
                         tick();
                         scrollToBottom();
+
+                        // Only speak new chunks if enabled and no resources tag seen yet
+                        const hasResourcesTag = /<RESOURCES>/.test(assistantMessage.content);
+                        if (localConfig.speakMessages && speechSynthesis && !hasResourcesTag) {
+                            const utterance = new SpeechSynthesisUtterance();
+                            utterance.lang = 'en-US';
+                            utterance.rate = 1;
+                            utterance.pitch = 1;
+                            utterance.text = chunk;
+                            speechSynthesis.speak(utterance);
+                        }
                     },
                     (status) => {
                         console.log(status);
