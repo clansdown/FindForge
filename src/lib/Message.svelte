@@ -201,7 +201,7 @@
             <div class="content">
                 {#if message.role === "user"}
                     <!-- User Message -->
-                    {message.content}
+                    {@html formatMessage(message.content)}
                     <div class="attachments">
                         {#each message.attachments || [] as attachment, index}
                             <div class="attachment">
