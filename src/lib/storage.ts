@@ -1,3 +1,4 @@
+import { Writable, writable } from 'svelte/store';
 import { Config, type ConversationData } from './types';
 
 let conversationsDirHandle: FileSystemDirectoryHandle | null = null;
@@ -37,6 +38,29 @@ export function acquireStorageLock(): boolean {
  */
 export function releaseStorageLock(): void {
     localStorage.removeItem(STORAGE_LOCK_KEY);
+}
+
+/**
+ * Creates a Svelte store backed by localStorage
+ * @param key Storage key
+ * @param defaultValue Default value if not set in storage
+ * @returns A writable Svelte store synchronized with localStorage
+ */
+export function getLocalPreferenceStore<T>(key: string, defaultValue: T): Writable<T> {
+    const { subscribe, set } = writable<T>(getLocalPreference(key, defaultValue));
+    
+    return {
+        subscribe,
+        set(value: T) {
+            setLocalPreference(key, value);
+            set(value);
+        },
+        update(updater: (value: T) => T) {
+            const newValue = updater(getLocalPreference(key, defaultValue));
+            setLocalPreference(key, newValue);
+            set(newValue);
+        }
+    };
 }
 
 /**
