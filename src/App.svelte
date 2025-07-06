@@ -115,7 +115,7 @@
 </script>
 
 <main>
-  <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} credits={availableOpenrouterCredits} />
+  <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} credits={availableOpenrouterCredits} {applicationMode} />
   {#if config.apiKey}
     <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
     <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">

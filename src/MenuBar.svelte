@@ -1,11 +1,12 @@
 <script lang="ts">
-  import type { Config, OpenRouterCredits } from './lib/types';
+  import type { ApplicationMode, Config, OpenRouterCredits } from './lib/types';
   import Settings from './Settings.svelte';
   import About from './About.svelte';
   import GettingStarted from './GettingStarted.svelte';
   import ToolsHelp from './ToolsHelp.svelte';
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
+    import type { Writable } from 'svelte/store';
   
   export let config: Config;
 
@@ -18,6 +19,7 @@
   export let showHistory: boolean;
   export let newConversation: () => void;
   export let credits: OpenRouterCredits | undefined;
+  export let applicationMode: Writable<ApplicationMode>;
   
   let activeMenu: string | null = null;
   let showSettings = false;
@@ -55,6 +57,14 @@
         <button on:click={() => { showSettings = true; closeMenu(); }}>
           Settings
         </button>
+        <div class="menu-separator"></div>
+        <button on:click={() => { $applicationMode = 'research'; closeMenu(); }}>
+          {#if $applicationMode === 'research'}✓{/if} Research
+        </button>
+        <button on:click={() => { $applicationMode = 'brainstorming'; closeMenu(); }}>
+          {#if $applicationMode === 'brainstorming'}✓{/if} Brainstorming
+        </button>
+        <div class="menu-separator"></div>
       </div>
     {/if}
   </div>
@@ -138,6 +148,12 @@
   
   .dropdown button:hover {
     background-color: #454545;
+  }
+
+  .menu-separator {
+    height: 1px;
+    background-color: #333;
+    margin: 4px 0;
   }
   
   .credits {
