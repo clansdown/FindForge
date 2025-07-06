@@ -40,6 +40,33 @@ export function releaseStorageLock(): void {
 }
 
 /**
+ * Gets a preference value from localStorage, returning the default if not set
+ * @param key Preference key
+ * @param defaultValue Default value to return if preference not set
+ * @returns The stored preference value or defaultValue if not set
+ */
+export function getLocalPreference<T>(key: string, defaultValue: T): T {
+    const value = localStorage.getItem(key);
+    if (value === null) {
+        return defaultValue;
+    }
+    try {
+        return JSON.parse(value) as T;
+    } catch {
+        return defaultValue;
+    }
+}
+
+/**
+ * Sets a preference value in localStorage
+ * @param key Preference key
+ * @param value Value to store
+ */
+export function setLocalPreference(key: string, value: unknown): void {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+/**
  * Waits to acquire a storage lock with retries
  * @param maxRetries Maximum number of retry attempts
  * @param retryDelayMs Delay between retries in milliseconds

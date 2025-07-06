@@ -48,7 +48,7 @@
 
 <div class="menu-bar" on:mouseleave={closeMenu}>
   <div class="menu-item">
-    <button on:click={() => toggleMenu('file')}>File</button>
+    <button on:click={() => toggleMenu('file')}>App</button>
     {#if activeMenu === 'file'}
       <div class="dropdown">
         <button on:click={() => { newConversation(); closeMenu(); }}>New "Conversation"</button>
