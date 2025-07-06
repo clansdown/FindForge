@@ -34,9 +34,10 @@
     import Message from "./lib/Message.svelte";
 
     /***************/
-    /* Propertiess */
+    /* Properties  */
     /***************/
     export let currentConversation: ConversationData;
+    export let applicationMode: Writable<ApplicationMode>;
     export let saveConversation: (conversation: ConversationData) => void;
     export let refreshAvailableCredits: () => Promise<void>;
     export let config: Config;

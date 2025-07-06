@@ -54,17 +54,17 @@
     {#if activeMenu === 'file'}
       <div class="dropdown">
         <button on:click={() => { newConversation(); closeMenu(); }}>New "Conversation"</button>
+        <div class="menu-separator"></div>
+        <button on:click={() => { $applicationMode = 'research';  }}>
+          {#if $applicationMode === 'research'}✓{:else}&nbsp;&nbsp;&nbsp;{/if} Research
+        </button>
+        <button on:click={() => { $applicationMode = 'brainstorming';  }}>
+          {#if $applicationMode === 'brainstorming'}✓{:else}&nbsp;&nbsp;&nbsp;{/if} Brainstorming
+        </button>
+        <div class="menu-separator"></div>
         <button on:click={() => { showSettings = true; closeMenu(); }}>
           Settings
         </button>
-        <div class="menu-separator"></div>
-        <button on:click={() => { $applicationMode = 'research'; closeMenu(); }}>
-          {#if $applicationMode === 'research'}✓{/if} Research
-        </button>
-        <button on:click={() => { $applicationMode = 'brainstorming'; closeMenu(); }}>
-          {#if $applicationMode === 'brainstorming'}✓{/if} Brainstorming
-        </button>
-        <div class="menu-separator"></div>
       </div>
     {/if}
   </div>
