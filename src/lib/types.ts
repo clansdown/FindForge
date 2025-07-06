@@ -1,5 +1,6 @@
 import { generateID } from "./util";
 
+export type ApplicationMode = 'research' | 'brainstorming';
 
 export class Config {
     historyWidth!: number;

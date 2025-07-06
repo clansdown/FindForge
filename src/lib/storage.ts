@@ -1,4 +1,4 @@
-import { Writable, writable } from 'svelte/store';
+import { type Writable, writable } from 'svelte/store';
 import { Config, type ConversationData } from './types';
 
 let conversationsDirHandle: FileSystemDirectoryHandle | null = null;

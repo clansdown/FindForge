@@ -2,14 +2,16 @@
   import MenuBar from './MenuBar.svelte';
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
-  import type { Config, ConversationData, OpenRouterCredits } from './lib/types';
+  import type { ApplicationMode, Config, ConversationData, OpenRouterCredits } from './lib/types';
   import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation, initializeConversationStorage } from './lib/storage';
   import { generateID, sleep } from './lib/util';
   import { fetchOpenRouterCredits } from './lib/models';
   import Intro from './Intro.svelte';
+  import { getLocalPreferenceStore } from './lib/storage';
   
   let config : Config = loadConfig();
   let showHistory = true;
+  const applicationMode = getLocalPreferenceStore('ApplicationMode', 'research' as ApplicationMode);
   let isDragging = false;
   let splitContainer: HTMLDivElement;
   let currentConversation : ConversationData = {
