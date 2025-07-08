@@ -23,7 +23,10 @@
         ExperimentationOptions,
         SystemPrompt,
 
-        Resource
+        Resource,
+
+        ApplicationMode
+
 
     } from "./lib/types";
     import { APIError, Config, type ConversationData } from "./lib/types";
@@ -32,6 +35,7 @@
     import MessageInfo from "./lib/MessageInfo.svelte";
     import GettingStarted from "./GettingStarted.svelte";
     import Message from "./lib/Message.svelte";
+    import type { Writable } from "svelte/store";
 
     /***************/
     /* Properties  */
@@ -668,7 +672,7 @@
         {/if}
     </div>
     <!-- Toolbar goes here -->
-    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions />
+    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions applicationMode={applicationMode} />
 
     <!-- Conversation content will go here -->
     <div class="conversation-window">
