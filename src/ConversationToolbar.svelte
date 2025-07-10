@@ -140,16 +140,6 @@
     </div>
 
     <div class="toolbar-group">
-        <label title="If enabled, the LLM can look up information on the web. This costs extra money.">
-            <input type="checkbox" bind:checked={config.allowWebSearch} />
-            🌐
-        </label>
-        <label class="ms-2" title="The maximum number of results to allow the LLM to request. At time of writing, they cost $.004 per result.">
-            <input style="width: 2rem;" type="number" bind:value={config.webSearchMaxResults} min="1" max="10" />
-        </label>
-    </div>
-
-    <div class="toolbar-group">
         <PushButton 
             title="Include previous messages as context. This uses more tokens and thus costs more."
             bind:pushed={config.includePreviousMessagesAsContext}
@@ -158,9 +148,23 @@
         </PushButton>
     </div>
 
-    <div class="toolbar-group">
-        <PushButton title="Enable deep searching" bind:pushed={deepSearch} disabled={experimentMode}>⛏️</PushButton>
-    </div>
+    {#if $applicationMode !== 'brainstorming'}
+        <div class="toolbar-group">
+            <label title="If enabled, the LLM can look up information on the web. This costs extra money.">
+                <input type="checkbox" bind:checked={config.allowWebSearch} />
+                🌐
+            </label>
+            <label class="ms-2" title="The maximum number of results to allow the LLM to request. At time of writing, they cost $.004 per result.">
+                <input style="width: 2rem;" type="number" bind:value={config.webSearchMaxResults} min="1" max="10" />
+            </label>
+        </div>
+    {/if}
+
+    {#if $applicationMode !== 'brainstorming'}
+        <div class="toolbar-group">
+            <PushButton title="Enable deep searching" bind:pushed={deepSearch} disabled={experimentMode}>⛏️</PushButton>
+        </div>
+    {/if}
     <div class="toolbar-group">
         <PushButton title="Enable experimentation features" bind:pushed={experimentMode} disabled={deepSearch}>🔬</PushButton>
     </div>

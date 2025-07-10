@@ -13,6 +13,9 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tsconfig/svelte": "^5.0.4",
     "@types/dom-speech-recognition": "^0.0.6",
+    "@types/gapi": "^0.0.47",
+    "@types/gapi.auth2": "^0.0.61",
+    "@types/gapi.client.drive": "^3.0.15",
     "@types/markdown-it": "^14.1.2",
     "@types/markdown-it-link-attributes": "^3.0.5",
     "svelte": "^5.28.1",
@@ -21,6 +24,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
+    "gapi-script": "^1.2.0",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "markdown-it-highlightjs": "^4.2.0",

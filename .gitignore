@@ -1,4 +1,5 @@
-push_to_production.sh
+/push_to_production.sh
+/gdrive_secrets
 
 # Logs
 logs
