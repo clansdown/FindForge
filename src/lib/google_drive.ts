@@ -5,7 +5,17 @@ interface GoogleDriveFile {
     name: string;
     mimeType: string;
     modifiedTime: string;
+    parents?: string[];
+    kind: string;
+    size?: string;
+    webViewLink?: string;
+    capabilities?: {
+        canDownload?: boolean;
+        canEdit?: boolean;
+    };
 }
+
+type GoogleFileList = gapi.client.drive.FileList;
 
 interface GoogleTokenResponse {
     access_token: string;
@@ -159,7 +169,7 @@ export async function authorizeDrive(interactive: boolean = true): Promise<void>
 /**
  * Lists files and folders in Google Drive AppData folder
  */
-export async function listDriveFiles(path?: string): Promise<GoogleDriveFile[]> {
+export async function listDriveFiles(path?: string): Promise<GoogleFileList> {
     await authorizeDrive();
 
     const query = path 
@@ -170,9 +180,9 @@ export async function listDriveFiles(path?: string): Promise<GoogleDriveFile[]> 
         const response = await gapi.client.drive.files.list({
             q: query,
             spaces: 'appDataFolder',
-            fields: 'files(id, name, mimeType, modifiedTime)'
+            fields: 'nextPageToken, incompleteSearch, files(id, name, mimeType, modifiedTime, parents, kind, size, webViewLink, capabilities)'
         });
-        return response.result.files || [];
+        return response.result as GoogleFileList;
     } catch (error) {
         console.error('Error listing Drive files:', error);
         throw error;
