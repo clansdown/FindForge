@@ -168,7 +168,7 @@ function doGisInitialize(): void {
 async function initializeGoogleClients(): Promise<void> {
     await Promise.all([
         initializeGapiClient(),
-        // initializeGisClient()
+        initializeGisClient()
     ]);
 }
 
