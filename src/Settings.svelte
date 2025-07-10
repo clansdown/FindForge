@@ -6,6 +6,8 @@
     import ModalDialog from "./lib/ModalDialog.svelte";
     import { generateID } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
+    import { setupGoogleDriveAuthentication } from "./lib/google_drive";
+    import { getLocalPreference } from "./lib/storage";
 
     export let config: Config;
     export let isOpen: boolean = false;
@@ -17,12 +19,14 @@
     let openrouterModels: Model[] = [];
     let availableModels: Model[] = [];
     let modelFetchError: string | null = null;
-    let currentTab: "general" | "model" | "deep-research" = config.apiKey ? "general" : "model";
+    let currentTab: "general" | "model" | "deep-research" | "cloud-storage" = config.apiKey ? "general" : "model";
     let modelFilter = "";
     let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;
     let showPromptEditor: boolean = false;
     let showSynthesisPromptEditor: boolean = false;
+    let isGoogleDriveSetup: boolean = false;
+    let showDisconnectConfirmation: boolean = false;
     let currentSystemPromptIndex: number = 0;
     let currentSystemPromptName: string = '';
     let currentSystemPromptText: string = '';
@@ -51,6 +55,7 @@
 
     $: if (isOpen) {
         opened();
+        checkGoogleDriveSetup();
     }
 
     $: if(isOpen) estimateDeepResearchCost(localConfig).then((cost) => {
@@ -119,6 +124,41 @@
             openrouterModels = [];
             modelFetchError = "API key is required to fetch models.";
         }
+    }
+
+    function checkGoogleDriveSetup() {
+        const savedCredentials = getLocalPreference<any>("googleDriveCredentials", null);
+        isGoogleDriveSetup = savedCredentials !== null;
+    }
+
+    async function setupGoogleDrive() {
+        try {
+            await setupGoogleDriveAuthentication();
+            checkGoogleDriveSetup();
+        } catch (error) {
+            console.error("Failed to setup Google Drive:", error);
+            alert("Failed to setup Google Drive. Please try again.");
+        }
+    }
+
+    function copyToLocalStorage() {
+        // Placeholder for copying data to local storage
+        alert("This feature is not yet implemented. It will copy all data from Google Drive to local storage.");
+    }
+
+    function disconnectGoogleDrive() {
+        showDisconnectConfirmation = true;
+    }
+
+    function confirmDisconnect() {
+        setLocalPreference("googleDriveCredentials", null);
+        isGoogleDriveSetup = false;
+        showDisconnectConfirmation = false;
+        alert("Google Drive has been disconnected.");
+    }
+
+    function cancelDisconnect() {
+        showDisconnectConfirmation = false;
     }
 
 
@@ -236,6 +276,9 @@
         </li>
         <li class="nav-item" class:active={currentTab === "model"}>
             <a class="nav-link" href="#" on:click={() => (currentTab = "model")}>Models</a>
+        </li>
+        <li class="nav-item" class:active={currentTab === "cloud-storage"}>
+            <a class="nav-link" href="#" on:click={() => (currentTab = "cloud-storage")}>Cloud Storage</a>
         </li>
     </ul>
 
@@ -546,6 +589,30 @@
                 {/each}
             </div>
         </div>
+    {:else if currentTab === "cloud-storage"}
+        <div class="form-group">
+            <p class="help-text">
+                Set up cloud storage to share settings, conversations, and other data between devices.
+            </p>
+            <h4>Google Drive</h4>
+            {#if !isGoogleDriveSetup}
+                <button class="btn btn-primary" on:click={setupGoogleDrive}>Set Up Google Drive</button>
+            {:else}
+                <div class="button-group">
+                    <button on:click={copyToLocalStorage}>Copy to Local Storage</button>
+                    <button on:click={disconnectGoogleDrive}>Disconnect Google Drive</button>
+                </div>
+                {#if showDisconnectConfirmation}
+                    <div class="confirmation">
+                        <p>Are you sure you want to disconnect Google Drive? This will not delete any data on Google Drive.</p>
+                        <div class="button-group">
+                            <button on:click={cancelDisconnect}>Cancel</button>
+                            <button on:click={confirmDisconnect}>Confirm</button>
+                        </div>
+                    </div>
+                {/if}
+            {/if}
+        </div>
     {/if}
 
     <div class="button-group">
@@ -586,6 +653,13 @@
     .button-group button {
         padding: 0.5rem 1rem;
         cursor: pointer;
+    }
+
+    .confirmation {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #444;
+        border-radius: 4px;
     }
     
     button.small {
@@ -649,5 +723,13 @@
 
     h4 {
         margin-bottom: 0.3rem;
+    }
+
+    .help-text {
+        padding: .5rem 1rem;
+        border: 1px solid #aaa;
+        border-radius: .3rem;
+        margin-left: 1rem;
+        margin-right: 1rem;
     }
 </style>
