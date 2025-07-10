@@ -24,6 +24,10 @@ interface GoogleTokenResponse {
     scope: string;
 }
 
+interface StoredGoogleTokenResponse extends GoogleTokenResponse {
+    expires_at: number;
+}
+
 declare global {
     interface Window { 
         google: any;
@@ -44,57 +48,99 @@ let gisInitialized = false;
 /**
  * Load and initialize the Google API client library
  */
-function initializeGapiClient(): Promise<void> {
-    return new Promise((resolve, reject) => {
-        if (gapiInitialized) {
-            resolve();
-            return;
-        }
+async function initializeGapiClient(retries = 3, delayMs = 1000): Promise<void> {
+    if (gapiInitialized) {
+        return;
+    }
 
-        const script = document.createElement('script');
-        script.src = 'https://apis.google.com/js/api.js';
-        script.onload = () => {
-            gapi.load('client', () => {
-                gapi.client.init({
-                    apiKey: API_KEY,
-                    discoveryDocs: [GAPI_DISCOVERY_DOC],
-                }).then(() => {
-                    gapiInitialized = true;
-                    resolve();
-                }).catch(reject);
+    console.log('Loading Google API client library...');
+    
+    // Load the script first.
+    try {
+        await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://apis.google.com/js/api.js';
+            script.async = true;
+            script.defer = true;
+            script.onload = () => {
+                // gapi is loaded, now load the 'client' module.
+                gapi.load('client', {
+                    callback: resolve,
+                    onerror: reject,
+                    timeout: 5000, // 5 seconds
+                    ontimeout: () => reject(new Error('gapi.load timeout'))
+                });
+            };
+            script.onerror = (err) => reject(new Error(`Failed to load Google API script (api.js): ${err}`));
+            document.head.appendChild(script);
+        });
+    } catch (error) {
+        console.error("Fatal: Could not load Google API script.", error);
+        throw error; // Can't proceed.
+    }
+
+    console.log('Google API script loaded. Initializing client...');
+    let lastError: unknown;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: [GAPI_DISCOVERY_DOC],
             });
-        };
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
+            gapiInitialized = true;
+            console.log('Google API client initialized successfully');
+            return; // Success, exit function
+        } catch (error) {
+            lastError = error;
+            console.warn(`Attempt ${i + 1}/${retries} to initialize GAPI client failed.`, error);
+            if (i < retries - 1) {
+                const delay = delayMs * Math.pow(2, i);
+                console.log(`Retrying in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+    }
+
+    console.error('Failed to initialize Google API client after retries.', { lastError });
+    throw new Error('Failed to initialize Google API client after retries');
 }
 
 /**
  * Initialize the Google Identity Services client
  */
 function initializeGisClient(): Promise<void> {
+    if (gisInitialized) {
+        return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
-        if (gisInitialized) {
-            resolve();
-            return;
-        }
-
+        console.log('Loading Google Identity Services client...');
         const script = document.createElement('script');
         script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
         script.onload = () => {
-            tokenClient = window.google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: GOOGLE_DRIVE_SCOPE,
-                callback: '', // Defined later
-                error_callback: (err: any) => {
-                    console.error('GIS error:', err);
-                    throw err;
-                }
-            });
-            gisInitialized = true;
-            resolve();
+            console.log('Google Identity Services client loaded.');
+            try {
+                tokenClient = window.google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: GOOGLE_DRIVE_SCOPE,
+                    callback: '', // Defined later
+                    error_callback: (err: any) => {
+                        console.error('GIS error callback triggered:', err);
+                    }
+                });
+                gisInitialized = true;
+                resolve();
+            } catch (error) {
+                console.error('Failed to initialize GIS token client.', error);
+                reject(error);
+            }
         };
-        script.onerror = reject;
+        script.onerror = (e) => {
+            console.error('Failed to load Google Identity Services script.', e);
+            reject(new Error('Failed to load Google Identity Services script.'));
+        };
         document.head.appendChild(script);
     });
 }
@@ -132,35 +178,51 @@ export function showGoogleOneTap(
 export async function authorizeDrive(interactive: boolean = true): Promise<void> {
     await initializeGoogleClients();
 
-    return new Promise((resolve, reject) => {
-        const savedToken = getLocalPreference<GoogleTokenResponse|null>(STORAGE_KEY, null);
-        if (savedToken?.access_token) {
-            if (Date.now() < (Date.now() + savedToken.expires_in * 1000)) {
-                gapi.client.setToken(savedToken);
-                resolve();
-                return;
-            }
-        }
+    const savedToken = getLocalPreference<StoredGoogleTokenResponse | null>(STORAGE_KEY, null);
+    // Subtract a minute (60000ms) to be safe and refresh token before it expires.
+    if (savedToken?.access_token && Date.now() < savedToken.expires_at - 60000) {
+        gapi.client.setToken(savedToken);
+        return;
+    }
 
-        tokenClient.callback = async (response: GoogleTokenResponse) => {
+    if (savedToken) {
+        console.log('Google Drive token is invalid or expired, requesting new token...');
+    } else {
+        console.log('No Google Drive token found, requesting new token...');
+    }
+
+    return new Promise((resolve, reject) => {
+        tokenClient.callback = (response: GoogleTokenResponse & { error?: any }) => {
+            if (response.error) {
+                console.error('Error getting access token from Google:', response.error);
+                return reject(new Error(`Failed to get access token: ${response.error}`));
+            }
+
             if (response.access_token) {
-                gapi.client.setToken(response);
-                setLocalPreference(STORAGE_KEY, response);
+                console.log('Successfully obtained new access token.');
+                const storedToken: StoredGoogleTokenResponse = {
+                    ...response,
+                    expires_at: Date.now() + response.expires_in * 1000,
+                };
+                gapi.client.setToken(storedToken);
+                setLocalPreference(STORAGE_KEY, storedToken);
                 resolve();
             } else {
-                reject(new Error('Failed to get access token'));
+                console.error('Failed to get access token: response did not contain access_token.');
+                reject(new Error('Failed to get access token: response did not contain access_token.'));
             }
         };
 
         try {
             // Request a new token
+            console.log(`Requesting access token (interactive: ${interactive})...`);
             if (interactive) {
-                tokenClient.requestAccessToken({prompt: 'consent'});
+                tokenClient.requestAccessToken({ prompt: 'consent' });
             } else {
-                tokenClient.requestAccessToken({prompt: ''});
+                tokenClient.requestAccessToken({ prompt: '' });
             }
         } catch (err) {
-            console.error('Error requesting access token:', err);
+            console.error('Error calling requestAccessToken:', err);
             reject(err);
         }
     });

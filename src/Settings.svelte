@@ -148,6 +148,7 @@
     async function setupGoogleDrive() {
         try {
             await authorizeDrive();
+            console.log("Google Drive authorized successfully.");
             checkGoogleDriveSetup();
             await loadGoogleDriveFiles();
         } catch (error) {
