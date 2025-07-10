@@ -35,8 +35,12 @@ declare global {
     }
 }
 
-const CLIENT_ID = "522388443811-epg88tkfdr55g5195j0oqdmoafnt2cmf.apps.googleusercontent.com";
-const API_KEY = "AIzaSyBgp-mT0AUYfuPCvW92wtnBWIqCnFXbL4w";
+interface GoogleApiConfig {
+    CLIENT_ID: string;
+    API_KEY: string;
+}
+
+let googleApiConfig: GoogleApiConfig | null = null;
 const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const STORAGE_KEY = "googleDriveCredentials";
 const GAPI_DISCOVERY_DOC = "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest";
@@ -73,10 +77,22 @@ window.gsiReady = () => {
 /**
  * Load and initialize the Google API client library
  */
-function initializeGapiClient(): Promise<void> {
+async function loadGoogleApiConfig(): Promise<void> {
+    if (!googleApiConfig) {
+        const response = await fetch('/google_api_config.json');
+        googleApiConfig = await response.json();
+        if (!googleApiConfig?.CLIENT_ID || !googleApiConfig?.API_KEY) {
+            throw new Error('Invalid Google API config format');
+        }
+    }
+}
+
+async function initializeGapiClient(): Promise<void> {
     if (gapiInitialized) {
         return Promise.resolve();
     }
+
+    await loadGoogleApiConfig();
 
     if (!window.gapi) {
         return new Promise((resolve, reject) => {
@@ -105,7 +121,7 @@ function doGapiInitialize(): Promise<void> {
         gapi.load('client', async () => {
                 try {
                     await gapi.client.init({
-                        apiKey: API_KEY,
+                        apiKey: googleApiConfig!.API_KEY,
                         discoveryDocs: [GAPI_DISCOVERY_DOC],
                     });
                     gapiInitialized = true;
@@ -149,7 +165,7 @@ function initializeGisClient(): Promise<void> {
 function doGisInitialize(): void {
     try {
         tokenClient = window.google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
+            client_id: googleApiConfig!.CLIENT_ID,
             scope: GOOGLE_DRIVE_SCOPE,
             callback: '', // Defined later
             error_callback: (err: any) => {
@@ -180,7 +196,7 @@ export function showGoogleOneTap(
     cancelCallback?: () => void
 ) {
     window.google?.accounts.id.initialize({
-        client_id: CLIENT_ID,
+        client_id: googleApiConfig!.CLIENT_ID,
         callback: (response: {credential: string}) => {
             callback(response.credential);
         },
