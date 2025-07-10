@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { saveConfig } from "./lib/storage";
+    import { saveConfig, setLocalPreference } from "./lib/storage";
     import { Config, type Model, type OpenRouterCredits } from "./lib/types";
     import { onDestroy, onMount } from "svelte";
     import { getModels } from "./lib/models";
     import ModalDialog from "./lib/ModalDialog.svelte";
     import { generateID } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
-    import { setupGoogleDriveAuthentication } from "./lib/google_drive";
+    import { initGoogleDrive, setupGoogleDriveAuthentication, listDriveFiles, readDriveFile } from "./lib/google_drive";
     import { getLocalPreference } from "./lib/storage";
 
     export let config: Config;
@@ -33,6 +33,7 @@
     let currentSynthesisPromptIndex: number = 0;
     let currentSynthesisPromptName: string = '';
     let currentSynthesisPromptText: string = '';
+    let googleDriveFiles: any[] = [];
 
     $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
 
@@ -56,6 +57,7 @@
     $: if (isOpen) {
         opened();
         checkGoogleDriveSetup();
+        loadGoogleDriveFiles();
     }
 
     $: if(isOpen) estimateDeepResearchCost(localConfig).then((cost) => {
@@ -131,19 +133,52 @@
         isGoogleDriveSetup = savedCredentials !== null;
     }
 
+    async function loadGoogleDriveFiles() {
+        if (isGoogleDriveSetup) {
+            try {
+                googleDriveFiles = await listDriveFiles();
+            } catch (error) {
+                console.error("Failed to load Google Drive files:", error);
+                googleDriveFiles = [];
+            }
+        } else {
+            googleDriveFiles = [];
+        }
+    }
+
     async function setupGoogleDrive() {
         try {
+            await initGoogleDrive();
             await setupGoogleDriveAuthentication();
             checkGoogleDriveSetup();
+            await loadGoogleDriveFiles();
         } catch (error) {
             console.error("Failed to setup Google Drive:", error);
             alert("Failed to setup Google Drive. Please try again.");
         }
     }
 
-    function copyToLocalStorage() {
-        // Placeholder for copying data to local storage
-        alert("This feature is not yet implemented. It will copy all data from Google Drive to local storage.");
+    async function copyToLocalStorage() {
+        try {
+            // List files from Google Drive
+            const files = await listDriveFiles();
+            if (files.length === 0) {
+                alert("No files found in Google Drive to copy.");
+                return;
+            }
+
+            // For each file, read its content and save to local storage
+            for (const file of files) {
+                if (file.mimeType === 'text/plain') {
+                    const content = await readDriveFile(file.id);
+                    setLocalPreference(file.name, content);
+                }
+            }
+            alert("Data copied from Google Drive to local storage.");
+        } catch (error) {
+            console.error("Failed to copy data from Google Drive:", error);
+            alert("Failed to copy data from Google Drive. Please try again.");
+        }
     }
 
     function disconnectGoogleDrive() {
@@ -611,6 +646,18 @@
                         </div>
                     </div>
                 {/if}
+                <div class="file-list">
+                    <h5>Files in Google Drive:</h5>
+                    {#if googleDriveFiles.length > 0}
+                        <ul>
+                            {#each googleDriveFiles as file}
+                                <li>{file.name} (Last modified: {file.modifiedTime})</li>
+                            {/each}
+                        </ul>
+                    {:else}
+                        <p>No files found in Google Drive.</p>
+                    {/if}
+                </div>
             {/if}
         </div>
     {/if}
@@ -660,6 +707,29 @@
         padding: 1rem;
         background-color: #444;
         border-radius: 4px;
+    }
+
+    .file-list {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #333;
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .file-list h5 {
+        margin-top: 0;
+    }
+
+    .file-list ul {
+        list-style-type: none;
+        padding: 0;
+    }
+
+    .file-list li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #444;
     }
     
     button.small {

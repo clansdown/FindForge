@@ -7,6 +7,33 @@ const API_KEY = "AIzaSyBQmJz9XftURWvLQ9I8Nb9A9NRlA8B0Yz0";
 const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appfolder";
 const STORAGE_KEY = "googleDriveCredentials";
 
+// Track initialization state to prevent multiple initializations
+let isInitialized = false;
+let initPromise: Promise<void> | null = null;
+
+/**
+ * Loads the Google API client library if not already loaded
+ * @returns Promise that resolves when the library is loaded
+ */
+function loadGoogleApi(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        if (typeof gapi !== 'undefined') {
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = () => {
+            resolve();
+        };
+        script.onerror = (error) => {
+            reject(new Error('Failed to load Google API client library'));
+            console.error('Error loading Google API:', error);
+        };
+        document.head.appendChild(script);
+    });
+}
+
 interface GoogleDriveFile {
     id: string;
     name: string;
@@ -19,30 +46,44 @@ interface GoogleDriveFile {
  * @returns Promise that resolves when initialization is complete
  */
 export async function initGoogleDrive(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        gapi.load('client:auth2', async () => {
-            try {
-                await gapi.client.init({
-                    apiKey: API_KEY,
-                    clientId: CLIENT_ID,
-                    scope: GOOGLE_DRIVE_SCOPE,
-                    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
-                });
-                
-                const saved = getLocalPreference<any>(STORAGE_KEY, null);
-                if (saved) {
-                    gapi.auth2.getAuthInstance().signIn({
-                        access_token: saved.access_token
+    if (isInitialized) {
+        return initPromise || Promise.resolve();
+    }
+    
+    isInitialized = true;
+    initPromise = new Promise<void>(async (resolve, reject) => {
+        try {
+            await loadGoogleApi();
+            gapi.load('client:auth2', async () => {
+                try {
+                    await gapi.client.init({
+                        apiKey: API_KEY,
+                        clientId: CLIENT_ID,
+                        scope: GOOGLE_DRIVE_SCOPE,
+                        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
                     });
+                    
+                    const saved = getLocalPreference<any>(STORAGE_KEY, null);
+                    if (saved && saved.access_token) {
+                        // Set the access token if available
+                        gapi.auth.setToken({
+                            access_token: saved.access_token
+                        });
+                    }
+                    
+                    resolve();
+                } catch (error) {
+                    console.error('Error initializing Google Drive API:', error);
+                    reject(error);
                 }
-                
-                resolve();
-            } catch (error) {
-                console.error('Error initializing Google Drive API:', error);
-                reject(error);
-            }
-        });
+            });
+        } catch (error) {
+            console.error('Error loading Google API:', error);
+            reject(error);
+        }
     });
+    
+    return initPromise;
 }
 
 /**
@@ -50,11 +91,19 @@ export async function initGoogleDrive(): Promise<void> {
  * @returns Promise that resolves when authentication is successful
  */
 export async function setupGoogleDriveAuthentication(): Promise<void> {
+    await initGoogleDrive();
     if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        await gapi.auth2.getAuthInstance().signIn();
-        const user = gapi.auth2.getAuthInstance().currentUser.get();
-        const token = user.getAuthResponse().access_token;
-        setLocalPreference(STORAGE_KEY, { access_token: token });
+        try {
+            await gapi.auth2.getAuthInstance().signIn();
+            const user = gapi.auth2.getAuthInstance().currentUser.get();
+            const authResponse = user.getAuthResponse();
+            if (authResponse && authResponse.access_token) {
+                setLocalPreference(STORAGE_KEY, { access_token: authResponse.access_token });
+            }
+        } catch (error) {
+            console.error('Error during Google Drive authentication:', error);
+            throw error;
+        }
     }
 }
 
@@ -63,6 +112,7 @@ export async function setupGoogleDriveAuthentication(): Promise<void> {
  * @returns Promise that resolves when user is authenticated
  */
 async function ensureAuthenticated(): Promise<void> {
+    await initGoogleDrive();
     if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
         await setupGoogleDriveAuthentication();
     }
@@ -79,8 +129,13 @@ export async function listDriveFiles(path?: string): Promise<GoogleDriveFile[]> 
         ? { q: `'${path}' in parents`, fields: 'files(id,name,mimeType,modifiedTime)', spaces: 'appDataFolder' }
         : { spaces: 'appDataFolder', fields: 'files(id,name,mimeType,modifiedTime)' };
     
-    const response = await gapi.client.drive.files.list(query);
-    return response.result.files || [];
+    try {
+        const response = await gapi.client.drive.files.list(query);
+        return response.result.files || [];
+    } catch (error) {
+        console.error('Error listing Google Drive files:', error);
+        throw error;
+    }
 }
 
 /**
@@ -90,11 +145,16 @@ export async function listDriveFiles(path?: string): Promise<GoogleDriveFile[]> 
  */
 export async function readDriveFile(fileId: string): Promise<string> {
     await ensureAuthenticated();
-    const response = await gapi.client.drive.files.get({
-        fileId: fileId,
-        alt: 'media'
-    });
-    return response.body;
+    try {
+        const response = await gapi.client.drive.files.get({
+            fileId: fileId,
+            alt: 'media'
+        });
+        return response.body;
+    } catch (error) {
+        console.error('Error reading Google Drive file:', error);
+        throw error;
+    }
 }
 
 /**
@@ -111,12 +171,16 @@ export async function createGoogleDriveFolder(name: string, parentId?: string): 
         parents: parentId ? [parentId] : ['appDataFolder']
     };
 
-    const response = await gapi.client.drive.files.create({
-        resource: folderMetadata,
-        fields: 'id'
-    });
-
-    return response.result.id;
+    try {
+        const response = await gapi.client.drive.files.create({
+            resource: folderMetadata,
+            fields: 'id'
+        });
+        return response.result.id;
+    } catch (error) {
+        console.error('Error creating Google Drive folder:', error);
+        throw error;
+    }
 }
 
 /**
@@ -139,11 +203,15 @@ export async function writeDriveFile(name: string, contents: string, parentId?: 
         body: contents
     };
 
-    const response = await gapi.client.drive.files.create({
-        resource: fileMetadata,
-        media: media,
-        fields: 'id'
-    });
-
-    return response.result.id;
+    try {
+        const response = await gapi.client.drive.files.create({
+            resource: fileMetadata,
+            media: media,
+            fields: 'id'
+        });
+        return response.result.id;
+    } catch (error) {
+        console.error('Error writing Google Drive file:', error);
+        throw error;
+    }
 }
