@@ -46,15 +46,25 @@ export async function initGoogleDrive(): Promise<void> {
 }
 
 /**
- * Ensures the user is authenticated with Google Drive
- * @returns Promise that resolves when user is authenticated
+ * Sets up authentication for Google Drive access
+ * @returns Promise that resolves when authentication is successful
  */
-async function ensureAuthenticated(): Promise<void> {
+export async function setupGoogleDriveAuthentication(): Promise<void> {
     if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
         await gapi.auth2.getAuthInstance().signIn();
         const user = gapi.auth2.getAuthInstance().currentUser.get();
         const token = user.getAuthResponse().access_token;
         setLocalPreference(STORAGE_KEY, { access_token: token });
+    }
+}
+
+/**
+ * Ensures the user is authenticated with Google Drive
+ * @returns Promise that resolves when user is authenticated
+ */
+async function ensureAuthenticated(): Promise<void> {
+    if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+        await setupGoogleDriveAuthentication();
     }
 }
 
