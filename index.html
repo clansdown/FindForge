@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MachineLearner LLM Research Assistant</title>
     <link rel="icon" type="image/png" href="/favicon.png" />  
+    <script>
+      // Define load handlers before loading the scripts
+      window.gapiLoaded = () => {
+        if (window.gapiReady) {
+          window.gapiReady();
+        }
+      };
+      window.gsiLoaded = () => {
+        if (window.gsiReady) {
+          window.gsiReady();
+        }
+      };
+    </script>
+    <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="gsiLoaded()"></script>
   </head>
   <body>
     <div id="app"></div>

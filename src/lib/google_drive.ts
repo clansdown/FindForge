@@ -44,66 +44,87 @@ const GAPI_DISCOVERY_DOC = "https://www.googleapis.com/discovery/v1/apis/drive/v
 let tokenClient: any;
 let gapiInitialized = false;
 let gisInitialized = false;
+let pendingGapiInitialize: (() => void) | null = null;
+let pendingGisInitialize: (() => void) | null = null;
+
+// Expose ready handlers to window for script onload
+declare global {
+  interface Window {
+    gapiReady?: () => void;
+    gsiReady?: () => void;
+  }
+}
+
+// Set up ready handlers to trigger any pending initializations
+window.gapiReady = () => {
+  if (pendingGapiInitialize) {
+    pendingGapiInitialize();
+    pendingGapiInitialize = null;
+  }
+};
+
+window.gsiReady = () => {
+  if (pendingGisInitialize) {
+    pendingGisInitialize();
+    pendingGisInitialize = null;
+  }
+};
 
 /**
  * Load and initialize the Google API client library
  */
-async function initializeGapiClient(retries = 3, delayMs = 1000): Promise<void> {
+function initializeGapiClient(): Promise<void> {
     if (gapiInitialized) {
-        return;
+        return Promise.resolve();
+    }
+
+    if (!window.gapi) {
+        return new Promise((resolve, reject) => {
+            pendingGapiInitialize = async () => {
+                try {
+                    await doGapiInitialize();
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                }
+            };
+        });
+    }
+
+    return doGapiInitialize();
+}
+
+function doGapiInitialize(): Promise<void> {
+    if (gapiInitialized) {
+        return Promise.resolve();
     }
 
     console.log('Loading Google API client library...');
     
-    // Load the script first.
-    try {
-        await new Promise<void>((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/api.js';
-            script.async = true;
-            script.defer = true;
-            script.onload = () => {
-                // gapi is loaded, now load the 'client' module.
-                gapi.load('client', {
-                    callback: resolve,
-                    onerror: reject,
-                    timeout: 5000, // 5 seconds
-                    ontimeout: () => reject(new Error('gapi.load timeout'))
-                });
-            };
-            script.onerror = (err) => reject(new Error(`Failed to load Google API script (api.js): ${err}`));
-            document.head.appendChild(script);
-        });
-    } catch (error) {
-        console.error("Fatal: Could not load Google API script.", error);
-        throw error; // Can't proceed.
-    }
-
-    console.log('Google API script loaded. Initializing client...');
-    let lastError: unknown;
-    
-    for (let i = 0; i < retries; i++) {
-        try {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [GAPI_DISCOVERY_DOC],
-            });
-            gapiInitialized = true;
-            console.log('Google API client initialized successfully');
-            return; // Success, exit function
-        } catch (error) {
-            lastError = error;
-            console.warn(`Attempt ${i + 1}/${retries} to initialize GAPI client failed.`, error);
-            if (i < retries - 1) {
-                const delay = delayMs * Math.pow(2, i);
-                console.log(`Retrying in ${delay}ms...`);
-                await new Promise(r => setTimeout(r, delay));
+    return new Promise((resolve, reject) => {
+        gapi.load('client', {
+            callback: async () => {
+                try {
+                    await gapi.client.init({
+                        apiKey: API_KEY,
+                        clientId: CLIENT_ID,
+                        scope: GOOGLE_DRIVE_SCOPE,
+                        discoveryDocs: [GAPI_DISCOVERY_DOC],
+                    });
+                    gapiInitialized = true;
+                    console.log('Google API client initialized successfully');
+                    resolve();
+                } catch (error) {
+                    console.error('Failed to initialize Google API client:', error);
+                    reject(new Error('Failed to initialize Google API client'));
+                }
+            },
+            onerror: () => {
+                console.error('Failed to load GAPI client');
+                reject(new Error('Failed to load GAPI client'));
             }
-        }
-    }
-
-    console.error('Failed to initialize Google API client after retries.', { lastError });
-    throw new Error('Failed to initialize Google API client after retries');
+        });
+    });
 }
 
 /**
@@ -113,36 +134,37 @@ function initializeGisClient(): Promise<void> {
     if (gisInitialized) {
         return Promise.resolve();
     }
-    return new Promise((resolve, reject) => {
-        console.log('Loading Google Identity Services client...');
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-            console.log('Google Identity Services client loaded.');
-            try {
-                tokenClient = window.google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID,
-                    scope: GOOGLE_DRIVE_SCOPE,
-                    callback: '', // Defined later
-                    error_callback: (err: any) => {
-                        console.error('GIS error callback triggered:', err);
-                    }
-                });
-                gisInitialized = true;
-                resolve();
-            } catch (error) {
-                console.error('Failed to initialize GIS token client.', error);
-                reject(error);
+
+    if (!window.google?.accounts?.oauth2) {
+        return new Promise((resolve, reject) => {
+            pendingGisInitialize = () => {
+                try {
+                    doGisInitialize();
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                }
+            };
+        });
+    }
+
+    return Promise.resolve().then(() => doGisInitialize());
+}
+
+function doGisInitialize(): void {
+    try {
+        tokenClient = window.google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: GOOGLE_DRIVE_SCOPE,
+            callback: '', // Defined later
+            error_callback: (err: any) => {
+                console.error('GIS error callback triggered:', err);
             }
-        };
-        script.onerror = (e) => {
-            console.error('Failed to load Google Identity Services script.', e);
-            reject(new Error('Failed to load Google Identity Services script.'));
-        };
-        document.head.appendChild(script);
-    });
+        });
+        gisInitialized = true;
+    } catch (error) {
+        console.error('Failed to initialize GIS token client.', error);
+    }
 }
 
 /**
