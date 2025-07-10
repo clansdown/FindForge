@@ -190,11 +190,9 @@ export function showGoogleOneTap(
 }
 
 /**
- * Requests authorization token and initializes the Drive client
+ * Internal helper to handle the actual authorization flow after clients are initialized
  */
-export async function authorizeDrive(interactive: boolean = true): Promise<void> {
-    await initializeGoogleClients();
-
+async function _authorizeDriveInner(interactive: boolean = true): Promise<void> {
     const savedToken = getLocalPreference<StoredGoogleTokenResponse | null>(STORAGE_KEY, null);
     // Subtract a minute (60000ms) to be safe and refresh token before it expires.
     if (savedToken?.access_token && Date.now() < savedToken.expires_at - 60000) {
@@ -243,6 +241,20 @@ export async function authorizeDrive(interactive: boolean = true): Promise<void>
             reject(err);
         }
     });
+}
+
+/**
+ * Requests authorization token and initializes the Drive client
+ */
+export async function authorizeDrive(interactive: boolean = true): Promise<void> {
+    await initializeGapiClient();
+    await initializeGisClient();
+    
+    if (!gisInitialized) {
+        throw new Error('Google Identity Services client not initialized');
+    }
+
+    return _authorizeDriveInner(interactive);
 }
 
 /**
