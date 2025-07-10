@@ -36,7 +36,7 @@ declare global {
 }
 
 const CLIENT_ID = "522388443811-epg88tkfdr55g5195j0oqdmoafnt2cmf.apps.googleusercontent.com";
-const API_KEY = "AIzaSyBQmJz9XftURWvLQ9I8Nb9A9NRlA8B0Yz0";
+const API_KEY = "AIzaSyBgp-mT0AUYfuPCvW92wtnBWIqCnFXbL4w";
 const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const STORAGE_KEY = "googleDriveCredentials";
 const GAPI_DISCOVERY_DOC = "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest";
@@ -102,13 +102,10 @@ function doGapiInitialize(): Promise<void> {
     console.log('Loading Google API client library...');
     
     return new Promise((resolve, reject) => {
-        gapi.load('client', {
-            callback: async () => {
+        gapi.load('client', async () => {
                 try {
                     await gapi.client.init({
                         apiKey: API_KEY,
-                        clientId: CLIENT_ID,
-                        scope: GOOGLE_DRIVE_SCOPE,
                         discoveryDocs: [GAPI_DISCOVERY_DOC],
                     });
                     gapiInitialized = true;
@@ -118,14 +115,12 @@ function doGapiInitialize(): Promise<void> {
                     console.error('Failed to initialize Google API client:', error);
                     reject(new Error('Failed to initialize Google API client'));
                 }
-            },
-            onerror: () => {
-                console.error('Failed to load GAPI client');
-                reject(new Error('Failed to load GAPI client'));
             }
-        });
+        );
     });
 }
+
+
 
 /**
  * Initialize the Google Identity Services client
@@ -173,7 +168,7 @@ function doGisInitialize(): void {
 async function initializeGoogleClients(): Promise<void> {
     await Promise.all([
         initializeGapiClient(),
-        initializeGisClient()
+        // initializeGisClient()
     ]);
 }
 
