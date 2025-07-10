@@ -59,15 +59,17 @@ async function ensureAuthenticated(): Promise<void> {
 }
 
 /**
- * Lists files in Google Drive AppData folder
- * @returns Promise with array of files
+ * Lists files and folders in Google Drive AppData folder or a specific directory
+ * @param path Optional path to the directory to list files from
+ * @returns Promise with array of files and folders
  */
-export async function listDriveFiles(): Promise<GoogleDriveFile[]> {
+export async function listDriveFiles(path?: string): Promise<GoogleDriveFile[]> {
     await ensureAuthenticated();
-    const response = await gapi.client.drive.files.list({
-        spaces: 'appDataFolder',
-        fields: 'files(id,name,mimeType,modifiedTime)'
-    });
+    const query = path 
+        ? { q: `'${path}' in parents`, fields: 'files(id,name,mimeType,modifiedTime)', spaces: 'appDataFolder' }
+        : { spaces: 'appDataFolder', fields: 'files(id,name,mimeType,modifiedTime)' };
+    
+    const response = await gapi.client.drive.files.list(query);
     return response.result.files || [];
 }
 
@@ -86,17 +88,40 @@ export async function readDriveFile(fileId: string): Promise<string> {
 }
 
 /**
- * Writes file to Google Drive AppData folder
+ * Creates a folder in Google Drive AppData folder
+ * @param name Folder name
+ * @param parentId Optional parent folder ID
+ * @returns Promise with created folder ID
+ */
+export async function createGoogleDriveFolder(name: string, parentId?: string): Promise<string> {
+    await ensureAuthenticated();
+    const folderMetadata = {
+        name: name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: parentId ? [parentId] : ['appDataFolder']
+    };
+
+    const response = await gapi.client.drive.files.create({
+        resource: folderMetadata,
+        fields: 'id'
+    });
+
+    return response.result.id;
+}
+
+/**
+ * Writes file to Google Drive AppData folder or a specific folder
  * @param name File name
  * @param contents File contents
+ * @param parentId Optional parent folder ID
  * @returns Promise with created file ID
  */
-export async function writeDriveFile(name: string, contents: string): Promise<string> {
+export async function writeDriveFile(name: string, contents: string, parentId?: string): Promise<string> {
     await ensureAuthenticated();
     const fileMetadata = {
         name: name,
         mimeType: 'text/plain',
-        parents: ['appDataFolder']
+        parents: parentId ? [parentId] : ['appDataFolder']
     };
 
     const media = {
