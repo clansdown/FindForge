@@ -1,6 +1,83 @@
 import { getLocalPreference, setLocalPreference } from './storage';
 
-declare const gapi: any;
+interface GoogleAuth {
+    init(params: {
+        apiKey: string;
+        clientId: string;
+        scope: string;
+        discoveryDocs?: string[];
+    }): Promise<void>;
+    setToken(token: GoogleToken): void;
+    getAuthInstance(): GoogleAuthInstance;
+}
+
+interface GoogleAuthInstance {
+    isSignedIn: {
+        get(): boolean;
+    };
+    currentUser: {
+        get(): GoogleUser;
+    };
+    signIn(): Promise<GoogleUser>;
+}
+
+interface GoogleUser {
+    getAuthResponse(): GoogleAuthResponse;
+}
+
+interface GoogleAuthResponse {
+    access_token: string;
+    expires_in: number;
+    token_type: string;
+}
+
+interface GoogleToken {
+    access_token: string;
+    expires_in?: number;
+    token_type?: string;
+}
+
+interface GoogleDriveApi {
+    files: {
+        list(params: { 
+            q?: string;
+            fields?: string;
+            spaces?: string;
+        }): Promise<{result: {files: GoogleDriveFile[]}}>;
+        get(params: { 
+            fileId: string;
+            alt: string;
+        }): Promise<{body: string}>;
+        create(params: {
+            resource: GoogleDriveFileMetadata;
+            media?: {
+                mimeType: string;
+                body: string;
+            };
+            fields?: string;
+        }): Promise<{result: {id: string}}>;
+    };
+}
+
+interface GoogleDriveFileMetadata {
+    name: string;
+    mimeType: string;
+    parents?: string[];
+}
+
+declare const gapi: {
+    load: (api: string, callback: () => void) => void;
+    client: {
+        init(params: {
+            apiKey: string;
+            clientId: string;
+            scope: string;
+            discoveryDocs?: string[];
+        }): Promise<void>;
+        drive: GoogleDriveApi;
+    };
+    auth: GoogleAuth;
+};
 
 const CLIENT_ID = "522388443811-epg88tkfdr55g5195j0oqdmoafnt2cmf.apps.googleusercontent.com";
 const API_KEY = "AIzaSyBQmJz9XftURWvLQ9I8Nb9A9NRlA8B0Yz0";
@@ -63,7 +140,7 @@ export async function initGoogleDrive(): Promise<void> {
                         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
                     });
                     
-                    const saved = getLocalPreference<any>(STORAGE_KEY, null);
+                    const saved = getLocalPreference<GoogleAuthResponse>(STORAGE_KEY, null);
                     if (saved && saved.access_token) {
                         // Set the access token if available
                         gapi.auth.setToken({
@@ -97,8 +174,12 @@ export async function setupGoogleDriveAuthentication(): Promise<void> {
             await gapi.auth2.getAuthInstance().signIn();
             const user = gapi.auth2.getAuthInstance().currentUser.get();
             const authResponse = user.getAuthResponse();
-            if (authResponse && authResponse.access_token) {
-                setLocalPreference(STORAGE_KEY, { access_token: authResponse.access_token });
+            if (authResponse?.access_token) {
+                setLocalPreference<GoogleAuthResponse>(STORAGE_KEY, { 
+                    access_token: authResponse.access_token,
+                    expires_in: authResponse.expires_in,
+                    token_type: authResponse.token_type
+                });
             }
         } catch (error) {
             console.error('Error during Google Drive authentication:', error);
