@@ -1,13 +1,12 @@
 <script lang="ts">
-    import { saveConfig, setLocalPreference } from "./lib/storage";
+    import { saveConfig, getLocalPreference, setLocalPreference } from "./lib/storage";
     import { Config, type Model, type OpenRouterCredits } from "./lib/types";
     import { onDestroy, onMount } from "svelte";
     import { getModels } from "./lib/models";
     import ModalDialog from "./lib/ModalDialog.svelte";
     import { generateID } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
-    import { initGoogleDrive, setupGoogleDriveAuthentication, listDriveFiles, readDriveFile } from "./lib/google_drive";
-    import { getLocalPreference } from "./lib/storage";
+    import { authorizeDrive, listDriveFiles, readDriveFile, writeDriveFile } from "./lib/google_drive";
 
     export let config: Config;
     export let isOpen: boolean = false;
@@ -130,7 +129,7 @@
 
     function checkGoogleDriveSetup() {
         const savedCredentials = getLocalPreference<any>("googleDriveCredentials", null);
-        isGoogleDriveSetup = savedCredentials !== null;
+        isGoogleDriveSetup = Boolean(savedCredentials?.access_token);
     }
 
     async function loadGoogleDriveFiles() {
@@ -148,8 +147,7 @@
 
     async function setupGoogleDrive() {
         try {
-            await initGoogleDrive();
-            await setupGoogleDriveAuthentication();
+            await authorizeDrive();
             checkGoogleDriveSetup();
             await loadGoogleDriveFiles();
         } catch (error) {
@@ -160,24 +158,23 @@
 
     async function copyToLocalStorage() {
         try {
-            // List files from Google Drive
             const files = await listDriveFiles();
-            if (files.length === 0) {
+            if (!files.length) {
                 alert("No files found in Google Drive to copy.");
                 return;
             }
 
-            // For each file, read its content and save to local storage
             for (const file of files) {
-                if (file.mimeType === 'text/plain') {
+                if (['text/plain', 'application/json'].includes(file.mimeType)) {
                     const content = await readDriveFile(file.id);
+                    // TODO: this needs to use the OPFS, not localStorage
                     setLocalPreference(file.name, content);
                 }
             }
-            alert("Data copied from Google Drive to local storage.");
-        } catch (error) {
+            alert(`Copied ${files.length} files from Google Drive to local storage.`);
+        } catch (error : any) {
             console.error("Failed to copy data from Google Drive:", error);
-            alert("Failed to copy data from Google Drive. Please try again.");
+            alert(`Failed to copy data: ${error.message}`);
         }
     }
 
