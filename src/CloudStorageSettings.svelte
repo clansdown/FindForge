@@ -3,6 +3,9 @@
     import { authorizeDrive, listDriveFiles, readDriveFile } from "./lib/google_drive";
     import ModalDialog from "./lib/ModalDialog.svelte";
 
+    const STORAGE_KEY = "googleDriveCredentials";
+    const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+    
     export let isOpen: boolean = false;
 
     let isGoogleDriveSetup: boolean = false;
