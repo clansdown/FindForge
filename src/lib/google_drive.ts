@@ -45,6 +45,19 @@ const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const STORAGE_KEY = "googleDriveCredentials";
 const GAPI_DISCOVERY_DOC = "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest";
 
+/**
+ * Checks if Google Drive is set up and has a valid auth token ready to use
+ * @returns true if configured with valid token, false otherwise
+ */
+export function isGoogleDriveSetUp(): boolean {
+    const savedToken = getLocalPreference<StoredGoogleTokenResponse | null>(STORAGE_KEY, null);
+    return !!savedToken?.access_token && Date.now() < savedToken.expires_at;
+}
+
+export function getActiveProvider(): StorageProvider | null {
+    return currentProvider;
+}
+
 let tokenClient: any;
 let gapiInitialized = false;
 let gisInitialized = false;
