@@ -201,7 +201,9 @@ export async function writeFile(
             id: fileId,
             name: fileName,
             path,
-            size: data instanceof ArrayBuffer ? data.byteLength : data.size || data.length,
+            size: data instanceof ArrayBuffer ? data.byteLength : 
+                  data instanceof Blob ? data.size :
+                  typeof data === 'string' ? new TextEncoder().encode(data).length : 0,
             mimeType,
             lastModified: new Date()
         };
