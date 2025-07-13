@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { saveConfig, getLocalPreference, setLocalPreference } from "./lib/storage";
+    import { saveConfig, getLocalPreference } from "./lib/storage";
     import { Config, type Model, type OpenRouterCredits } from "./lib/types";
     import { onDestroy, onMount } from "svelte";
     import { getModels } from "./lib/models";
     import ModalDialog from "./lib/ModalDialog.svelte";
     import { generateID } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
-    import { authorizeDrive, listDriveFiles, readDriveFile, writeDriveFile } from "./lib/google_drive";
+    import { listDriveFiles, readDriveFile } from "./lib/google_drive";
 
     export let config: Config;
     export let isOpen: boolean = false;
@@ -24,15 +24,12 @@
     let estimatedDeepResearchCost: number | string | null = null;
     let showPromptEditor: boolean = false;
     let showSynthesisPromptEditor: boolean = false;
-    let isGoogleDriveSetup: boolean = false;
-    let showDisconnectConfirmation: boolean = false;
     let currentSystemPromptIndex: number = 0;
     let currentSystemPromptName: string = '';
     let currentSystemPromptText: string = '';
     let currentSynthesisPromptIndex: number = 0;
     let currentSynthesisPromptName: string = '';
     let currentSynthesisPromptText: string = '';
-    let googleDriveFiles: any[] = [];
 
     $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
 
@@ -55,8 +52,6 @@
 
     $: if (isOpen) {
         opened();
-        checkGoogleDriveSetup();
-        loadGoogleDriveFiles();
     }
 
     $: if(isOpen) estimateDeepResearchCost(localConfig).then((cost) => {
@@ -127,72 +122,6 @@
         }
     }
 
-    function checkGoogleDriveSetup() {
-        const savedCredentials = getLocalPreference<any>("googleDriveCredentials", null);
-        isGoogleDriveSetup = Boolean(savedCredentials?.access_token);
-    }
-
-    async function loadGoogleDriveFiles() {
-        if (isGoogleDriveSetup) {
-            try {
-                googleDriveFiles = await listDriveFiles();
-            } catch (error) {
-                console.error("Failed to load Google Drive files:", error);
-                googleDriveFiles = [];
-            }
-        } else {
-            googleDriveFiles = [];
-        }
-    }
-
-    async function setupGoogleDrive() {
-        try {
-            await authorizeDrive();
-            console.log("Google Drive authorized successfully.");
-            checkGoogleDriveSetup();
-            await loadGoogleDriveFiles();
-        } catch (error) {
-            console.error("Failed to setup Google Drive:", error);
-            alert("Failed to setup Google Drive. Please try again.");
-        }
-    }
-
-    async function copyToLocalStorage() {
-        try {
-            const files = await listDriveFiles();
-            if (!files.length) {
-                alert("No files found in Google Drive to copy.");
-                return;
-            }
-
-            for (const file of files) {
-                if (['text/plain', 'application/json'].includes(file.mimeType)) {
-                    const content = await readDriveFile(file.id);
-                    // TODO: this needs to use the OPFS, not localStorage
-                    setLocalPreference(file.name, content);
-                }
-            }
-            alert(`Copied ${files.length} files from Google Drive to local storage.`);
-        } catch (error : any) {
-            console.error("Failed to copy data from Google Drive:", error);
-            alert(`Failed to copy data: ${error.message}`);
-        }
-    }
-
-    function disconnectGoogleDrive() {
-        showDisconnectConfirmation = true;
-    }
-
-    function confirmDisconnect() {
-        setLocalPreference("googleDriveCredentials", null);
-        isGoogleDriveSetup = false;
-        showDisconnectConfirmation = false;
-        alert("Google Drive has been disconnected.");
-    }
-
-    function cancelDisconnect() {
-        showDisconnectConfirmation = false;
-    }
 
 
 
@@ -309,9 +238,6 @@
         </li>
         <li class="nav-item" class:active={currentTab === "model"}>
             <a class="nav-link" href="#" on:click={() => (currentTab = "model")}>Models</a>
-        </li>
-        <li class="nav-item" class:active={currentTab === "cloud-storage"}>
-            <a class="nav-link" href="#" on:click={() => (currentTab = "cloud-storage")}>Cloud Storage</a>
         </li>
     </ul>
 
@@ -621,42 +547,6 @@
                     </div>
                 {/each}
             </div>
-        </div>
-    {:else if currentTab === "cloud-storage"}
-        <div class="form-group">
-            <p class="help-text">
-                Set up cloud storage to share settings, conversations, and other data between devices.
-            </p>
-            <h4>Google Drive</h4>
-            {#if !isGoogleDriveSetup}
-                <button class="btn btn-primary" on:click={setupGoogleDrive}>Set Up Google Drive</button>
-            {:else}
-                <div class="button-group">
-                    <button on:click={copyToLocalStorage}>Copy to Local Storage</button>
-                    <button on:click={disconnectGoogleDrive}>Disconnect Google Drive</button>
-                </div>
-                {#if showDisconnectConfirmation}
-                    <div class="confirmation">
-                        <p>Are you sure you want to disconnect Google Drive? This will not delete any data on Google Drive.</p>
-                        <div class="button-group">
-                            <button on:click={cancelDisconnect}>Cancel</button>
-                            <button on:click={confirmDisconnect}>Confirm</button>
-                        </div>
-                    </div>
-                {/if}
-                <div class="file-list">
-                    <h5>Files in Google Drive:</h5>
-                    {#if googleDriveFiles.length > 0}
-                        <ul>
-                            {#each googleDriveFiles as file}
-                                <li>{file.name} (Last modified: {file.modifiedTime})</li>
-                            {/each}
-                        </ul>
-                    {:else}
-                        <p>No files found in Google Drive.</p>
-                    {/if}
-                </div>
-            {/if}
         </div>
     {/if}
 

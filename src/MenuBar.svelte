@@ -7,6 +7,7 @@
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
     import type { Writable } from 'svelte/store';
+    import CloudStorageSettings from './CloudStorageSettings.svelte';
   
   export let config: Config;
 
@@ -26,6 +27,7 @@
   let showAbout = false;
   let showGettingStarted = false;
   let showTools = false;
+  let showCloudStorage = false;
   
   function toggleMenu(menu: string) {
     activeMenu = activeMenu === menu ? null : menu;
@@ -65,6 +67,9 @@
         <button on:click={() => { showSettings = true; closeMenu(); }}>
           Settings
         </button>
+        <button on:click={() => { showCloudStorage = true; closeMenu(); }}>
+          Cloud Storage
+        </button>
       </div>
     {/if}
   </div>
@@ -101,6 +106,7 @@
 </div>
 
 <Settings bind:config bind:isOpen={showSettings} {credits} />
+<CloudStorageSettings bind:isOpen={showCloudStorage} />
 <About bind:isOpen={showAbout} onClose={() => showAbout = false} />
 <ModalDialog isOpen={showGettingStarted} onClose={() => showGettingStarted = false}>
   <GettingStarted />
