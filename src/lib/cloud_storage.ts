@@ -12,6 +12,20 @@ export enum StorageProvider {
 let currentProvider: StorageProvider | null = null;
 let isInitialized = false;
 
+/**
+ * Checks if any cloud storage provider is configured for use
+ * (Does not check if authentication is still valid)
+ * @returns true if a cloud provider is set up, false otherwise
+ */
+export function isCloudStorageConfigured(): boolean {
+    // Check for Google Drive first
+    if (isGoogleDriveSetUp()) {
+        return true;
+    }
+    // Future: Add checks for other providers here
+    return false;
+}
+
 export interface StorageQuota {
     used: number; // bytes
     total: number; // bytes
@@ -164,8 +178,24 @@ export async function createDirectory(
     parentId?: string,
     provider: StorageProvider = StorageProvider.GoogleDrive
 ): Promise<StorageDirectory> {
-    // TODO: Implement based on selected provider
-    throw new Error('Not implemented');
+    await ensureInitialized();
+    const targetProvider = provider || currentProvider;
+    
+    if (!targetProvider) {
+        throw new Error('No cloud storage provider configured');
+    }
+
+    if (targetProvider === StorageProvider.GoogleDrive) {
+        const folderId = await createDriveFolder(name, parentId);
+        return {
+            id: folderId,
+            name,
+            path: name, // Simple path for single directory creation
+            lastModified: new Date()
+        };
+    }
+    
+    throw new Error(`Storage provider ${targetProvider} not implemented`);
 }
 
 /**

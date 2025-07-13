@@ -1,3 +1,4 @@
+import type { StorageProvider } from './cloud_storage';
 import { getLocalPreference, setLocalPreference } from './storage';
 
 interface GoogleDriveFile {
@@ -54,9 +55,6 @@ export function isGoogleDriveSetUp(): boolean {
     return !!savedToken?.access_token && Date.now() < savedToken.expires_at;
 }
 
-export function getActiveProvider(): StorageProvider | null {
-    return currentProvider;
-}
 
 let tokenClient: any;
 let gapiInitialized = false;
@@ -342,6 +340,10 @@ export async function createDriveFolder(name: string, parentId?: string): Promis
             resource: folderMetadata,
             fields: 'id'
         });
+        
+        if (!response.result?.id) {
+            throw new Error('Failed to create folder - no ID returned from Google Drive API');
+        }
         return response.result.id;
     } catch (error) {
         console.error('Error creating Drive folder:', error);
