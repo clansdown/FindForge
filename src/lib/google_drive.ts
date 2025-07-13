@@ -377,6 +377,10 @@ export async function writeDriveFile(
             media: media,
             fields: 'id'
         });
+        
+        if (!response.result?.id) {
+            throw new Error('Failed to create file - no ID returned from Google Drive API');
+        }
         return response.result.id;
     } catch (error) {
         console.error('Error writing Drive file:', error);
