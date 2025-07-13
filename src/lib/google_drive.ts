@@ -352,7 +352,7 @@ export async function createDriveFolder(name: string, parentId?: string): Promis
 }
 
 /**
- * Writes file to Google Drive AppData folder
+ * Writes file to Google Drive AppData folder using multipart upload
  */
 export async function writeDriveFile(
     name: string, 
@@ -360,24 +360,33 @@ export async function writeDriveFile(
     parentId?: string
 ): Promise<string> {
     await authorizeDrive();
-    const fileMetadata = {
+    
+    const formData = new FormData();
+    const metadata = {
         name,
         mimeType: 'text/plain',
         parents: parentId ? [parentId] : ['appDataFolder']
     };
-
-    const media = {
-        mimeType: 'text/plain',
-        body: contents
-    };
+    
+    // Add metadata as JSON blob
+    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    
+    // Add file contents as text blob
+    formData.append('file', new Blob([contents], { type: 'text/plain' }));
 
     try {
-        const response = await gapi.client.drive.files.create({
-            resource: fileMetadata,
-            media: media,
-            fields: 'id'
+        const response = await gapi.client.request({
+            path: '/upload/drive/v3/files',
+            method: 'POST',
+            params: {
+                uploadType: 'multipart'
+            },
+            headers: {
+                'Content-Type': null // Let browser set the boundary
+            },
+            body: formData
         });
-        
+
         if (!response.result?.id) {
             throw new Error('Failed to create file - no ID returned from Google Drive API');
         }
