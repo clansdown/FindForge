@@ -285,6 +285,45 @@ export function getConversationsDirHandle(): FileSystemDirectoryHandle | null {
     return conversationsDirHandle;
 }
 
+/**
+ * Checks if there are any local files stored in either localStorage or OPFS
+ * (excluding cloud tokens). Used to determine if there's local data to migrate.
+ * @returns Promise that resolves to true if local files exist, false otherwise
+ */
+export async function localStorageInUse(): Promise<boolean> {
+    // Check localStorage for conversations or config
+    if (localStorage.getItem(STORAGE_KEY) !== null) {
+        return true;
+    }
+    if (localStorage.getItem(CONVERSATION_IDS_KEY) !== null) {
+        return true;
+    }
+    
+    // Check for localStorage conversations (by checking for any conversation_* keys)
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('conversation_') && !key.includes('google_drive_token')) {
+            return true;
+        }
+    }
+
+    // Check OPFS storage if available
+    const dirHandle = getConversationsDirHandle();
+    if (dirHandle) {
+        try {
+            for await (const [name] of dirHandle) {
+                if (name !== 'conversation_list.json' && name.startsWith('conversation_')) {
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.error('Error checking OPFS for files', e);
+        }
+    }
+
+    return false;
+}
+
 async function loadConversationIDs(): Promise<string[]> {
     let ids: string[] = [];
     
