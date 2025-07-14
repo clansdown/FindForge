@@ -1,4 +1,4 @@
-import { authorizeDrive, createDriveFolder, isGoogleDriveSetUp, listDriveFiles, writeDriveFile } from './google_drive';
+import { authorizeDrive, createDriveFolder, deleteDriveFileByName, isGoogleDriveSetUp, listDriveFiles, writeDriveFile } from './google_drive';
 import { type MessageData, type ConversationData, type Config } from './types';
 
 export enum StorageProvider {
@@ -80,6 +80,30 @@ export async function initCloudStorage(): Promise<boolean> {
     // Future: Add checks for other providers here
     isInitialized = true;
     return false;
+}
+
+/**
+ * Deletes a file by its path/name from cloud storage
+ * @param path Full path to file including name (e.g. 'folder/file.txt')
+ * @param provider Storage provider to use (defaults to current provider)
+ * @throws Error if file is not found, path is invalid, or provider not configured
+ */
+export async function deleteFileByName(
+    path: string,
+    provider?: StorageProvider
+): Promise<void> {
+    await ensureInitialized();
+    const targetProvider = provider || currentProvider;
+    
+    if (!targetProvider) {
+        throw new Error('No cloud storage provider configured');
+    }
+
+    if (targetProvider === StorageProvider.GoogleDrive) {
+        return deleteDriveFileByName(path);
+    }
+    
+    throw new Error(`Storage provider ${targetProvider} not implemented`);
 }
 
 export async function calculateStorageUsed(provider?: StorageProvider): Promise<number> {
