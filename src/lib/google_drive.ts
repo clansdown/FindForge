@@ -354,6 +354,64 @@ export async function createDriveFolder(name: string, parentId?: string): Promis
 /**
  * Writes file to Google Drive AppData folder using multipart upload
  */
+/**
+ * Deletes a file from Google Drive
+ * @param fileId The ID of the file to delete
+ */
+export async function deleteDriveFile(fileId: string): Promise<void> {
+    await authorizeDrive();
+    try {
+        await gapi.client.drive.files.delete({
+            fileId: fileId
+        });
+    } catch (error) {
+        console.error('Error deleting Drive file:', error);
+        throw error;
+    }
+}
+
+/**
+ * Deletes a file in Google Drive by its path/name
+ * @param filePath Path to the file including name (e.g. 'folder/file.txt')
+ * @throws Error if file is not found or path is invalid
+ */
+export async function deleteDriveFileByName(filePath: string): Promise<void> {
+    const parts = filePath.split('/');
+    let parentId = 'appDataFolder';
+    
+    // Traverse path components (if any)
+    for (let i = 0; i < parts.length - 1; i++) {
+        const folderName = parts[i];
+        const query = `name = '${folderName}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        const response = await gapi.client.drive.files.list({
+            q: query,
+            fields: 'files(id)',
+            spaces: 'appDataFolder'
+        });
+        
+        if (!response.result.files?.length) {
+            throw new Error(`Folder not found: ${parts.slice(0, i+1).join('/')}`);
+        }
+        parentId = response.result.files[0].id!;
+    }
+
+    // Find the actual file
+    const fileName = parts[parts.length - 1];
+    const query = `name = '${fileName}' and '${parentId}' in parents and trashed = false`;
+    const response = await gapi.client.drive.files.list({
+        q: query,
+        fields: 'files(id)',
+        spaces: 'appDataFolder'
+    });
+
+    if (!response.result.files?.length) {
+        throw new Error(`File not found: ${filePath}`);
+    }
+
+    // Delete the file by ID
+    await deleteDriveFile(response.result.files[0].id!);
+}
+
 export async function writeDriveFile(
     name: string, 
     contents: string, 
