@@ -72,7 +72,7 @@ export async function getOpfsDirectory(
     for (const part of parts) {
         try {
             currentDir = await currentDir.getDirectoryHandle(part, { create: createIfMissing });
-        } catch (err) {
+        } catch (err : any) {
             if (err.name === 'NotFoundError' && !createIfMissing) {
                 throw new Error(`Directory not found: ${part}`);
             }
@@ -150,7 +150,7 @@ export async function listOpfsDirectory(path: string): Promise<{
 
     for await (const entry of dirHandle.values()) {
         if (entry.kind === 'file') {
-            const file = await entry.getFile();
+            const file = await (entry as FileSystemFileHandle).getFile();
             result.files.push({
                 name: entry.name,
                 path: `${path}/${entry.name}`,

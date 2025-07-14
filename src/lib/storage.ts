@@ -1,5 +1,12 @@
 import { type Writable, writable } from 'svelte/store';
 import { Config, type ConversationData } from './types';
+import { 
+    initOpfsStorage,
+    getOpfsDirectory,
+    writeOpfsFile,
+    readOpfsFile,
+    deleteOpfsFile
+} from './opfs_storage';
 
 let conversationsDirHandle: FileSystemDirectoryHandle | null = null;
 
@@ -144,10 +151,7 @@ export async function storeConversation(conversation: ConversationData): Promise
             ids.push(conversation.id);
             if (dirHandle) {
                 // Update the conversation list in OPFS
-                const fileHandle = await dirHandle.getFileHandle('conversation_list.json', { create: true });
-                const writable = await fileHandle.createWritable();
-                await writable.write(JSON.stringify(ids));
-                await writable.close();
+                await writeOpfsFile('conversations/conversation_list.json', JSON.stringify(ids));
             } else {
                 // Fall back to localStorage
                 localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
@@ -156,10 +160,7 @@ export async function storeConversation(conversation: ConversationData): Promise
 
         // Store the conversation
         if (dirHandle) {
-            const fileHandle = await dirHandle.getFileHandle(`conversation_${conversation.id}.json`, { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(JSON.stringify(conversation));
-            await writable.close();
+            await writeOpfsFile(`conversations/conversation_${conversation.id}.json`, JSON.stringify(conversation));
         } else {
             localStorage.setItem(`conversation_${conversation.id}`, JSON.stringify(conversation));
         }
@@ -187,9 +188,7 @@ export async function loadConversations(): Promise<ConversationData[]> {
             // Try directory storage first
             if (dirHandle) {
                 try {
-                    const fileHandle = await dirHandle.getFileHandle(`conversation_${id}.json`, { create: false });
-                    const file = await fileHandle.getFile();
-                    const content = await file.text();
+                    const content = await readOpfsFile(`conversations/conversation_${id}.json`);
                     const conv = JSON.parse(content) as ConversationData;
                     conversations.push(conv);
                     continue; // Skip localStorage if we found it in dir storage
@@ -236,7 +235,7 @@ export async function deleteConversation(id: string): Promise<void> {
         const dirHandle = getConversationsDirHandle();
         if (dirHandle) {
             try {
-                await dirHandle.removeEntry(`conversation_${id}.json`);
+                await deleteOpfsFile(`conversations/conversation_${id}.json`);
             } catch (e: any) {
                 if (e.name !== 'NotFoundError') {
                     console.error(`Failed to delete conversation ${id} from directory storage`, e);
@@ -266,14 +265,10 @@ export async function initializeConversationStorage(): Promise<FileSystemDirecto
         return conversationsDirHandle;
     }
 
-    if (!('storage' in navigator && 'getDirectory' in navigator.storage)) {
-        throw new Error('OPFS is not supported in this browser');
-    }
+    await initOpfsStorage();
     
     try {
-        const root = await navigator.storage.getDirectory();
-        console.log('OPFS root directory:', root);
-        conversationsDirHandle = await root.getDirectoryHandle('conversations', { create: true });
+        conversationsDirHandle = await getOpfsDirectory('conversations', true);
         return conversationsDirHandle;
     } catch (e) {
         console.error('Failed to initialize conversation storage', e);
