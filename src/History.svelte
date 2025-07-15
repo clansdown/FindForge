@@ -31,7 +31,7 @@
           <button class="delete-button" on:click|stopPropagation={() => removeConversation(conversation)}>✕</button>
         </div>
         <button class="conversation" on:click={() => setCurrentConversation(conversation)}>
-          <p>{conversation.messages[0]?.content?.substring(0, 100) || 'No messages'}</p>
+          <p>{conversation.messages ? conversation.messages[0]?.content?.substring(0, 100) || 'No messages' : ''}</p>
           <div style="text-align: right;"><small>{new Date(conversation.updated).toLocaleString()}</small></div>
         </button>
       </li>

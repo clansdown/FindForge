@@ -5,7 +5,8 @@ import {
     getOpfsDirectory,
     writeOpfsFile,
     readOpfsFile,
-    deleteOpfsFile
+    deleteOpfsFile,
+    listOpfsDirectory
 } from './opfs_storage';
 
 let conversationsDirHandle: FileSystemDirectoryHandle | null = null;
@@ -326,22 +327,26 @@ async function loadConversationIDs(): Promise<string[]> {
     try {
         const dirHandle = getConversationsDirHandle();
         if (dirHandle) {
-            console.log('Loading conversation IDs from OPFS');
-            try {
-                const fileHandle = await dirHandle.getFileHandle('conversation_list.json', { create: false });
-                const file = await fileHandle.getFile();
-                const content = await file.text();
-                ids = JSON.parse(content) as string[];
-                console.log('Loaded conversation IDs from OPFS:', ids);
-                return ids;
-            } catch (e: any) {
-                if (e.name !== 'NotFoundError') {
-                    console.error('Failed to read conversation_list.json from OPFS', e);
-                }
-            }
+            console.log('Scanning OPFS conversation files');
+            const { files } = await listOpfsDirectory('conversations');
+            
+            const conversationFiles = files.map(file => {
+                    const match = file.name.match(/^conversation_([^.]+)\.json$/);
+                    return match ? {
+                        id: match[1],
+                        modified: file.lastModified
+                    } : null;
+                })
+                .filter(Boolean) as { id: string; modified: Date }[];
+            
+            // Sort by last modified (newest first)
+            conversationFiles.sort((a, b) => b.modified.getTime() - a.modified.getTime());
+            ids = conversationFiles.map(file => file.id);
+            console.log('Found conversation IDs in OPFS:', ids);
+            return ids;
         }
     } catch (e) {
-        console.error('Error accessing OPFS for conversation IDs', e);
+        console.error('Error scanning OPFS for conversation files', e);
     }
 
     // Fall back to localStorage if OPFS failed or isn't available
