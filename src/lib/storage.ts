@@ -1,5 +1,6 @@
 import { type Writable, writable } from 'svelte/store';
 import { Config, type ConversationData } from './types';
+import { isCloudStorageReady, writeCloudFile, readCloudFile, StorageProvider } from './cloud_storage';
 import { 
     initOpfsStorage,
     getOpfsDirectory,
@@ -121,17 +122,39 @@ export function waitForStorageLock(maxRetries = 10, retryDelayMs = 200): Promise
     });
 }
 
-export function saveConfig(config: Config): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+export async function saveConfig(config: Config): Promise<void> {
+  const configJson = JSON.stringify(config);
+  localStorage.setItem(STORAGE_KEY, configJson);
+  
+  if (await isCloudStorageReady()) {
+    try {
+      await writeCloudFile('config.json', configJson, 'application/json');
+    } catch (e) {
+      console.error('Failed to save config to cloud storage', e);
+    }
+  }
 }
 
-export function loadConfig(): Config {
-  const saved = localStorage.getItem(STORAGE_KEY);
+export async function loadConfig(): Promise<Config> {
   const config = new Config();
-  
-  if (saved) {
+  let configJson = localStorage.getItem(STORAGE_KEY);
+
+  if (await isCloudStorageReady()) {
     try {
-      const parsed = JSON.parse(saved);
+      const cloudConfig = await readCloudFile('config.json');
+      if (cloudConfig) {
+        configJson = cloudConfig;
+        // Also update localStorage for faster access next time
+        localStorage.setItem(STORAGE_KEY, cloudConfig);
+      }
+    } catch (e) {
+      console.error('Failed to read config from cloud storage', e);
+    }
+  }
+
+  if (configJson) {
+    try {
+      const parsed = JSON.parse(configJson);
       Object.assign(config, parsed);
       config.ensureDefaults(); // Ensure defaults are set
     } catch (e) {

@@ -88,34 +88,33 @@ export async function initCloudStorage(): Promise<boolean> {
  * @param provider Storage provider to use (defaults to current provider)
  * @throws Error if file is not found, path is invalid, or provider not configured
  */
-export async function deleteFileByName(
-    path: string,
-    provider?: StorageProvider
-): Promise<void> {
+export async function deleteFileByName(path: string): Promise<void> {
     await ensureInitialized();
-    const targetProvider = provider || currentProvider;
     
-    if (!targetProvider) {
+    if (!currentProvider) {
         throw new Error('No cloud storage provider configured');
     }
 
-    if (targetProvider === StorageProvider.GoogleDrive) {
+    if (currentProvider === StorageProvider.GoogleDrive) {
         return deleteDriveFileByName(path);
     }
     
-    throw new Error(`Storage provider ${targetProvider} not implemented`);
+    throw new Error(`Storage provider ${currentProvider} not implemented`);
 }
 
-export async function calculateStorageUsed(provider?: StorageProvider): Promise<number> {
+export async function calculateStorageUsed(): Promise<number> {
     await ensureInitialized();
-    const targetProvider = provider || currentProvider;
     
-    if (targetProvider === StorageProvider.GoogleDrive) {
+    if (!currentProvider) {
+        throw new Error('No cloud storage provider configured');
+    }
+
+    if (currentProvider === StorageProvider.GoogleDrive) {
         const files = await listDriveFiles();
         return files.files?.reduce((sum, file) => sum + (parseInt(file.size || '0') || 0), 0) || 0;
     }
     
-    throw new Error(`Storage provider ${targetProvider} not implemented`);
+    throw new Error(`Storage provider ${currentProvider} not implemented`);
 }
 
 function ensureInitialized(): Promise<void> {
@@ -143,18 +142,16 @@ export async function getStorageQuota(provider: StorageProvider): Promise<Storag
  * @returns Promise resolving to directory handle
  */
 export async function getDirectoryHandle(
-    path: string,
-    createIfMissing = false,
-    provider?: StorageProvider
+    path: string, 
+    createIfMissing = false
 ): Promise<StorageDirectory> {
     await ensureInitialized();
-    const targetProvider = provider || currentProvider;
     
-    if (!targetProvider) {
+    if (!currentProvider) {
         throw new Error('No cloud storage provider configured');
     }
 
-    if (targetProvider === StorageProvider.GoogleDrive) {
+    if (currentProvider === StorageProvider.GoogleDrive) {
         const parts = path.split('/').filter(p => p.trim() !== '');
         let currentParentId : string = 'appDataFolder';
         
@@ -187,7 +184,7 @@ export async function getDirectoryHandle(
         };
     }
     
-    throw new Error(`Storage provider ${targetProvider} not implemented`);
+    throw new Error(`Storage provider ${currentProvider} not implemented`);
 }
 
 /**
@@ -199,17 +196,15 @@ export async function getDirectoryHandle(
  */
 export async function createDirectory(
     name: string,
-    parentId?: string,
-    provider: StorageProvider = StorageProvider.GoogleDrive
+    parentId?: string
 ): Promise<StorageDirectory> {
     await ensureInitialized();
-    const targetProvider = provider || currentProvider;
     
-    if (!targetProvider) {
+    if (!currentProvider) {
         throw new Error('No cloud storage provider configured');
     }
 
-    if (targetProvider === StorageProvider.GoogleDrive) {
+    if (currentProvider === StorageProvider.GoogleDrive) {
         const folderId = await createDriveFolder(name, parentId);
         return {
             id: folderId,
@@ -219,7 +214,7 @@ export async function createDirectory(
         };
     }
     
-    throw new Error(`Storage provider ${targetProvider} not implemented`);
+    throw new Error(`Storage provider ${currentProvider} not implemented`);
 }
 
 /**
@@ -230,20 +225,18 @@ export async function createDirectory(
  * @param provider Storage provider to use
  * @returns Promise resolving when write is complete
  */
-export async function writeFile(
+export async function writeCloudFile(
     path: string,
-    data: string | ArrayBuffer | Blob,
-    mimeType: string,
-    provider?: StorageProvider
+    data: string | ArrayBuffer | Blob, 
+    mimeType: string
 ): Promise<StorageFile> {
     await ensureInitialized();
-    const targetProvider = provider || currentProvider;
     
-    if (!targetProvider) {
+    if (!currentProvider) {
         throw new Error('No cloud storage provider configured');
     }
 
-    if (targetProvider === StorageProvider.GoogleDrive) {
+    if (currentProvider === StorageProvider.GoogleDrive) {
         let parentPath = path.split('/').slice(0, -1).join('/');
         parentPath = parentPath || '.';
         const fileName = path.split('/').slice(-1)[0];
@@ -263,7 +256,7 @@ export async function writeFile(
         };
     }
     
-    throw new Error(`Storage provider ${targetProvider} not implemented`);
+    throw new Error(`Storage provider ${currentProvider} not implemented`);
 }
 
 /**
@@ -272,12 +265,22 @@ export async function writeFile(
  * @param provider Storage provider to use
  * @returns Promise resolving to file contents as string
  */
-export async function readFile(
-    fileId: string,
-    provider: StorageProvider = StorageProvider.GoogleDrive
-): Promise<string> {
-    // TODO: Implement based on selected provider
-    throw new Error('Not implemented');
+export async function readCloudFile(fileId: string): Promise<string> {
+    await ensureInitialized();
+    
+    if (!currentProvider) {
+        throw new Error('No cloud storage provider configured');
+    }
+
+    if (currentProvider === StorageProvider.GoogleDrive) {
+        const response = await gapi.client.drive.files.get({
+            fileId: fileId,
+            alt: 'media'
+        });
+        return response.body;
+    }
+    
+    throw new Error(`Storage provider ${currentProvider} not implemented`);
 }
 
 /**
@@ -287,11 +290,45 @@ export async function readFile(
  * @returns Promise resolving to array of files and directories
  */
 export async function getDirectoryList(
-    directoryId: string,
-    provider: StorageProvider = StorageProvider.GoogleDrive
+    directoryId: string
 ): Promise<{ files: StorageFile[]; directories: StorageDirectory[] }> {
-    // TODO: Implement based on selected provider
-    throw new Error('Not implemented');
+    await ensureInitialized();
+    
+    if (!currentProvider) {
+        throw new Error('No cloud storage provider configured');
+    }
+
+    if (currentProvider === StorageProvider.GoogleDrive) {
+        const response = await gapi.client.drive.files.list({
+            q: `'${directoryId}' in parents and trashed = false`,
+            fields: 'files(id,name,mimeType,modifiedTime,size)'
+        });
+        
+        const files: StorageFile[] = [];
+        const directories: StorageDirectory[] = [];
+        
+        response.result.files?.forEach(file => {
+            const entry = {
+                id: file.id || '',
+                name: file.name || '',
+                path: file.name || '',
+                size: parseInt(file.size || '0'),
+                mimeType: file.mimeType || '',
+                lastModified: new Date(file.modifiedTime || ''),
+                parentId: directoryId
+            };
+            
+            if (file.mimeType === 'application/vnd.google-apps.folder') {
+                directories.push(entry);
+            } else {
+                files.push(entry);
+            }
+        });
+        
+        return { files, directories };
+    }
+    
+    throw new Error(`Storage provider ${currentProvider} not implemented`);
 }
 
 /**
@@ -299,12 +336,11 @@ export async function getDirectoryList(
  * @param provider Storage provider to check
  * @returns Promise resolving to boolean indicating if storage is ready
  */
-export async function isCloudStorageReady(provider?: StorageProvider): Promise<boolean> {
+export async function isCloudStorageReady(): Promise<boolean> {
     if (!isInitialized) {
         await initCloudStorage();
     }
-    const targetProvider = provider || currentProvider;
-    return !!targetProvider;
+    return !!currentProvider;
 }
 
 /**
