@@ -129,7 +129,7 @@ function ensureInitialized(): Promise<void> {
  * @param provider Storage provider to check quota for
  * @returns Promise resolving to StorageQuota object
  */
-export async function getStorageQuota(provider: StorageProvider): Promise<StorageQuota> {
+export async function getCloudStorageQuota(provider: StorageProvider): Promise<StorageQuota> {
     // TODO: Implement based on selected provider
     throw new Error('Not implemented');
 }
@@ -141,7 +141,7 @@ export async function getStorageQuota(provider: StorageProvider): Promise<Storag
  * @param provider Storage provider to use
  * @returns Promise resolving to directory handle
  */
-export async function getDirectoryHandle(
+export async function getCloudDirectoryHandle(
     path: string, 
     createIfMissing = false
 ): Promise<StorageDirectory> {
@@ -194,7 +194,7 @@ export async function getDirectoryHandle(
  * @param provider Storage provider to use
  * @returns Promise resolving to created directory handle
  */
-export async function createDirectory(
+export async function createCloudDirectory(
     name: string,
     parentId?: string
 ): Promise<StorageDirectory> {
@@ -241,7 +241,7 @@ export async function writeCloudFile(
         parentPath = parentPath || '.';
         const fileName = path.split('/').slice(-1)[0];
         
-        const dirHandle = await getDirectoryHandle(parentPath, true);
+        const dirHandle = await getCloudDirectoryHandle(parentPath, true);
         const fileId = await writeDriveFile(fileName, data.toString(), dirHandle.id);
         
         return {
@@ -289,7 +289,7 @@ export async function readCloudFile(fileId: string): Promise<string> {
  * @param provider Storage provider to use
  * @returns Promise resolving to array of files and directories
  */
-export async function getDirectoryList(
+export async function getCloudDirectoryList(
     directoryId: string
 ): Promise<{ files: StorageFile[]; directories: StorageDirectory[] }> {
     await ensureInitialized();
