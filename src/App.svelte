@@ -9,7 +9,7 @@
   import Intro from './Intro.svelte';
   import { getLocalPreferenceStore } from './lib/storage';
   
-  let config : Config = loadConfig();
+  let config : Config;
   let showHistory = true;
   const applicationMode = getLocalPreferenceStore('ApplicationMode', 'research' as ApplicationMode);
   let isDragging = false;
@@ -24,6 +24,10 @@
   let conversations: ConversationData[] = [];
   let availableOpenrouterCredits: OpenRouterCredits | undefined;
 
+  loadConfig().then((loadedConfig) => {
+    config = loadedConfig;
+  });
+
   /* Initialize conversation storage and load existing conversations */
   initializeConversationStorage().then((d) => {
     loadConversations().then((loadedConversations) => {
@@ -33,7 +37,7 @@
 
 
   // Refresh credits when the API key changes
-  $: if (config.apiKey) {
+  $: if (config?.apiKey) {
     refreshAvailableCredits(0);
   }
 
@@ -116,7 +120,7 @@
 
 <main>
   <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} credits={availableOpenrouterCredits} {applicationMode} />
-  {#if config.apiKey}
+  {#if config?.apiKey}
     <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
     <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
       {#if showHistory}

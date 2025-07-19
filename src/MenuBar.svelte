@@ -105,7 +105,9 @@
   </div>
 </div>
 
+{#if config}
 <Settings bind:config bind:isOpen={showSettings} {credits} />
+{/if}
 <CloudStorageSettings bind:isOpen={showCloudStorage} />
 <About bind:isOpen={showAbout} onClose={() => showAbout = false} />
 <ModalDialog isOpen={showGettingStarted} onClose={() => showGettingStarted = false}>

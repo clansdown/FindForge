@@ -36,6 +36,11 @@
     You can get your API key from the <a href="https://openrouter.ai/keys" target="_blank">OpenRouter dashboard</a>.
   </p>
   <button on:click={() => dispatch('openSettings')}>Open Settings to Add API Key</button>
+
+  <p class="my-4">Or, if you've set up FindForge on another device and used cloud storage, just set up cloud storage on this device:</p>
+
+  <button on:click={() => dispatch('openCloudStorage')}>Open Cloud Storage Settings</button>
+
 </div>
 
 <style>

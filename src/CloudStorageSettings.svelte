@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { getLocalPreference, setLocalPreference } from "./lib/storage";
+    import { getLocalPreference, isLocalStorageInUse, setLocalPreference } from "./lib/storage";
     import { authorizeDrive, listDriveFiles, readDriveFile } from "./lib/google_drive";
     import ModalDialog from "./lib/ModalDialog.svelte";
+    import { migrateToCloudStorage, StorageProvider } from "./lib/cloud_storage";
 
     const STORAGE_KEY = "googleDriveCredentials";
     const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
@@ -10,7 +11,7 @@
 
     let isGoogleDriveSetup: boolean = false;
     let showDisconnectConfirmation: boolean = false;
-    let googleDriveFiles: any[] = [];
+    let googleDriveFiles: gapi.client.drive.FileList|undefined;
 
     $: if (isOpen) {
         checkGoogleDriveSetup();
@@ -25,13 +26,14 @@
     async function loadGoogleDriveFiles() {
         if (isGoogleDriveSetup) {
             try {
-                googleDriveFiles = await listDriveFiles();
+                const result = await listDriveFiles();
+                googleDriveFiles = result || { files: [], incompleteSearch: false };
             } catch (error) {
                 console.error("Failed to load Google Drive files:", error);
-                googleDriveFiles = [];
+                googleDriveFiles = undefined;
             }
         } else {
-            googleDriveFiles = [];
+            googleDriveFiles = { files: [], incompleteSearch: false };
         }
     }
 
@@ -50,18 +52,18 @@
     async function copyToLocalStorage() {
         try {
             const files = await listDriveFiles();
-            if (!files.length) {
+            if (!files.files?.length) {
                 alert("No files found in Google Drive to copy.");
                 return;
             }
 
-            for (const file of files) {
-                if (['text/plain', 'application/json'].includes(file.mimeType)) {
+            for (const file of files.files) {
+                if (file.id && ['text/plain', 'application/json'].includes(file.mimeType||'')) {
                     const content = await readDriveFile(file.id);
-                    setLocalPreference(file.name, content);
+                    setLocalPreference(file.name||"[unknown]", content);
                 }
             }
-            alert(`Copied ${files.length} files from Google Drive to local storage.`);
+            alert(`Copied ${files.files?.length} files from Google Drive to local storage.`);
         } catch (error : any) {
             console.error("Failed to copy data from Google Drive:", error);
             alert(`Failed to copy data: ${error.message}`);
@@ -82,6 +84,21 @@
     function cancelDisconnect() {
         showDisconnectConfirmation = false;
     }
+
+    function _migrateToCloudStorage(provider: StorageProvider) {
+        if (confirm("Are you sure you want to migrate local data to Google Drive? This will upload your local data to Google Drive.")) {
+            const progress = (value: number) => {
+                console.log(value);
+            };
+            migrateToCloudStorage(provider, progress).then(() => {
+                alert("Migration to Google Drive completed.");
+                loadGoogleDriveFiles();
+            }).catch((error) => {
+                console.error("Migration failed:", error);
+                alert(`Migration failed: ${error.message}`);
+            });
+        }
+    }
 </script>
 
 <ModalDialog on:close={() => (isOpen = false)} {isOpen}>
@@ -96,6 +113,13 @@
             <button class="btn btn-primary" on:click={setupGoogleDrive}>Set Up Google Drive</button>
         {:else}
             <div class="button-group">
+                {#await isLocalStorageInUse() then localInUse}
+                    {#if localInUse}
+                        <button on:click={()=>_migrateToCloudStorage(StorageProvider.GoogleDrive)}>Migrate Local Data to Google Drive</button>
+                    {/if}
+                {:catch error}
+                    <p class="help-text">Error checking local storage: {error.message}</p>
+                {/await}
                 <button on:click={copyToLocalStorage}>Copy to Local Storage</button>
                 <button on:click={disconnectGoogleDrive}>Disconnect Google Drive</button>
             </div>
@@ -108,18 +132,20 @@
                     </div>
                 </div>
             {/if}
-            <div class="file-list">
-                <h5>Files in Google Drive:</h5>
-                {#if googleDriveFiles.length > 0}
-                    <ul>
-                        {#each googleDriveFiles as file}
-                            <li>{file.name} (Last modified: {file.modifiedTime})</li>
-                        {/each}
-                    </ul>
-                {:else}
-                    <p>No files found in Google Drive.</p>
-                {/if}
-            </div>
+            {#if googleDriveFiles}
+                <div class="file-list">
+                    <h5>Files in Google Drive:</h5>
+                    {#if googleDriveFiles.files?.length||0 > 0}
+                        <ul>
+                            {#each googleDriveFiles.files||[] as file}
+                                <li>{file.name} (Last modified: {file.modifiedTime})</li>
+                            {/each}
+                        </ul>
+                    {:else}
+                        <p>No files found in Google Drive.</p>
+                    {/if}
+                </div>
+            {/if}
         {/if}
     </div>
 

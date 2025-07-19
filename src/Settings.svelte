@@ -18,7 +18,7 @@
     let openrouterModels: Model[] = [];
     let availableModels: Model[] = [];
     let modelFetchError: string | null = null;
-    let currentTab: "general" | "model" | "deep-research" | "cloud-storage" = config.apiKey ? "general" : "model";
+    let currentTab: "general" | "model" | "deep-research" | "cloud-storage" = config?.apiKey ? "general" : "model";
     let modelFilter = "";
     let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;

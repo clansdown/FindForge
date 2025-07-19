@@ -144,8 +144,6 @@ export async function loadConfig(): Promise<Config> {
       const cloudConfig = await readCloudFile('config.json');
       if (cloudConfig) {
         configJson = cloudConfig;
-        // Also update localStorage for faster access next time
-        localStorage.setItem(STORAGE_KEY, cloudConfig);
       }
     } catch (e) {
       console.error('Failed to read config from cloud storage', e);
@@ -168,22 +166,25 @@ export async function loadConfig(): Promise<Config> {
 export async function storeConversation(conversation: ConversationData): Promise<void> {
     // Reload IDs fresh from storage to avoid race conditions
     const ids = await loadConversationIDs();
+    const cloudStorageAvailable = await isCloudStorageReady();
     const dirHandle = getConversationsDirHandle();
     
     try {
         if (!ids.includes(conversation.id)) {
             ids.push(conversation.id);
-            if (dirHandle) {
-                // Update the conversation list in OPFS
+            if (cloudStorageAvailable) {
+                await writeCloudFile('conversations/conversation_list.json', JSON.stringify(ids), 'application/json');
+            } else if (dirHandle) {
                 await writeOpfsFile('conversations/conversation_list.json', JSON.stringify(ids));
             } else {
-                // Fall back to localStorage
                 localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
             }
         }
 
         // Store the conversation
-        if (dirHandle) {
+        if (cloudStorageAvailable) {
+            await writeCloudFile(`conversations/conversation_${conversation.id}.json`, JSON.stringify(conversation), 'application/json');
+        } else if (dirHandle) {
             await writeOpfsFile(`conversations/conversation_${conversation.id}.json`, JSON.stringify(conversation));
         } else {
             localStorage.setItem(`conversation_${conversation.id}`, JSON.stringify(conversation));
@@ -205,17 +206,30 @@ export async function loadConversations(): Promise<ConversationData[]> {
 
     const ids = await loadConversationIDs();
     const conversations: ConversationData[] = [];
+    const cloudStorageAvailable = await isCloudStorageReady();
     const dirHandle = getConversationsDirHandle();
 
     for (const id of ids) {
         try {
-            // Try directory storage first
+            // Try cloud storage first if available
+            if (cloudStorageAvailable) {
+                try {
+                    const content = await readCloudFile(`conversations/conversation_${id}.json`);
+                    const conv = JSON.parse(content) as ConversationData;
+                    conversations.push(conv);
+                    continue;
+                } catch (e) {
+                    console.error(`Failed to read conversation ${id} from cloud storage`, e);
+                }
+            }
+
+            // Try directory storage next
             if (dirHandle) {
                 try {
                     const content = await readOpfsFile(`conversations/conversation_${id}.json`);
                     const conv = JSON.parse(content) as ConversationData;
                     conversations.push(conv);
-                    continue; // Skip localStorage if we found it in dir storage
+                    continue;
                 } catch (e: any) {
                     if (e.name !== 'NotFoundError') {
                         console.error(`Failed to read conversation ${id} from directory storage`, e);
@@ -309,7 +323,7 @@ export function getConversationsDirHandle(): FileSystemDirectoryHandle | null {
  * (excluding cloud tokens). Used to determine if there's local data to migrate.
  * @returns Promise that resolves to true if local files exist, false otherwise
  */
-export async function localStorageInUse(): Promise<boolean> {
+export async function isLocalStorageInUse(): Promise<boolean> {
     // Check localStorage for conversations or config
     if (localStorage.getItem(STORAGE_KEY) !== null) {
         return true;
@@ -345,8 +359,19 @@ export async function localStorageInUse(): Promise<boolean> {
 
 async function loadConversationIDs(): Promise<string[]> {
     let ids: string[] = [];
-    
-    // Try OPFS directory first if available
+    const cloudStorageAvailable = await isCloudStorageReady();
+
+    // Try cloud storage first if available
+    if (cloudStorageAvailable) {
+        try {
+            const content = await readCloudFile('conversations/conversation_list.json');
+            return JSON.parse(content) as string[];
+        } catch (e) {
+            console.error('Failed to read conversation IDs from cloud storage', e);
+        }
+    }
+
+    // Try OPFS directory next if available
     try {
         const dirHandle = getConversationsDirHandle();
         if (dirHandle) {
@@ -372,7 +397,7 @@ async function loadConversationIDs(): Promise<string[]> {
         console.error('Error scanning OPFS for conversation files', e);
     }
 
-    // Fall back to localStorage if OPFS failed or isn't available
+    // Fall back to localStorage if other methods failed
     const item = localStorage.getItem(CONVERSATION_IDS_KEY);
     if (item) {
         try {
