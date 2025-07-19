@@ -9,6 +9,7 @@ import {
     deleteOpfsFile,
     listOpfsDirectory
 } from './opfs_storage';
+import { listDriveFiles } from './google_drive';
 
 let conversationsDirHandle: FileSystemDirectoryHandle | null = null;
 
@@ -204,54 +205,76 @@ export async function loadConversations(): Promise<ConversationData[]> {
         return conversationsCache;
     }
 
-    const ids = await loadConversationIDs();
     const conversations: ConversationData[] = [];
     const cloudStorageAvailable = await isCloudStorageReady();
     const dirHandle = getConversationsDirHandle();
 
-    for (const id of ids) {
+    // Load from cloud storage if available
+    if (cloudStorageAvailable) {
         try {
-            // Try cloud storage first if available
-            if (cloudStorageAvailable) {
-                try {
-                    const content = await readCloudFile(`conversations/conversation_${id}.json`);
-                    const conv = JSON.parse(content) as ConversationData;
-                    conversations.push(conv);
-                    continue;
-                } catch (e) {
-                    console.error(`Failed to read conversation ${id} from cloud storage`, e);
-                }
-            }
-
-            // Try directory storage next
-            if (dirHandle) {
-                try {
-                    const content = await readOpfsFile(`conversations/conversation_${id}.json`);
-                    const conv = JSON.parse(content) as ConversationData;
-                    conversations.push(conv);
-                    continue;
-                } catch (e: any) {
-                    if (e.name !== 'NotFoundError') {
-                        console.error(`Failed to read conversation ${id} from directory storage`, e);
+            const files = await listDriveFiles('conversations');
+            for (const file of files.files || []) {
+                if (file.name?.startsWith('conversation_') && file.name.endsWith('.json')) {
+                    try {
+                        const content = await readCloudFile(`conversations/${file.name}`);
+                        const conv = JSON.parse(content) as ConversationData;
+                        conversations.push(conv);
+                    } catch (e) {
+                        console.error(`Failed to read conversation file ${file.name} from cloud storage`, e);
                     }
                 }
             }
+        } catch (e) {
+            console.error('Error listing cloud storage conversation files', e);
+        }
+    }
 
-            // Fall back to localStorage
-            const item = localStorage.getItem(`conversation_${id}`);
-            if (item) {
-                try {
-                    const conv = JSON.parse(item) as ConversationData;
-                    conversations.push(conv);
-                } catch (e) {
-                    console.error(`Failed to parse conversation ${id} from localStorage`, e);
+    // Load from OPFS if available
+    if (dirHandle) {
+        try {
+            const { files } = await listOpfsDirectory('conversations');
+            for (const file of files) {
+                if (file.name.startsWith('conversation_') && file.name.endsWith('.json')) {
+                    try {
+                        const content = await readOpfsFile(`conversations/${file.name}`);
+                        const conv = JSON.parse(content) as ConversationData;
+                        conversations.push(conv);
+                    } catch (e: any) {
+                        if (e.name !== 'NotFoundError') {
+                            console.error(`Failed to read conversation file ${file.name} from OPFS`, e);
+                        }
+                    }
                 }
             }
         } catch (e) {
-            console.error(`Error loading conversation ${id}`, e);
+            console.error('Error listing OPFS conversation files', e);
         }
     }
-    
+
+    // Load from localStorage
+    const item = localStorage.getItem(CONVERSATION_IDS_KEY);
+    if (item) {
+        try {
+            const ids = JSON.parse(item) as string[];
+            for (const id of ids) {
+                const conversation = localStorage.getItem(`conversation_${id}`);
+                if (conversation) {
+                    try {
+                        const conv = JSON.parse(conversation) as ConversationData;
+                        conversations.push(conv);
+                    } catch (e) {
+                        console.error(`Failed to parse conversation ${id} from localStorage`, e);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to parse conversation IDs from localStorage', e);
+        }
+    }
+
+    // Sort all conversations by updated time (newest first)
+    conversations.sort((a, b) => b.updated - a.updated);
+
     conversationsCache = conversations;
     return conversations;
 }
