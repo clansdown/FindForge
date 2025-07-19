@@ -42,7 +42,8 @@
             await authorizeDrive();
             console.log("Google Drive authorized successfully.");
             checkGoogleDriveSetup();
-            await loadGoogleDriveFiles();
+            if(isGoogleDriveSetup)
+                await loadGoogleDriveFiles();
         } catch (error) {
             console.error("Failed to setup Google Drive:", error);
             alert("Failed to setup Google Drive. Please try again.");
