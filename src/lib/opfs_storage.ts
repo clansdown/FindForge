@@ -7,6 +7,14 @@ export interface OPFSFile {
     lastModified: Date;
 }
 
+export interface OPFSFileWithContent {
+    name: string;
+    path: string;
+    size: number;
+    lastModified: Date;
+    getContent: () => Promise<string>;
+}
+
 export interface OPFSDirectory {
     name: string;
     path: string;
@@ -197,4 +205,41 @@ export async function deleteOpfsDirectory(
     
     const parentHandle = await getOpfsDirectory(parentPath);
     await parentHandle.removeEntry(dirName, { recursive });
+}
+
+/**
+ * Creates an async iterator that yields all files in OPFS storage
+ * @returns Async iterator of OPFSFileWithContent objects
+ */
+export async function* getAllFilesIterator(): AsyncGenerator<OPFSFileWithContent> {
+    await initOpfsStorage();
+    
+    async function* traverseDirectory(
+        dirHandle: FileSystemDirectoryHandle,
+        currentPath: string = ''
+    ): AsyncGenerator<OPFSFileWithContent> {
+        for await (const entry of dirHandle.values()) {
+            const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+            
+            if (entry.kind === 'directory') {
+                yield* traverseDirectory(entry as FileSystemDirectoryHandle, entryPath);
+            } else if (entry.kind === 'file') {
+                const file = await (entry as FileSystemFileHandle).getFile();
+                yield {
+                    name: entry.name,
+                    path: entryPath,
+                    size: file.size,
+                    lastModified: new Date(file.lastModified),
+                    getContent: async () => {
+                        const f = await (entry as FileSystemFileHandle).getFile();
+                        return f.text();
+                    }
+                };
+            }
+        }
+    }
+
+    if (rootDirHandle) {
+        yield* traverseDirectory(rootDirHandle);
+    }
 }

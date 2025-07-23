@@ -15,12 +15,14 @@
 
     $: if (isOpen) {
         checkGoogleDriveSetup();
-        loadGoogleDriveFiles();
+        if(isGoogleDriveSetup)
+            loadGoogleDriveFiles();
     }
 
-    function checkGoogleDriveSetup() {
+    function checkGoogleDriveSetup() : boolean {
         const savedCredentials = getLocalPreference<any>("googleDriveCredentials", null);
         isGoogleDriveSetup = Boolean(savedCredentials?.access_token);
+        return isGoogleDriveSetup;
     }
 
     async function loadGoogleDriveFiles() {
@@ -41,8 +43,7 @@
         try {
             await authorizeDrive();
             console.log("Google Drive authorized successfully.");
-            checkGoogleDriveSetup();
-            if(isGoogleDriveSetup)
+            if(checkGoogleDriveSetup())
                 await loadGoogleDriveFiles();
         } catch (error) {
             console.error("Failed to setup Google Drive:", error);

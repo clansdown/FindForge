@@ -1,4 +1,5 @@
 import type { StorageProvider } from './cloud_storage';
+import type { OPFSFileWithContent } from './opfs_storage';
 import { getLocalPreference, setLocalPreference } from './storage';
 
 interface GoogleDriveFile {
@@ -228,7 +229,7 @@ async function _authorizeDriveInner(interactive: boolean = true): Promise<void> 
     }
 
     if (savedToken) {
-        console.log('Google Drive token is invalid or expired, requesting new token...');
+        console.log('Google Drive token is invalid or expired, requesting new token...', savedToken);
     } else {
         console.log('No Google Drive token found, requesting new token...');
     }
@@ -410,6 +411,64 @@ export async function deleteDriveFileByName(filePath: string): Promise<void> {
 
     // Delete the file by ID
     await deleteDriveFile(response.result.files[0].id!);
+}
+
+/**
+ * Migrates files from OPFS to Google Drive, preserving directory structure and metadata
+ * @param files Async iterator of OPFS files to migrate
+ * @param progressCallback Optional callback to report progress
+ */
+export async function migrateToGoogleDrive(
+    files: AsyncGenerator<OPFSFileWithContent>,
+    progressCallback?: (progress: number) => void
+): Promise<void> {
+    await authorizeDrive();
+    
+    // Create a map to track created directories and their IDs
+    const dirIdMap: Map<string, string> = new Map();
+    dirIdMap.set('', 'appDataFolder'); // Root directory
+    
+    // First count total files for progress reporting
+    let totalFiles = 0;
+    const fileList: OPFSFileWithContent[] = [];
+    for await (const file of files) {
+        fileList.push(file);
+        totalFiles++;
+    }
+
+    let processedFiles = 0;
+    
+    for (const file of fileList) {
+        // Ensure all parent directories exist
+        const pathParts = file.path.split('/').slice(0, -1);
+        let parentId = 'appDataFolder';
+        
+        // Build the directory path incrementally
+        let currentPath = '';
+        for (const part of pathParts) {
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+            
+            if (!dirIdMap.has(currentPath)) {
+                // Directory doesn't exist yet - create it
+                const dirId = await createDriveFolder(part, parentId);
+                dirIdMap.set(currentPath, dirId);
+            }
+            parentId = dirIdMap.get(currentPath)!;
+        }
+
+        // Read file content and write to Drive
+        const content = await file.getContent();
+        await writeDriveFile(
+            file.name,
+            content,
+            parentId
+        );
+
+        processedFiles++;
+        if (progressCallback) {
+            progressCallback(processedFiles / totalFiles);
+        }
+    }
 }
 
 export async function writeDriveFile(
