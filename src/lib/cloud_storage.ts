@@ -1,6 +1,17 @@
 import { authorizeDrive, createDriveFolder, deleteDriveFileByName, doesGoogleDriveTokenNeedRefresh, isGoogleDriveSetUp, listDriveFiles, writeDriveFile } from './google_drive';
 import { type MessageData, type ConversationData, type Config } from './types';
 
+/**
+ * Must be called before using any cloud storage functions
+ */
+export function loadCloudConfig(): void {
+    if (isGoogleDriveSetUp()) {
+        currentProvider = StorageProvider.GoogleDrive;
+    } else {
+        currentProvider = null;
+    }
+}
+
 export enum StorageProvider {
     GoogleDrive = 'google_drive',
     // Future backends could include:

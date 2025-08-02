@@ -133,6 +133,8 @@ function doGapiInitialize(): Promise<void> {
     }
 
     console.log('Loading Google API client library...');
+    // log a stack trace for debugging
+    console.trace('GAPI initialization stack trace');
     
     return new Promise((resolve, reject) => {
         gapi.load('client', async () => {

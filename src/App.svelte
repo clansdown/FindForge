@@ -8,7 +8,9 @@
   import { fetchOpenRouterCredits } from './lib/models';
   import Intro from './Intro.svelte';
   import { getLocalPreferenceStore } from './lib/storage';
-    import { doesCloudStorageRequireAuthentication, initCloudStorage } from './lib/cloud_storage';
+  import { doesCloudStorageRequireAuthentication, initCloudStorage, loadCloudConfig } from './lib/cloud_storage';
+
+  loadCloudConfig();
   
   let config : Config;
   let showHistory = true;
@@ -26,16 +28,10 @@
   let availableOpenrouterCredits: OpenRouterCredits | undefined;
   let cloud_storage_requires_authentication = doesCloudStorageRequireAuthentication();
 
-  loadConfig().then((loadedConfig) => {
-    config = loadedConfig;
-  });
+  if(!cloud_storage_requires_authentication) {
+    initialize();
+  }
 
-  /* Initialize conversation storage and load existing conversations */
-  initializeConversationStorage().then((d) => {
-    loadConversations().then((loadedConversations) => {
-      conversations = loadedConversations;
-    });
-  });
 
 
   // Refresh credits when the API key changes
@@ -43,6 +39,19 @@
     refreshAvailableCredits(0);
   }
 
+  function initialize() {
+    /* Load the config */
+    loadConfig().then((loadedConfig) => {
+      config = loadedConfig;
+    });
+    
+    /* Initialize conversation storage and load existing conversations */
+    initializeConversationStorage().then((d) => {
+      loadConversations().then((loadedConversations) => {
+        conversations = loadedConversations;
+      });
+    });
+  }
 
   async function refreshAvailableCredits(delay:number = 5000) {
     if (config.apiKey) {
@@ -121,6 +130,9 @@
 
   async function authenticateCloudStorage() {
     cloud_storage_requires_authentication = !(await initCloudStorage());
+    if (!cloud_storage_requires_authentication) {
+      initialize();
+    }
   }
 </script>
 
