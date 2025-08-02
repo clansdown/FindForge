@@ -92,7 +92,7 @@
             const progress = (value: number) => {
                 console.log(value);
             };
-            migrateToCloudStorage(provider, progress).then(() => {
+            migrateToCloudStorage(progress).then(() => {
                 alert("Migration to Google Drive completed.");
                 loadGoogleDriveFiles();
             }).catch((error) => {

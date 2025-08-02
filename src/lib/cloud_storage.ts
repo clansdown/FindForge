@@ -385,10 +385,6 @@ export async function migrateToCloudStorage(progressCallback?: (progress: number
         throw new Error('No cloud storage provider configured');
     }
 
-    if (currentProvider !== StorageProvider.GoogleDrive) {
-        throw new Error(`Migration not supported for provider: ${currentProvider}`);
-    }
-
     // Make sure OPFS is available
     const { isOpfsReady, listOpfsDirectory, readOpfsFile } = await import('./opfs_storage');
     if (!await isOpfsReady()) {
