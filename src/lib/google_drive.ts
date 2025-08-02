@@ -53,7 +53,12 @@ const GAPI_DISCOVERY_DOC = "https://www.googleapis.com/discovery/v1/apis/drive/v
  */
 export function isGoogleDriveSetUp(): boolean {
     const savedToken = getLocalPreference<StoredGoogleTokenResponse | null>(STORAGE_KEY, null);
-    return !!savedToken?.access_token && Date.now() < savedToken.expires_at;
+    return !!savedToken?.access_token;
+}
+
+export function doesGoogleDriveTokenNeedRefresh(): boolean {
+    const savedToken = getLocalPreference<StoredGoogleTokenResponse | null>(STORAGE_KEY, null);
+    return savedToken ? Date.now() >= savedToken.expires_at - 60000 : false;
 }
 
 
@@ -458,11 +463,7 @@ export async function migrateToGoogleDrive(
 
         // Read file content and write to Drive
         const content = await file.getContent();
-        await writeDriveFile(
-            file.name,
-            content,
-            parentId
-        );
+        await writeDriveFile(file.name, content, parentId);
 
         processedFiles++;
         if (progressCallback) {

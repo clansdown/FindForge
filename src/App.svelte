@@ -8,6 +8,7 @@
   import { fetchOpenRouterCredits } from './lib/models';
   import Intro from './Intro.svelte';
   import { getLocalPreferenceStore } from './lib/storage';
+    import { doesCloudStorageRequireAuthentication, initCloudStorage } from './lib/cloud_storage';
   
   let config : Config;
   let showHistory = true;
@@ -23,6 +24,7 @@
   };
   let conversations: ConversationData[] = [];
   let availableOpenrouterCredits: OpenRouterCredits | undefined;
+  let cloud_storage_requires_authentication = doesCloudStorageRequireAuthentication();
 
   loadConfig().then((loadedConfig) => {
     config = loadedConfig;
@@ -116,25 +118,40 @@
     const event = new CustomEvent('openSettings');
     document.dispatchEvent(event);
   }
+
+  async function authenticateCloudStorage() {
+    cloud_storage_requires_authentication = !(await initCloudStorage());
+  }
 </script>
 
 <main>
   <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} credits={availableOpenrouterCredits} {applicationMode} />
-  {#if config?.apiKey}
-    <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
-    <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
-      {#if showHistory}
-        <div class="history-container" style="width: {config.historyWidth}px">
-          <History {config} {conversations} {setCurrentConversation} {removeConversation} />
+  {#if cloud_storage_requires_authentication}
+    <div class="alert">
+      Cloud storage authentication is required.
+      <div class="row my-4">
+        <div class="col text-center">
+          <button class="btn btn-primary" style="margin: auto;" on:click={authenticateCloudStorage}>Authenticate</button>
         </div>
-        <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
-      {/if}
-      <div class="conversation-container">
-        <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {refreshAvailableCredits} availableCredits={availableOpenrouterCredits} {applicationMode} />
       </div>
     </div>
   {:else}
-    <Intro on:openSettings={openSettings} />
+    {#if config?.apiKey}
+      <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
+      <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
+        {#if showHistory}
+          <div class="history-container" style="width: {config.historyWidth}px">
+            <History {config} {conversations} {setCurrentConversation} {removeConversation} />
+          </div>
+          <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
+        {/if}
+        <div class="conversation-container">
+          <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {refreshAvailableCredits} availableCredits={availableOpenrouterCredits} {applicationMode} />
+        </div>
+      </div>
+    {:else}
+      <Intro on:openSettings={openSettings} />
+    {/if}
   {/if}
 </main>
 
@@ -178,5 +195,9 @@
     overflow: hidden;
   }
   
+  .alert {
+    margin: 3rem auto;
+    padding: 1rem;
+  }
 
 </style>

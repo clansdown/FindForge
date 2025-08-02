@@ -140,16 +140,16 @@ export async function loadConfig(): Promise<Config> {
   const config = new Config();
   let configJson = localStorage.getItem(STORAGE_KEY);
 
-  if (await isCloudStorageReady()) {
     try {
-      const cloudConfig = await readCloudFile('config.json');
-      if (cloudConfig) {
-        configJson = cloudConfig;
-      }
+        if (await isCloudStorageReady()) {
+            const cloudConfig = await readCloudFile('config.json');
+            if (cloudConfig) {
+                configJson = cloudConfig;
+            }
+        }
     } catch (e) {
-      console.error('Failed to read config from cloud storage', e);
+        console.error('Failed to read config from cloud storage', e);
     }
-  }
 
   if (configJson) {
     try {

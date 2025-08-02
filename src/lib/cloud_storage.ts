@@ -1,4 +1,4 @@
-import { authorizeDrive, createDriveFolder, deleteDriveFileByName, isGoogleDriveSetUp, listDriveFiles, writeDriveFile } from './google_drive';
+import { authorizeDrive, createDriveFolder, deleteDriveFileByName, doesGoogleDriveTokenNeedRefresh, isGoogleDriveSetUp, listDriveFiles, writeDriveFile } from './google_drive';
 import { type MessageData, type ConversationData, type Config } from './types';
 
 export enum StorageProvider {
@@ -23,6 +23,26 @@ export function isCloudStorageConfigured(): boolean {
         return true;
     }
     // Future: Add checks for other providers here
+    return false;
+}
+
+/**
+ * Checks if cloud storage is configured but requires authentication
+ * (e.g. token has expired)
+ * @returns true if authentication is required, false otherwise
+ */
+export function doesCloudStorageRequireAuthentication(): boolean {
+    if (!isCloudStorageConfigured()) {
+        return false;
+    }
+
+    if (currentProvider === StorageProvider.GoogleDrive) {
+        return doesGoogleDriveTokenNeedRefresh();
+    }
+    
+    // Future: Add checks for other providers here
+    
+    // If no provider-specific check exists, default to false
     return false;
 }
 
@@ -335,12 +355,21 @@ export async function getCloudDirectoryList(
  * Checks if cloud storage is available and initialized
  * @param provider Storage provider to check
  * @returns Promise resolving to boolean indicating if storage is ready
+ * Logs any errors that occur rather than throwing them
  */
 export async function isCloudStorageReady(): Promise<boolean> {
-    if (!isInitialized) {
-        await initCloudStorage();
+    try {
+        if (!isInitialized) {
+            await initCloudStorage().catch(e => {
+                console.error('Error initializing cloud storage:', e);
+                return false;
+            });
+        }
+        return !!currentProvider;
+    } catch (e) {
+        console.error('Unexpected error in isCloudStorageReady:', e);
+        return false;
     }
-    return !!currentProvider;
 }
 
 /**
@@ -349,12 +378,69 @@ export async function isCloudStorageReady(): Promise<boolean> {
  * @param progressCallback Optional progress callback
  * @returns Promise resolving when migration is complete
  */
-export async function migrateToCloudStorage(
-    provider: StorageProvider,
-    progressCallback?: (progress: number) => void
-): Promise<void> {
-    // TODO: Implement migration logic
-    throw new Error('Not implemented');
+export async function migrateToCloudStorage(progressCallback?: (progress: number) => void): Promise<void> {
+    await ensureInitialized();
+    
+    if (!currentProvider) {
+        throw new Error('No cloud storage provider configured');
+    }
+
+    if (currentProvider !== StorageProvider.GoogleDrive) {
+        throw new Error(`Migration not supported for provider: ${currentProvider}`);
+    }
+
+    // Make sure OPFS is available
+    const { isOpfsReady, listOpfsDirectory, readOpfsFile } = await import('./opfs_storage');
+    if (!await isOpfsReady()) {
+        throw new Error('OPFS storage is not available');
+    }
+
+    // First count total items for progress tracking
+    let totalItems = 0;
+    async function countItems(path: string): Promise<number> {
+        const { files, directories } = await listOpfsDirectory(path);
+        let count = files.length;
+        for (const dir of directories) {
+            count += await countItems(dir.path);
+        }
+        return count;
+    }
+    totalItems = await countItems('.');
+
+    if (totalItems === 0) {
+        progressCallback?.(100);
+        return; // Nothing to migrate
+    }
+
+    let processedItems = 0;
+    
+    async function migrateDirectory(path: string, parentId?: string): Promise<void> {
+        const { files, directories } = await listOpfsDirectory(path);
+        
+        // Create directory structure first
+        let cloudDirId = parentId;
+        if (path !== '.') {
+            const dirName = path.split('/').slice(-1)[0];
+            cloudDirId = await createDriveFolder(dirName, parentId);
+            processedItems++;
+            progressCallback?.(Math.floor(processedItems / totalItems * 100));
+        }
+
+        // Migrate files
+        for (const file of files) {
+            const content = await readOpfsFile(file.path);
+            await writeDriveFile(file.name, content, cloudDirId);
+            processedItems++;
+            progressCallback?.(Math.floor(processedItems / totalItems * 100));
+        }
+
+        // Recursively migrate subdirectories
+        for (const dir of directories) {
+            await migrateDirectory(dir.path, cloudDirId);
+        }
+    }
+
+    await migrateDirectory('.');
 }
 
 /**

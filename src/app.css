@@ -368,7 +368,29 @@ select {
 .ms-4 { margin-left: 1rem; }
 .ms-5 { margin-left: 1.5rem; }
 
+.text-center {
+  text-align: center !important;
+}
 
 .svelte-select-list {
   background: var(--background);
 }
+
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+  background-color: #007bff;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-primary {
+  background-color: #006bEf;
+  color: white;
+}
+
