@@ -676,7 +676,8 @@
 
     <!-- Conversation content will go here -->
     <div class="conversation-window">
-        <div bind:this={conversationDiv} class="conversation-content" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <div bind:this={conversationDiv} class="conversation-content" role="region" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
             {#each currentConversation.messages as message (message.id)}
                 <Message
                     message={message}

@@ -1,5 +1,5 @@
 /push_to_production.sh
-/gdrive_secrets
+/public/clerk-key.js
 
 # Logs
 logs
@@ -25,8 +25,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-/public/google_api_config.json
 .aider.*
 .aider*
 .stylelintrc.json
 sample_deep_query_prompts.txt
+
+# Local generation statistics
+.commit/

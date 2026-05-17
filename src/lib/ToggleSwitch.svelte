@@ -60,9 +60,6 @@
         transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     }
 
-    .form-check-input:checked {
-        
-    }
     .form-check-input:checked::before {
         transform: translateX(1em); /* Moves the toggle knob to the right */
     }

@@ -1,64 +1,40 @@
 import { type Writable, writable } from 'svelte/store';
 import { Config, type ConversationData } from './types';
-import { isCloudStorageReady, writeCloudFile, readCloudFile, StorageProvider } from './cloud_storage';
-import { 
+import {
     initOpfsStorage,
-    getOpfsDirectory,
-    writeOpfsFile,
-    readOpfsFile,
-    deleteOpfsFile,
-    listOpfsDirectory
-} from './opfs_storage';
-import { listDriveFiles } from './google_drive';
+    writeLocalFile,
+    readLocalFile,
+    deleteLocalFile,
+    listLocalDirectory,
+    getOPFSHandle,
+    readCredential,
+    writeCredential
+} from './opfs';
+import { recordWrite, recordDelete } from '../syncJournal';
+import { queueSync, computeHash } from '../cloudSync';
+import { syncCredentialToCloud } from '../cloudSync';
 
 let conversationsDirHandle: FileSystemDirectoryHandle | null = null;
-
-// NOTE: brave doesn't allow filesystem API other than OPFS by default, so if we ever offer it we'll need to give the user a message if window.showDirectoryPicker doesn't exist
-declare global {
-    interface Window {
-        showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle>;
-    }
-}
+let opfsAvailable = false;
 
 const STORAGE_KEY = 'appConfig';
 const CONVERSATION_IDS_KEY = 'conversationIDs';
-const STORAGE_LOCK_KEY = 'storageLock';
-const LOCK_TIMEOUT_MS = 5000; // 5 second lock timeout
 let conversationsCache: ConversationData[] | null = null;
 
-/**
- * Attempts to acquire a storage lock
- * @returns true if lock was acquired, false if already locked
- */
-export function acquireStorageLock(): boolean {
-    const lock = localStorage.getItem(STORAGE_LOCK_KEY);
-    if (lock) {
-        const lockTime = parseInt(lock);
-        if (Date.now() - lockTime < LOCK_TIMEOUT_MS) {
-            return false; // Lock is still valid
-        }
-        // Lock expired - we can take it
-    }
-    localStorage.setItem(STORAGE_LOCK_KEY, Date.now().toString());
-    return true;
+// ── localStorage helpers (kept for transition fallback) ──
+
+export function getLocalPreference<T>(key: string, defaultValue: T): T {
+    const value = localStorage.getItem(key);
+    if (value === null) return defaultValue;
+    try { return JSON.parse(value) as T; } catch { return defaultValue; }
 }
 
-/**
- * Releases the storage lock
- */
-export function releaseStorageLock(): void {
-    localStorage.removeItem(STORAGE_LOCK_KEY);
+export function setLocalPreference(key: string, value: unknown): void {
+    localStorage.setItem(key, JSON.stringify(value));
 }
 
-/**
- * Creates a Svelte store backed by localStorage
- * @param key Storage key
- * @param defaultValue Default value if not set in storage
- * @returns A writable Svelte store synchronized with localStorage
- */
 export function getLocalPreferenceStore<T>(key: string, defaultValue: T): Writable<T> {
     const { subscribe, set } = writable<T>(getLocalPreference(key, defaultValue));
-    
     return {
         subscribe,
         set(value: T) {
@@ -73,363 +49,287 @@ export function getLocalPreferenceStore<T>(key: string, defaultValue: T): Writab
     };
 }
 
-/**
- * Gets a preference value from localStorage, returning the default if not set
- * @param key Preference key
- * @param defaultValue Default value to return if preference not set
- * @returns The stored preference value or defaultValue if not set
- */
-export function getLocalPreference<T>(key: string, defaultValue: T): T {
-    const value = localStorage.getItem(key);
-    if (value === null) {
-        return defaultValue;
-    }
-    try {
-        return JSON.parse(value) as T;
-    } catch {
-        return defaultValue;
-    }
-}
-
-/**
- * Sets a preference value in localStorage
- * @param key Preference key
- * @param value Value to store
- */
-export function setLocalPreference(key: string, value: unknown): void {
-    localStorage.setItem(key, JSON.stringify(value));
-}
-
-/**
- * Waits to acquire a storage lock with retries
- * @param maxRetries Maximum number of retry attempts
- * @param retryDelayMs Delay between retries in milliseconds
- * @returns Promise that resolves when lock is acquired or rejects if max retries reached
- */
-export function waitForStorageLock(maxRetries = 10, retryDelayMs = 200): Promise<void> {
-    return new Promise((resolve, reject) => {
-        let attempts = 0;
-        const tryAcquire = () => {
-            if (acquireStorageLock()) {
-                resolve();
-            } else if (attempts >= maxRetries) {
-                reject(new Error('Failed to acquire storage lock after maximum retries'));
-            } else {
-                attempts++;
-                setTimeout(tryAcquire, retryDelayMs);
-            }
-        };
-        tryAcquire();
-    });
-}
+// ── Config persistence ──
 
 export async function saveConfig(config: Config): Promise<void> {
-  const configJson = JSON.stringify(config);
-  localStorage.setItem(STORAGE_KEY, configJson);
-  
-  if (await isCloudStorageReady()) {
-    try {
-      await writeCloudFile('config.json', configJson, 'application/json');
-    } catch (e) {
-      console.error('Failed to save config to cloud storage', e);
+    // Save apiKey to shared credentials
+    if (config.apiKey) {
+        try {
+            await writeCredential('openrouter', config.apiKey);
+            syncCredentialToCloud('openrouter').catch(err =>
+                console.error('Failed to sync credential to cloud:', err)
+            );
+        } catch (err) {
+            console.error('Failed to save API key to credentials:', err);
+        }
     }
-  }
+
+    // Strip apiKey and save config to OPFS
+    const { apiKey, ...configWithoutKey } = config;
+    const configJson = JSON.stringify(configWithoutKey);
+
+    try {
+        await writeLocalFile('preferences/config.json', configJson);
+        const hash = computeHash(configJson);
+        recordWrite('preferences/config.json', hash);
+        queueSync();
+    } catch (err) {
+        console.error('Failed to save config to OPFS, falling back to localStorage:', err);
+    }
+
+    // Always keep localStorage fallback during transition
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
 export async function loadConfig(): Promise<Config> {
-  const config = new Config();
-  let configJson = localStorage.getItem(STORAGE_KEY);
+    const config = new Config();
 
+    // Try OPFS first
     try {
-        if (await isCloudStorageReady()) {
-            const cloudConfig = await readCloudFile('config.json');
-            if (cloudConfig) {
-                configJson = cloudConfig;
+        const configJson = await readLocalFile('preferences/config.json');
+        if (configJson) {
+            const parsed = JSON.parse(configJson);
+            Object.assign(config, parsed);
+        }
+    } catch {
+        // OPFS not available yet, will try localStorage
+    }
+
+    // Fall back to localStorage
+    if (!config.apiKey) {
+        const localConfig = localStorage.getItem(STORAGE_KEY);
+        if (localConfig) {
+            try {
+                const parsed = JSON.parse(localConfig);
+                Object.assign(config, parsed);
+            } catch (err) {
+                console.error('Failed to parse localStorage config:', err);
             }
         }
-    } catch (e) {
-        console.error('Failed to read config from cloud storage', e);
     }
 
-  if (configJson) {
+    // Read API key from shared credentials
     try {
-      const parsed = JSON.parse(configJson);
-      Object.assign(config, parsed);
-      config.ensureDefaults(); // Ensure defaults are set
-    } catch (e) {
-      console.error('Failed to parse saved config', e);
+        const credKey = await readCredential('openrouter');
+        if (credKey) {
+            config.apiKey = credKey;
+        }
+    } catch {
+        // Credentials not available
     }
-  }
-  
-  return config;
+
+    config.ensureDefaults();
+
+    // Promote: if we loaded from localStorage but OPFS is empty, save to OPFS now
+    try {
+        const existing = await readLocalFile('preferences/config.json');
+        if (!existing && localStorage.getItem(STORAGE_KEY)) {
+            await saveConfig(config);
+        }
+    } catch {
+        // Promotion can fail silently
+    }
+
+    return config;
+}
+
+// ── Conversation persistence ──
+
+export async function initializeConversationStorage(): Promise<FileSystemDirectoryHandle> {
+    if (conversationsDirHandle) return conversationsDirHandle;
+
+    try {
+        await initOpfsStorage();
+        opfsAvailable = true;
+    } catch {
+        opfsAvailable = false;
+        throw new Error('OPFS storage is not available');
+    }
+
+    const appHandle = await getOPFSHandle();
+    conversationsDirHandle = await appHandle.getDirectoryHandle('conversations', { create: true });
+
+    return conversationsDirHandle;
 }
 
 export async function storeConversation(conversation: ConversationData): Promise<void> {
-    // Reload IDs fresh from storage to avoid race conditions
+    const convJson = JSON.stringify(conversation);
+    const hash = computeHash(convJson);
     const ids = await loadConversationIDs();
-    const cloudStorageAvailable = await isCloudStorageReady();
-    const dirHandle = getConversationsDirHandle();
-    
+
+    // Write conversation file
+    const convPath = `conversations/conversation_${conversation.id}.json`;
     try {
-        if (!ids.includes(conversation.id)) {
-            ids.push(conversation.id);
-            if (cloudStorageAvailable) {
-                await writeCloudFile('conversations/conversation_list.json', JSON.stringify(ids), 'application/json');
-            } else if (dirHandle) {
-                await writeOpfsFile('conversations/conversation_list.json', JSON.stringify(ids));
-            } else {
-                localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
-            }
-        }
-
-        // Store the conversation
-        if (cloudStorageAvailable) {
-            await writeCloudFile(`conversations/conversation_${conversation.id}.json`, JSON.stringify(conversation), 'application/json');
-        } else if (dirHandle) {
-            await writeOpfsFile(`conversations/conversation_${conversation.id}.json`, JSON.stringify(conversation));
-        } else {
-            localStorage.setItem(`conversation_${conversation.id}`, JSON.stringify(conversation));
-        }
-
-        // Invalidate cache and reload it
-        conversationsCache = null;
-        loadConversations();
-    } catch (e) {
-        console.error('Failed to store conversation', e);
-        throw e;
+        await writeLocalFile(convPath, convJson);
+        recordWrite(convPath, hash);
+    } catch (err) {
+        console.error('Failed to write conversation to OPFS:', err);
+        localStorage.setItem(`conversation_${conversation.id}`, convJson);
     }
+
+    // Update conversation list
+    if (!ids.includes(conversation.id)) {
+        ids.push(conversation.id);
+        const listJson = JSON.stringify(ids);
+        const listHash = computeHash(listJson);
+        try {
+            await writeLocalFile('conversations/conversation_list.json', listJson);
+            recordWrite('conversations/conversation_list.json', listHash);
+        } catch {
+            localStorage.setItem(CONVERSATION_IDS_KEY, listJson);
+        }
+    }
+
+    queueSync();
+
+    // Invalidate cache
+    conversationsCache = null;
+    loadConversations();
 }
 
 export async function loadConversations(): Promise<ConversationData[]> {
-    if (conversationsCache) {
-        return conversationsCache;
-    }
+    if (conversationsCache) return conversationsCache;
 
     const conversations: ConversationData[] = [];
-    const cloudStorageAvailable = await isCloudStorageReady();
-    const dirHandle = getConversationsDirHandle();
+    const seen = new Set<string>();
 
-    // Load from cloud storage if available
-    if (cloudStorageAvailable) {
-        try {
-            const files = await listDriveFiles('conversations');
-            for (const file of files.files || []) {
-                if (file.name?.startsWith('conversation_') && file.name.endsWith('.json')) {
+    // Try OPFS first
+    try {
+        const listJson = await readLocalFile('conversations/conversation_list.json');
+        if (listJson) {
+            const ids = JSON.parse(listJson) as string[];
+            for (const id of ids) {
+                const content = await readLocalFile(`conversations/conversation_${id}.json`);
+                if (content) {
                     try {
-                        const content = await readCloudFile(`conversations/${file.name}`);
                         const conv = JSON.parse(content) as ConversationData;
-                        conversations.push(conv);
-                    } catch (e) {
-                        console.error(`Failed to read conversation file ${file.name} from cloud storage`, e);
+                        if (!seen.has(conv.id)) {
+                            seen.add(conv.id);
+                            conversations.push(conv);
+                        }
+                    } catch {
+                        console.error(`Failed to parse conversation ${id} from OPFS`);
                     }
                 }
             }
-        } catch (e) {
-            console.error('Error listing cloud storage conversation files', e);
         }
+    } catch {
+        // OPFS not available
     }
 
-    // Load from OPFS if available
-    if (dirHandle) {
-        try {
-            const { files } = await listOpfsDirectory('conversations');
-            for (const file of files) {
-                if (file.name.startsWith('conversation_') && file.name.endsWith('.json')) {
-                    try {
-                        const content = await readOpfsFile(`conversations/${file.name}`);
-                        const conv = JSON.parse(content) as ConversationData;
-                        conversations.push(conv);
-                    } catch (e: any) {
-                        if (e.name !== 'NotFoundError') {
-                            console.error(`Failed to read conversation file ${file.name} from OPFS`, e);
+    // Fall back to localStorage
+    if (conversations.length === 0) {
+        const item = localStorage.getItem(CONVERSATION_IDS_KEY);
+        if (item) {
+            try {
+                const ids = JSON.parse(item) as string[];
+                for (const id of ids) {
+                    const convData = localStorage.getItem(`conversation_${id}`);
+                    if (convData) {
+                        try {
+                            const conv = JSON.parse(convData) as ConversationData;
+                            if (!seen.has(conv.id)) {
+                                seen.add(conv.id);
+                                conversations.push(conv);
+                            }
+                        } catch {
+                            console.error(`Failed to parse conversation ${id} from localStorage`);
                         }
                     }
                 }
+            } catch {
+                console.error('Failed to parse conversation IDs from localStorage');
             }
-        } catch (e) {
-            console.error('Error listing OPFS conversation files', e);
         }
     }
 
-    // Load from localStorage
-    const item = localStorage.getItem(CONVERSATION_IDS_KEY);
-    if (item) {
-        try {
-            const ids = JSON.parse(item) as string[];
-            for (const id of ids) {
-                const conversation = localStorage.getItem(`conversation_${id}`);
-                if (conversation) {
-                    try {
-                        const conv = JSON.parse(conversation) as ConversationData;
-                        conversations.push(conv);
-                    } catch (e) {
-                        console.error(`Failed to parse conversation ${id} from localStorage`, e);
-                    }
-                }
-            }
-        } catch (e) {
-            console.error('Failed to parse conversation IDs from localStorage', e);
-        }
-    }
-
-    // Sort all conversations by updated time (newest first)
     conversations.sort((a, b) => b.updated - a.updated);
-
     conversationsCache = conversations;
     return conversations;
 }
 
 export async function deleteConversation(id: string): Promise<void> {
-    // Remove from IDs list
-    const ids = await loadConversationIDs();
-    const index = ids.indexOf(id);
-    if (index >= 0) {
-        ids.splice(index, 1);
-        localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids));
-    }
-    
-    // Remove the conversation data from both storage locations
+    // Delete from OPFS
+    const convPath = `conversations/conversation_${id}.json`;
     try {
-        localStorage.removeItem(`conversation_${id}`);
-        
-        // Try directory storage if available
-        const dirHandle = getConversationsDirHandle();
-        if (dirHandle) {
-            try {
-                await deleteOpfsFile(`conversations/conversation_${id}.json`);
-            } catch (e: any) {
-                if (e.name !== 'NotFoundError') {
-                    console.error(`Failed to delete conversation ${id} from directory storage`, e);
-                }
-            }
+        await deleteLocalFile(convPath);
+        recordDelete(convPath);
+    } catch (err: unknown) {
+        if (!(err instanceof DOMException && err.name === 'NotFoundError')) {
+            console.error(`Failed to delete conversation ${id} from OPFS:`, err);
         }
-    } catch (e) {
-        console.error(`Error deleting conversation ${id}`, e);
     }
-    
-    // Update cache if exists
-    if (conversationsCache) {
-        const cacheIndex = conversationsCache.findIndex(c => c.id === id);
-        if (cacheIndex >= 0) {
-            conversationsCache.splice(cacheIndex, 1);
+
+    // Remove from localStorage too
+    localStorage.removeItem(`conversation_${id}`);
+
+    // Update conversation list
+    const listJson = await readLocalFile('conversations/conversation_list.json');
+    if (listJson) {
+        try {
+            const ids = JSON.parse(listJson) as string[];
+            const filtered = ids.filter(i => i !== id);
+            const newList = JSON.stringify(filtered);
+            const listHash = computeHash(newList);
+            await writeLocalFile('conversations/conversation_list.json', newList);
+            recordWrite('conversations/conversation_list.json', listHash);
+        } catch (err) {
+            console.error('Failed to update conversation list:', err);
         }
+    }
+
+    // Update localStorage list
+    const localIds = localStorage.getItem(CONVERSATION_IDS_KEY);
+    if (localIds) {
+        try {
+            const ids = JSON.parse(localIds) as string[];
+            localStorage.setItem(CONVERSATION_IDS_KEY, JSON.stringify(ids.filter(i => i !== id)));
+        } catch { /* ignore */ }
+    }
+
+    queueSync();
+
+    // Invalidate cache
+    if (conversationsCache) {
+        conversationsCache = conversationsCache.filter(c => c.id !== id);
     }
 }
 
-/**
- * Initializes the Origin Private File System storage and gets a directory handle
- * for the 'conversations' directory.
- * @returns Promise that resolves with the directory handle
- */
-export async function initializeConversationStorage(): Promise<FileSystemDirectoryHandle> {
-    if (conversationsDirHandle) {
-        return conversationsDirHandle;
+async function loadConversationIDs(): Promise<string[]> {
+    // Try OPFS
+    try {
+        const listJson = await readLocalFile('conversations/conversation_list.json');
+        if (listJson) return JSON.parse(listJson) as string[];
+    } catch {
+        // Not available
     }
 
-    await initOpfsStorage();
-    
-    try {
-        conversationsDirHandle = await getOpfsDirectory('conversations', true);
-        return conversationsDirHandle;
-    } catch (e) {
-        console.error('Failed to initialize conversation storage', e);
-        throw e;
+    // Fall back to localStorage
+    const item = localStorage.getItem(CONVERSATION_IDS_KEY);
+    if (item) {
+        try { return JSON.parse(item) as string[]; } catch { /* ignore */ }
     }
+
+    return [];
 }
 
 export function getConversationsDirHandle(): FileSystemDirectoryHandle | null {
     return conversationsDirHandle;
 }
 
-/**
- * Checks if there are any local files stored in either localStorage or OPFS
- * (excluding cloud tokens). Used to determine if there's local data to migrate.
- * @returns Promise that resolves to true if local files exist, false otherwise
- */
 export async function isLocalStorageInUse(): Promise<boolean> {
-    // Check localStorage for conversations or config
-    if (localStorage.getItem(STORAGE_KEY) !== null) {
-        return true;
-    }
-    if (localStorage.getItem(CONVERSATION_IDS_KEY) !== null) {
-        return true;
-    }
-    
-    // Check for localStorage conversations (by checking for any conversation_* keys)
+    if (localStorage.getItem(STORAGE_KEY) !== null) return true;
+    if (localStorage.getItem(CONVERSATION_IDS_KEY) !== null) return true;
+
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith('conversation_') && !key.includes('google_drive_token')) {
-            return true;
-        }
+        if (key && key.startsWith('conversation_')) return true;
     }
 
-    // Check OPFS storage if available
-    const dirHandle = getConversationsDirHandle();
-    if (dirHandle) {
-        try {
-            for await (const [name] of dirHandle) {
-                if (name !== 'conversation_list.json' && name.startsWith('conversation_')) {
-                    return true;
-                }
-            }
-        } catch (e) {
-            console.error('Error checking OPFS for files', e);
-        }
-    }
-
-    return false;
-}
-
-async function loadConversationIDs(): Promise<string[]> {
-    let ids: string[] = [];
-    const cloudStorageAvailable = await isCloudStorageReady();
-
-    // Try cloud storage first if available
-    if (cloudStorageAvailable) {
-        try {
-            const content = await readCloudFile('conversations/conversation_list.json');
-            return JSON.parse(content) as string[];
-        } catch (e) {
-            console.error('Failed to read conversation IDs from cloud storage', e);
-        }
-    }
-
-    // Try OPFS directory next if available
     try {
-        const dirHandle = getConversationsDirHandle();
-        if (dirHandle) {
-            console.log('Scanning OPFS conversation files');
-            const { files } = await listOpfsDirectory('conversations');
-            
-            const conversationFiles = files.map(file => {
-                    const match = file.name.match(/^conversation_([^.]+)\.json$/);
-                    return match ? {
-                        id: match[1],
-                        modified: file.lastModified
-                    } : null;
-                })
-                .filter(Boolean) as { id: string; modified: Date }[];
-            
-            // Sort by last modified (newest first)
-            conversationFiles.sort((a, b) => b.modified.getTime() - a.modified.getTime());
-            ids = conversationFiles.map(file => file.id);
-            console.log('Found conversation IDs in OPFS:', ids);
-            return ids;
-        }
-    } catch (e) {
-        console.error('Error scanning OPFS for conversation files', e);
+        const { files } = await listLocalDirectory('conversations');
+        return files.length > 0;
+    } catch {
+        return false;
     }
-
-    // Fall back to localStorage if other methods failed
-    const item = localStorage.getItem(CONVERSATION_IDS_KEY);
-    if (item) {
-        try {
-            ids = JSON.parse(item) as string[];
-        } catch (e) {
-            console.error('Failed to parse conversation IDs from localStorage', e);
-        }
-    }
-    console.log('Loaded conversation IDs from localStorage:', ids);
-
-    return ids;
 }

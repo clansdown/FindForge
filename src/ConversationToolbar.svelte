@@ -247,8 +247,9 @@
             </div>
             {#if experimentationOptions.parallelResearch}
                 <div class="toolbar-group" title="Select system prompts to use in parallel research">
-                    <label>Prompts:</label>
+                    <label for="parallel-prompts-select">Prompts:</label>
                     <Select
+                        id="parallel-prompts-select"
                         multiple
                         items={config.systemPrompts.map((p) => ({ value: p, label: p.name }))}
                         bind:value={selectedSystemPrompts}
@@ -256,8 +257,8 @@
                     />
                 </div>
                 <div class="toolbar-group" title="Select models to use in parallel research">
-                    <label>Models:</label>
-                    <Select multiple items={parallelModelOptions} bind:value={selectedParallelModels} placeholder="Select models..." />
+                    <label for="parallel-models-select">Models:</label>
+                    <Select multiple items={parallelModelOptions} bind:value={selectedParallelModels} placeholder="Select models..." id="parallel-models-select" />
                 </div>
             {/if}
         </div>

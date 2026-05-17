@@ -37,10 +37,6 @@
   </p>
   <button on:click={() => dispatch('openSettings')}>Open Settings to Add API Key</button>
 
-  <p class="my-4">Or, if you've set up FindForge on another device and used cloud storage, just set up cloud storage on this device:</p>
-
-  <button on:click={() => dispatch('openCloudStorage')}>Open Cloud Storage Settings</button>
-
 </div>
 
 <style>
@@ -72,11 +68,6 @@
     margin-bottom: 1rem;
     text-justify: inter-word;
     text-align: justify;
-  }
-  
-  ul {
-    text-align: left;
-    margin-bottom: 1.5rem;
   }
   
   button {

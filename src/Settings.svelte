@@ -6,7 +6,13 @@
     import ModalDialog from "./lib/ModalDialog.svelte";
     import { generateID } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
-    import { listDriveFiles, readDriveFile } from "./lib/google_drive";
+    import {
+        getCloudSyncState,
+        enableCloudSync,
+        disableCloudSync,
+        triggerManualSync,
+        isSignedIn
+    } from "./cloudSync";
 
     export let config: Config;
     export let isOpen: boolean = false;
@@ -18,7 +24,7 @@
     let openrouterModels: Model[] = [];
     let availableModels: Model[] = [];
     let modelFetchError: string | null = null;
-    let currentTab: "general" | "model" | "deep-research" | "cloud-storage" = config?.apiKey ? "general" : "model";
+    let currentTab: "general" | "model" | "deep-research" | "cloud-sync" = config?.apiKey ? "general" : "model";
     let modelFilter = "";
     let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;
@@ -231,13 +237,16 @@
 
     <ul class="nav nav-tabs">
         <li class="nav-item" class:active={currentTab === "general"}>
-            <a class="nav-link" href="#" on:click={() => (currentTab = "general")}>Research</a>
+            <button class="nav-link" on:click={() => (currentTab = "general")}>Research</button>
         </li>
         <li class="nav-item" class:active={currentTab === "deep-research"}>
-            <a class="nav-link" href="#" on:click={() => (currentTab = "deep-research")}>Deep Research</a>
+            <button class="nav-link" on:click={() => (currentTab = "deep-research")}>Deep Research</button>
         </li>
         <li class="nav-item" class:active={currentTab === "model"}>
-            <a class="nav-link" href="#" on:click={() => (currentTab = "model")}>Models</a>
+            <button class="nav-link" on:click={() => (currentTab = "model")}>Models</button>
+        </li>
+        <li class="nav-item" class:active={currentTab === "cloud-sync"}>
+            <button class="nav-link" on:click={() => (currentTab = "cloud-sync")}>Cloud Sync</button>
         </li>
     </ul>
 
@@ -548,6 +557,54 @@
                 {/each}
             </div>
         </div>
+    {:else if currentTab === "cloud-sync"}
+        <div class="form-group">
+            <h4>Cloud Sync</h4>
+            <p class="help-text">
+                Sync your settings, conversations, and credentials across devices using FindForge Cloud Storage.
+                {#if !isSignedIn()}
+                    <br/><strong>Sign in with Clerk to enable cloud sync.</strong>
+                {/if}
+            </p>
+        </div>
+
+        {#if isSignedIn()}
+            <div class="form-group">
+                {#if getCloudSyncState().enabled}
+                    <p>Status: <strong>Enabled</strong>
+                        {#if getCloudSyncState().lastSyncTime}
+                            — Last synced: {new Date(getCloudSyncState().lastSyncTime!).toLocaleString()}
+                        {/if}
+                        {#if getCloudSyncState().isSyncing}
+                            — Syncing...
+                        {/if}
+                    </p>
+                    {#if getCloudSyncState().lastSyncError}
+                        <p class="error">Last error: {getCloudSyncState().lastSyncError}</p>
+                    {/if}
+                {:else}
+                    <p>Status: <strong>Disabled</strong></p>
+                {/if}
+            </div>
+
+            <div class="form-group">
+                {#if getCloudSyncState().enabled}
+                    <button on:click={() => disableCloudSync()}>Disable Cloud Sync</button>
+                {:else}
+                    <button on:click={() => enableCloudSync()}>Enable Cloud Sync</button>
+                {/if}
+            </div>
+
+            {#if getCloudSyncState().enabled}
+                <div class="form-group">
+                    <button on:click={() => triggerManualSync().catch(err => alert('Sync failed: ' + err.message))}>Sync Now</button>
+                </div>
+            {/if}
+        {:else}
+            <div class="form-group">
+                <p>Cloud sync requires Clerk authentication. Please sign in.</p>
+            </div>
+        {/if}
     {/if}
 
     <div class="button-group">
@@ -590,36 +647,6 @@
         cursor: pointer;
     }
 
-    .confirmation {
-        margin-top: 1rem;
-        padding: 1rem;
-        background-color: #444;
-        border-radius: 4px;
-    }
-
-    .file-list {
-        margin-top: 1rem;
-        padding: 1rem;
-        background-color: #333;
-        border-radius: 4px;
-        max-height: 300px;
-        overflow-y: auto;
-    }
-
-    .file-list h5 {
-        margin-top: 0;
-    }
-
-    .file-list ul {
-        list-style-type: none;
-        padding: 0;
-    }
-
-    .file-list li {
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #444;
-    }
-    
     button.small {
         padding: 0.25rem 0.5rem;
         margin-left: 0.5rem;

@@ -6,9 +6,9 @@
   import ToolsHelp from './ToolsHelp.svelte';
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
-    import type { Writable } from 'svelte/store';
-    import CloudStorageSettings from './CloudStorageSettings.svelte';
-  
+  import type { Writable } from 'svelte/store';
+  import { getCloudSyncState, triggerManualSync, isSignedIn } from './cloudSync';
+
   export let config: Config;
 
   function copyConfig() {
@@ -16,25 +16,28 @@
     configCopy.apiKey = '[redacted]';
     navigator.clipboard.writeText(JSON.stringify(configCopy, null, 2));
   }
-  
+
   export let showHistory: boolean;
   export let newConversation: () => void;
   export let credits: OpenRouterCredits | undefined;
   export let applicationMode: Writable<ApplicationMode>;
-  
+
   let activeMenu: string | null = null;
   let showSettings = false;
   let showAbout = false;
   let showGettingStarted = false;
   let showTools = false;
-  let showCloudStorage = false;
-  
+
   function toggleMenu(menu: string) {
     activeMenu = activeMenu === menu ? null : menu;
   }
 
   function closeMenu() {
     activeMenu = null;
+  }
+
+  function handleManualSync() {
+    triggerManualSync().catch(err => console.error('Manual sync failed:', err));
   }
 
   onMount(() => {
@@ -48,9 +51,11 @@
       document.removeEventListener('openSettings', handleOpenSettings);
     };
   });
+
+  $: syncState = getCloudSyncState();
 </script>
 
-<div class="menu-bar" on:mouseleave={closeMenu}>
+<div class="menu-bar" role="navigation" aria-label="Main menu" on:mouseleave={closeMenu}>
   <div class="menu-item">
     <button on:click={() => toggleMenu('file')}>App</button>
     {#if activeMenu === 'file'}
@@ -67,13 +72,10 @@
         <button on:click={() => { showSettings = true; closeMenu(); }}>
           Settings
         </button>
-        <button on:click={() => { showCloudStorage = true; closeMenu(); }}>
-          Cloud Storage
-        </button>
       </div>
     {/if}
   </div>
-  
+
   <div class="menu-item">
     <button on:click={() => toggleMenu('view')}>View</button>
     {#if activeMenu === 'view'}
@@ -84,7 +86,7 @@
       </div>
     {/if}
   </div>
-  
+
   <div class="menu-item">
     <button on:click={() => toggleMenu('help')}>Help</button>
     {#if activeMenu === 'help'}
@@ -97,7 +99,23 @@
       </div>
     {/if}
   </div>
-  
+
+  <div class="spacer"></div>
+
+  {#if syncState.enabled}
+    <button class="sync-btn" on:click={handleManualSync} title={syncState.lastSyncTime
+      ? 'Last synced: ' + new Date(syncState.lastSyncTime).toLocaleString()
+      : 'Sync now'}>
+      {#if syncState.isSyncing}
+        Syncing...
+      {:else if syncState.lastSyncError}
+        <span class="sync-error" title={syncState.lastSyncError}>⚠</span>
+      {:else}
+        ↻
+      {/if}
+    </button>
+  {/if}
+
   <div class="credits" title="Available OpenRouter Credits">
     {#if credits}
       Available: ${(credits.total_credits - credits.total_usage).toFixed(2)}
@@ -108,7 +126,6 @@
 {#if config}
 <Settings bind:config bind:isOpen={showSettings} {credits} />
 {/if}
-<CloudStorageSettings bind:isOpen={showCloudStorage} />
 <About bind:isOpen={showAbout} onClose={() => showAbout = false} />
 <ModalDialog isOpen={showGettingStarted} onClose={() => showGettingStarted = false}>
   <GettingStarted />
@@ -122,20 +139,21 @@
     display: flex;
     padding: 0.5rem;
     border-bottom: 1px solid #ddd;
+    align-items: center;
   }
-  
+
   .menu-item {
     position: relative;
     margin-right: 1rem;
   }
-  
+
   .menu-item button {
     background: none;
     border: none;
     cursor: pointer;
     padding: 0.5rem 1rem;
   }
-  
+
   .dropdown {
     position: absolute;
     top: 100%;
@@ -147,13 +165,13 @@
     z-index: 100;
     background: #000;
   }
-  
+
   .dropdown button {
     text-align: left;
     padding: 0.75rem 1rem;
     border-bottom: 1px solid #eee;
   }
-  
+
   .dropdown button:hover {
     background-color: #454545;
   }
@@ -163,9 +181,32 @@
     background-color: #333;
     margin: 4px 0;
   }
-  
+
+  .spacer {
+    flex: 1;
+  }
+
+  .sync-btn {
+    background: none;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0.25rem 0.75rem;
+    margin-right: 1rem;
+    color: #888;
+    font-size: 0.9rem;
+  }
+
+  .sync-btn:hover {
+    border-color: #646cff;
+    color: #646cff;
+  }
+
+  .sync-error {
+    color: #ff6b6b;
+  }
+
   .credits {
-    margin-left: auto;
     padding: 0.5rem 1rem;
     font-size: 0.8rem;
     color: #888;

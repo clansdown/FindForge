@@ -259,6 +259,7 @@
     </div>
 </ModalDialog>
 
+<!-- svelte-ignore css_unused_selector — ul/li/blockquote/pre used by rendered markdown -->
 <style>
     .message-info {
         padding: 1rem;
