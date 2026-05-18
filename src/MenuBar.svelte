@@ -7,7 +7,7 @@
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
   import type { Writable } from 'svelte/store';
-  import { getCloudSyncState, triggerManualSync, isSignedIn } from './cloudSync';
+  import { cloudSyncStore, triggerManualSync, isSignedIn } from './cloudSync';
 
   export let config: Config;
 
@@ -52,7 +52,7 @@
     };
   });
 
-  $: syncState = getCloudSyncState();
+  $: syncState = $cloudSyncStore;
 </script>
 
 <div class="menu-bar" role="navigation" aria-label="Main menu" on:mouseleave={closeMenu}>

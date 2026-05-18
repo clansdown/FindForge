@@ -48,7 +48,6 @@
     const handleConversationUpdated = (e: Event) => {
       const updated = (e as CustomEvent).detail as ConversationData;
       conversations = conversations.map(c => c.id === updated.id ? updated : c);
-      conversations = conversations; // Trigger reactivity
     };
 
     document.addEventListener('configUpdated', handleConfigUpdated);
@@ -104,7 +103,6 @@
       let x = e.clientX - splitContainer.getBoundingClientRect().x;
       config.historyWidth = Math.max(100, x);
       saveConfig(config);
-      config = config; // Trigger reactivity
     }
   }
 
@@ -139,8 +137,7 @@
     if (index >= 0) {
         conversations[index] = conversation;
     } else {
-        conversations.push(conversation);
-        conversations = conversations; // Trigger reactivity
+        conversations = [...conversations, conversation];
     }
     saveConversationStorage(conversation);
   }

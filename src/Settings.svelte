@@ -7,7 +7,7 @@
     import { generateID } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
     import {
-        getCloudSyncState,
+        cloudSyncStore,
         enableCloudSync,
         disableCloudSync,
         triggerManualSync,
@@ -36,6 +36,8 @@
     let currentSynthesisPromptIndex: number = 0;
     let currentSynthesisPromptName: string = '';
     let currentSynthesisPromptText: string = '';
+
+    let configSnapshot = '';
 
     $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
 
@@ -87,6 +89,7 @@
         console.log("Settings dialog opened");
         // Create a deep copy when dialog opens
         localConfig = JSON.parse(JSON.stringify(config));
+        configSnapshot = JSON.stringify(config);
         // Initialize system prompt UI
         if (localConfig.systemPrompts.length > 0) {
             currentSystemPromptIndex = 0;
@@ -158,7 +161,6 @@
             }
         });
         localConfig.availableModels = am;
-        localConfig = localConfig;
     }
 
     function deleteSystemPrompt() {
@@ -225,9 +227,13 @@
 
     function save() {
         setAvailableModelsConfig(openrouterModels);
+        if (configSnapshot && JSON.stringify(config) !== configSnapshot) {
+            if (!confirm('Cloud sync has updated settings while this dialog was open. Overwrite remote changes with your edits?')) {
+                return;
+            }
+        }
         Object.assign(config, localConfig);
         saveConfig(config);
-        config = config; // trigger reactivity
         isOpen = false;
     }
 </script>
@@ -570,17 +576,17 @@
 
         {#if isSignedIn()}
             <div class="form-group">
-                {#if getCloudSyncState().enabled}
+                {#if $cloudSyncStore.enabled}
                     <p>Status: <strong>Enabled</strong>
-                        {#if getCloudSyncState().lastSyncTime}
-                            — Last synced: {new Date(getCloudSyncState().lastSyncTime!).toLocaleString()}
+                        {#if $cloudSyncStore.lastSyncTime}
+                            — Last synced: {new Date($cloudSyncStore.lastSyncTime!).toLocaleString()}
                         {/if}
-                        {#if getCloudSyncState().isSyncing}
+                        {#if $cloudSyncStore.isSyncing}
                             — Syncing...
                         {/if}
                     </p>
-                    {#if getCloudSyncState().lastSyncError}
-                        <p class="error">Last error: {getCloudSyncState().lastSyncError}</p>
+                    {#if $cloudSyncStore.lastSyncError}
+                        <p class="error">Last error: {$cloudSyncStore.lastSyncError}</p>
                     {/if}
                 {:else}
                     <p>Status: <strong>Disabled</strong></p>
@@ -588,14 +594,14 @@
             </div>
 
             <div class="form-group">
-                {#if getCloudSyncState().enabled}
+                {#if $cloudSyncStore.enabled}
                     <button on:click={() => disableCloudSync()}>Disable Cloud Sync</button>
                 {:else}
                     <button on:click={() => enableCloudSync()}>Enable Cloud Sync</button>
                 {/if}
             </div>
 
-            {#if getCloudSyncState().enabled}
+            {#if $cloudSyncStore.enabled}
                 <div class="form-group">
                     <button on:click={() => triggerManualSync().catch(err => alert('Sync failed: ' + err.message))}>Sync Now</button>
                 </div>

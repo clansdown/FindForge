@@ -244,9 +244,11 @@ export async function drainQueue(): Promise<void> {
 
     invalidateCache();
 
-    const sortedPaths = [...dirtyEntries.keys()].sort();
+    const drained = dirtyEntries;
+    dirtyEntries = new Map();
+    const sortedPaths = [...drained.keys()].sort();
     for (const path of sortedPaths) {
-        const entry = dirtyEntries.get(path)!;
+        const entry = drained.get(path)!;
         checkpoint.lastId += 1;
         const journalEntry: SyncJournalEntry = {
             id: checkpoint.lastId,
@@ -258,7 +260,6 @@ export async function drainQueue(): Promise<void> {
         await appendToJournal(checkpoint.currentJournal, journalEntry);
     }
 
-    dirtyEntries.clear();
     await saveCheckpoint();
 
     // Clear recovery data since entries are now persisted

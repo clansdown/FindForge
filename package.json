@@ -15,6 +15,7 @@
     "@types/dom-speech-recognition": "^0.0.6",
     "@types/markdown-it": "^14.1.2",
     "@types/markdown-it-link-attributes": "^3.0.5",
+    "@types/node": "^22.0.0",
     "svelte": "^5.28.1",
     "svelte-check": "^4.1.6",
     "typescript": "~5.8.3",

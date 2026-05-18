@@ -1,3 +1,4 @@
+import { writable } from 'svelte/store';
 import { isSignedIn, getClerkToken, isClerkEnabled } from './auth';
 export { isSignedIn };
 import {
@@ -71,13 +72,23 @@ type CloudSyncState = {
     syncProgress: { current: number; total: number; phase: string } | null;
 };
 
-const STATE: CloudSyncState = {
+const _state: CloudSyncState = {
     enabled: false,
     isSyncing: false,
     lastSyncTime: null,
     lastSyncError: null,
     syncProgress: null
 };
+
+export const cloudSyncStore = writable<CloudSyncState>({ ..._state });
+
+const STATE = new Proxy(_state, {
+    set(target, prop, value) {
+        (target as Record<string, unknown>)[prop as string] = value;
+        cloudSyncStore.set({ ...target });
+        return true;
+    }
+});
 
 let syncReloadCallback: ((changedPaths: string[]) => Promise<void>) | null = null;
 let syncTimerHandle: ReturnType<typeof setInterval> | null = null;
@@ -205,7 +216,8 @@ function getCloudPath(localPath: string): string {
     const requestPath = localPath.startsWith('credentials/')
         ? localPath.slice('credentials/'.length)
         : localPath;
-    return prefix + encodeURIComponent(requestPath);
+    const segments = requestPath.split('/').map(encodeURIComponent).join('/');
+    return prefix + segments;
 }
 
 async function uploadFile(
@@ -223,13 +235,20 @@ async function uploadFile(
     return { etag };
 }
 
-async function downloadFile(localPath: string): Promise<string | ArrayBuffer | null> {
+type DownloadResult = {
+    content: string | ArrayBuffer;
+    etag: string;
+};
+
+async function downloadFile(localPath: string): Promise<DownloadResult | null> {
     try {
         const url = WORKER_BASE_URL + '/' + getCloudPath(localPath);
         const response = await fetchWithAuth(url);
         const contentType = response.headers.get('Content-Type') || '';
-        const isBinary = contentType.startsWith('image/') || localPath.endsWith('.png');
-        return isBinary ? await response.arrayBuffer() : await response.text();
+        const etag = response.headers.get('ETag') || '';
+        const isBinary = contentType.startsWith('image/') || contentType.startsWith('application/octet-stream');
+        const content = isBinary ? await response.arrayBuffer() : await response.text();
+        return { content, etag };
     } catch (err: unknown) {
         if (err instanceof Error && err.message.includes('404')) return null;
         throw err;
@@ -330,25 +349,6 @@ async function saveManifest(manifest: SyncManifest): Promise<void> {
 
 // ── Diff computation ──
 
-async function buildLocalManifest(paths: string[]): Promise<SyncManifest> {
-    const manifest: SyncManifest = {};
-    for (const path of paths) {
-        try {
-            const content = await readLocalFile(path);
-            if (content !== null) {
-                manifest[path] = {
-                    hash: computeHash(content),
-                    etag: '',
-                    mtime: new Date().toISOString()
-                };
-            }
-        } catch {
-            // File not found, skip
-        }
-    }
-    return manifest;
-}
-
 async function computeSyncActions(existingManifest: SyncManifest): Promise<SyncActions> {
     const actions: SyncActions = { uploads: [], downloads: [], conflicts: [], deletions: [] };
 
@@ -389,7 +389,12 @@ async function computeSyncActions(existingManifest: SyncManifest): Promise<SyncA
 
     // Check each local file
     for (const path of appPaths) {
-        const content = await readLocalFile(path);
+        let content: string | null;
+        try {
+            content = await readLocalFile(path);
+        } catch {
+            continue;
+        }
         if (content === null) continue;
 
         const localHash = computeHash(content);
@@ -417,6 +422,7 @@ async function computeSyncActions(existingManifest: SyncManifest): Promise<SyncA
 
     // Check remote files not in local
     for (const remoteFile of remoteFiles) {
+        if (remoteFile.path === CLOUD_STATE_PATH) continue;
         if (!appPaths.includes(remoteFile.path) && remotePathSet.has(remoteFile.path)) {
             actions.downloads.push(remoteFile.path);
         }
@@ -489,6 +495,7 @@ export async function syncToCloud(): Promise<void> {
         // Process uploads
         const totalUploads = actions.uploads.length;
         let uploadIdx = 0;
+        let uploadFailed = false;
         for (const path of actions.uploads) {
             uploadIdx++;
             STATE.syncProgress = { current: uploadIdx, total: totalUploads, phase: 'Uploading' };
@@ -506,6 +513,7 @@ export async function syncToCloud(): Promise<void> {
                     mtime: new Date().toISOString()
                 };
             } catch (err) {
+                uploadFailed = true;
                 console.error(`Failed to upload ${path}:`, err);
             }
         }
@@ -524,13 +532,15 @@ export async function syncToCloud(): Promise<void> {
         const now = new Date().toISOString();
         STATE.lastSyncTime = now;
         await setLastCloudCheckTime(now);
-        await truncateJournalEntriesBefore(getCheckpoint().lastId);
+        if (!uploadFailed && actions.uploads.length > 0) {
+            await truncateJournalEntriesBefore(getCheckpoint().lastId);
+        }
         STATE.syncProgress = null;
     });
 }
 
 export async function syncFromCloud(): Promise<void> {
-    if (!STATE.enabled || STATE.isSyncing) return;
+    if (!STATE.enabled) return;
     if (!isClerkEnabled() || !isSignedIn()) return;
 
     return withSyncLock(async (ctx) => {
@@ -561,13 +571,12 @@ export async function syncFromCloud(): Promise<void> {
             dlIdx++;
             STATE.syncProgress = { current: dlIdx, total: totalDownloads, phase: 'Downloading' };
             try {
-                const content = await downloadFile(path);
-                if (content === null) continue;
-                await writeLocalFile(path, content);
-                const etag = newManifest[path]?.etag || '';
+                const result = await downloadFile(path);
+                if (result === null) continue;
+                await writeLocalFile(path, result.content);
                 newManifest[path] = {
-                    hash: computeHash(content),
-                    etag,
+                    hash: computeHash(result.content),
+                    etag: result.etag,
                     mtime: new Date().toISOString()
                 };
                 ctx.changedPaths.push(path);
@@ -606,12 +615,12 @@ export async function syncResetThenPull(): Promise<void> {
         // Manifest rebuilt from scratch below — no journal entry needed for bulk download.
         for (const remoteFile of remoteFiles) {
             try {
-                const content = await downloadFile(remoteFile.path);
-                if (content === null) continue;
-                await writeLocalFile(remoteFile.path, content);
+                const result = await downloadFile(remoteFile.path);
+                if (result === null) continue;
+                await writeLocalFile(remoteFile.path, result.content);
                 newManifest[remoteFile.path] = {
-                    hash: computeHash(content),
-                    etag: remoteFile.etag,
+                    hash: computeHash(result.content),
+                    etag: result.etag,
                     mtime: remoteFile.lastModified
                 };
                 ctx.changedPaths.push(remoteFile.path);
@@ -624,6 +633,7 @@ export async function syncResetThenPull(): Promise<void> {
         const now = new Date().toISOString();
         STATE.lastSyncTime = now;
         await setLastCloudCheckTime(now);
+        STATE.syncProgress = null;
 
     });
 }
@@ -683,12 +693,12 @@ export async function syncCredentialsFromCloud(force = false): Promise<void> {
             if (provider === 'syncManifest' || provider === 'cloud-state.json') continue;
 
             try {
-                const content = await downloadFile(remoteFile.path);
-                if (content === null) continue;
+                const result = await downloadFile(remoteFile.path);
+                if (result === null) continue;
 
                 const existing = await readCredential(provider);
                 if (!existing || force) {
-                    await writeCredential(provider, typeof content === 'string' ? content : '');
+                    await writeCredential(provider, typeof result.content === 'string' ? result.content : '');
                     ctx.changedPaths.push(`credentials/${provider}`);
                 }
             } catch (err) {
@@ -763,6 +773,10 @@ export async function disableCloudSync(): Promise<void> {
         clearInterval(syncTimerHandle);
         syncTimerHandle = null;
     }
+    if (syncDebounceTimer) {
+        clearTimeout(syncDebounceTimer);
+        syncDebounceTimer = null;
+    }
     await writeCloudPreference('cloudSyncEnabled', 'false');
 }
 
@@ -792,10 +806,6 @@ export async function triggerCompleteResync(): Promise<void> {
         STATE.lastSyncError = err instanceof Error ? err.message : String(err);
         throw err;
     }
-}
-
-export function getCloudSyncState(): CloudSyncState {
-    return { ...STATE };
 }
 
 export async function setDeleteRemoteOnLocalDelete(value: boolean): Promise<void> {
