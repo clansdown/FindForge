@@ -1,5 +1,6 @@
 /push_to_production.sh
 /public/clerk-key.js
+/install.sh
 
 # Logs
 logs
