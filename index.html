@@ -7,38 +7,6 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.json" />
     <script src="./clerk-key.js"></script>
-    <!-- Sync conflict resolution templates -->
-    <template id="sync-conflict-modal-template">
-      <div class="sync-modal">
-        <h3>Sync Conflict</h3>
-        <p class="sync-conflict-path"></p>
-        <p>This file was changed both locally and remotely. Which version should be kept?</p>
-        <div class="sync-modal-buttons">
-          <button class="sync-keep-local">Keep Local</button>
-          <button class="sync-keep-remote">Keep Remote</button>
-        </div>
-      </div>
-    </template>
-    <template id="initial-sync-modal-template">
-      <div class="sync-modal">
-        <h3>First-Time Sync</h3>
-        <p>Files were found both locally and in the cloud. How would you like to proceed?</p>
-        <div class="sync-modal-buttons">
-          <button class="sync-upload-first">Upload My Data</button>
-          <button class="sync-download-first">Download Cloud Data</button>
-        </div>
-      </div>
-    </template>
-    <template id="resync-choice-modal-template">
-      <div class="sync-modal">
-        <h3>Complete Re-Sync</h3>
-        <p>For any conflicting files, which version should take priority?</p>
-        <div class="sync-modal-buttons">
-          <button class="sync-priority-local">Local (my device)</button>
-          <button class="sync-priority-remote">Cloud (other devices)</button>
-        </div>
-      </div>
-    </template>
   </head>
   <body>
     <div id="app"></div>
