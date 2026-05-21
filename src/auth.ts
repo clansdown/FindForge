@@ -1,4 +1,4 @@
-import Clerk from '@clerk/clerk-js';
+import { Clerk } from '@clerk/clerk-js';
 
 declare global {
     interface Window {
@@ -58,7 +58,7 @@ export async function initAuth(): Promise<boolean> {
         });
 
         const clerk = new Clerk(publishableKey);
-        await clerk.load();
+        await clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } } as any);
         clerkInstance = clerk;
         clerkEnabled = true;
         return true;

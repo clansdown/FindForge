@@ -7,7 +7,7 @@
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
   import type { Writable } from 'svelte/store';
-  import { cloudSyncStore, triggerManualSync, isSignedIn } from './cloudSync';
+  import { cloudSyncStore, triggerManualSync, enableCloudSync, isSignedIn, getClerk } from './cloudSync';
 
   export let config: Config;
 
@@ -27,6 +27,7 @@
   let showAbout = false;
   let showGettingStarted = false;
   let showTools = false;
+  let signedIn = isSignedIn();
 
   function toggleMenu(menu: string) {
     activeMenu = activeMenu === menu ? null : menu;
@@ -37,7 +38,21 @@
   }
 
   function handleManualSync() {
+    if (!syncState.enabled) {
+      enableCloudSync().catch(err => console.error('Failed to enable cloud sync:', err));
+      return;
+    }
     triggerManualSync().catch(err => console.error('Manual sync failed:', err));
+  }
+
+  function handleSignIn() {
+    const clerk = getClerk();
+    if (clerk) clerk.openSignIn();
+  }
+
+  function handleSignOut() {
+    const clerk = getClerk();
+    if (clerk) clerk.signOut();
   }
 
   onMount(() => {
@@ -46,6 +61,13 @@
     };
 
     document.addEventListener('openSettings', handleOpenSettings);
+
+    const clerk = getClerk();
+    if (clerk) {
+      clerk.addListener(() => {
+        signedIn = isSignedIn();
+      });
+    }
 
     return () => {
       document.removeEventListener('openSettings', handleOpenSettings);
@@ -102,18 +124,26 @@
 
   <div class="spacer"></div>
 
-  {#if syncState.enabled}
-    <button class="sync-btn" on:click={handleManualSync} title={syncState.lastSyncTime
-      ? 'Last synced: ' + new Date(syncState.lastSyncTime).toLocaleString()
-      : 'Sync now'}>
-      {#if syncState.isSyncing}
-        Syncing...
-      {:else if syncState.lastSyncError}
-        <span class="sync-error" title={syncState.lastSyncError}>⚠</span>
-      {:else}
-        ↻
-      {/if}
+  {#if getClerk()}
+    <button class="auth-btn" on:click={signedIn ? handleSignOut : handleSignIn}>
+      {signedIn ? 'Sign Out' : 'Sign In'}
     </button>
+  {/if}
+
+  {#if signedIn}
+  <button class="sync-btn" on:click={handleManualSync} title={syncState.enabled
+    ? (syncState.lastSyncTime
+      ? 'Last synced: ' + new Date(syncState.lastSyncTime).toLocaleString()
+      : 'Sync now')
+    : 'Enable cloud sync in Settings'}>
+    {#if syncState.isSyncing}
+      Syncing...
+    {:else if syncState.lastSyncError}
+      <span class="sync-error" title={syncState.lastSyncError}>⚠</span>
+    {:else}
+      ↻
+    {/if}
+  </button>
   {/if}
 
   <div class="credits" title="Available OpenRouter Credits">
@@ -198,6 +228,22 @@
   }
 
   .sync-btn:hover {
+    border-color: #646cff;
+    color: #646cff;
+  }
+
+  .auth-btn {
+    background: none;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0.25rem 0.75rem;
+    margin-right: 1rem;
+    color: #888;
+    font-size: 0.9rem;
+  }
+
+  .auth-btn:hover {
     border-color: #646cff;
     color: #646cff;
   }

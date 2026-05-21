@@ -15,14 +15,13 @@
     "@types/dom-speech-recognition": "^0.0.6",
     "@types/markdown-it": "^14.1.2",
     "@types/markdown-it-link-attributes": "^3.0.5",
-    "@types/node": "^22.0.0",
     "svelte": "^5.28.1",
     "svelte-check": "^4.1.6",
     "typescript": "~5.8.3",
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "@clerk/clerk-js": "^3.10.0",
+    "@clerk/clerk-js": "^6.11.3",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "markdown-it-highlightjs": "^4.2.0",

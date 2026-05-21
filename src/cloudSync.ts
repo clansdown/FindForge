@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { isSignedIn, getClerkToken, isClerkEnabled } from './auth';
-export { isSignedIn };
+export { isSignedIn, getClerk } from './auth';
 import {
     readLocalFile,
     writeLocalFile,
