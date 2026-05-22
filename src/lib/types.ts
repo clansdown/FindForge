@@ -32,6 +32,9 @@ export class Config {
     defaultSystemPromptId: string;
     defaultSynthesisPromptId: string;
     speakMessages: boolean; // whether to speak messages using TTS
+    toolsEnabled: boolean; // whether to enable tool calling
+    enabledTools: string[]; // list of enabled tool names
+    maxToolIterations: number; // max tool-calling loop iterations
 
     static defaultSystemPrompt ='You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
     static defaultDeepResearchSynthesisPrompt = `Address the user's question or goal directly. The answer should be detailed, accurate, informative, clear, and dense, without omitting key details. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant. Focus on clear, precise, and factual prose with section headings, but use tables and lists if they aid in clarity or readability.`; // appended to the internal system prompt
@@ -72,6 +75,9 @@ export class Config {
         this.defaultSystemPromptId = 'default';
         this.defaultSynthesisPromptId = 'synthesis_default';
         this.speakMessages = false;
+        this.toolsEnabled = false;
+        this.enabledTools = [];
+        this.maxToolIterations = 8;
         this.autoSave = true;
 
         this.systemPrompts = [
@@ -133,8 +139,12 @@ export interface StreamingResult {
     created: number;
     done: boolean;
     totalTokens?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+    cost?: number;
     annotations?: Annotation[];
     generationData?: GenerationData;
+    finishReason?: 'stop' | 'tool_calls' | 'length';
 }
 
 export interface ChatResult extends StreamingResult {
@@ -225,6 +235,7 @@ export interface MessageData {
     researchResults?: ResearchResult[]; // results of standard research, if multiple were done
     annotations?: Annotation[];
     resources?: Resource[]; // List of resources used for research
+    toolCalls?: ToolCallRecord[]; // Tool call records for inspection
     error?: {
         message: string;
         url?: string;
@@ -253,14 +264,64 @@ export interface ApiCallMessageContent {
 }
 
 export interface ApiCallMessage {
-    role: 'user' | 'assistant' | 'system';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     content: ApiCallMessageContent[];
+    tool_calls?: ToolCall[];
+    tool_call_id?: string;
+    name?: string;
 }
 
 export interface OpenRouterCredits {
     total_credits: number;
     total_usage: number;
 }
+
+export interface ToolDefinition {
+    type: 'function';
+    function: {
+        name: string;
+        description: string;
+        parameters: Record<string, unknown>;
+    };
+}
+
+export interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+export interface ToolCallRecord {
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+    result: string;
+    startTimeMs: number;
+    durationMs: number;
+}
+
+export interface CompletionResult {
+    requestID: string;
+    model: string;
+    content: string;
+    toolCalls: ToolCall[] | null;
+    finishReason: 'stop' | 'tool_calls' | 'length';
+    totalTokens?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+    cost?: number;
+    annotations?: Annotation[];
+}
+
+export interface ToolExecutionContext {
+    config: Config;
+    signal?: AbortSignal;
+}
+
+export type ToolExecutor = (args: Record<string, unknown>, ctx: ToolExecutionContext) => Promise<string>;
 
 export interface ModelsForResearch {
     reasoning: string;
@@ -275,7 +336,7 @@ export interface ResearchThread {
     firstPass? : ChatResult;
     refiningPrompt? : string; // the prompt for refining the first pass
     refined? : ChatResult;
-    generationPromises: Promise<GenerationData>[];   // new field
+    generationPromises: Promise<GenerationData | undefined>[];   // new field
     handleGenerationData: (data: GenerationData) => void;
     resources?: Resource[];   // resources extracted from first pass
 }
@@ -314,6 +375,7 @@ export interface ResearchResult {
     resources : Resource[];
     annotations: Annotation[];
     contextWasIncluded?: boolean; // true if the previous messages were included in the context
+    toolCallRecords?: ToolCallRecord[]; // tool calls executed during this research
 }
 
 

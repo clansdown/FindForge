@@ -1,4 +1,4 @@
-import { type Config, type Model, type StreamingResult, type GenerationData, type OpenRouterCredits, type ChatResult, type ApiCallMessage, APIError } from './types';
+import { type Config, type Model, type StreamingResult, type GenerationData, type OpenRouterCredits, type ChatResult, type ApiCallMessage, type ToolDefinition, type ToolCall, type CompletionResult, type Annotation, APIError } from './types';
 import { sleep } from './util';
 
 
@@ -150,10 +150,13 @@ export async function callOpenRouterStreaming(
             return result;
           }
 
-          try {
+            try {
             const json = JSON.parse(data);
             if(json.id) {
                 result.requestID = json.id;
+            }
+            if (json.model) {
+                result.model = json.model;
             }
             if (json.choices?.[0]?.delta?.content) {
               callback(json.choices[0].delta.content);
@@ -163,6 +166,9 @@ export async function callOpenRouterStreaming(
             }
             if (json.usage) {
               result.totalTokens = json.usage.total_tokens;
+              result.promptTokens = json.usage.prompt_tokens;
+              result.completionTokens = json.usage.completion_tokens;
+              if (json.usage.cost != null) result.cost = json.usage.cost;
             }
           } catch (e) {
             console.error('Error parsing JSON chunk', e);
@@ -235,6 +241,9 @@ export async function callOpenRouterChat(
   const requestID = data.id;
   const model = data.model;
   const totalTokens = data.usage?.total_tokens;
+  const promptTokens = data.usage?.prompt_tokens;
+  const completionTokens = data.usage?.completion_tokens;
+  const cost = data.usage?.cost ?? undefined;
 
   return {
     requestID,
@@ -242,42 +251,262 @@ export async function callOpenRouterChat(
     created: Date.now(),
     done: true,
     totalTokens,
+    promptTokens,
+    completionTokens,
+    cost,
     content,
     annotations
   };
 }
 
-// Fetch generation data from OpenRouter Generation API
-export async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData> {
-    try {
-        // We can't request this immediately as the generation object won't instantly exist, we have to wait a short time
-        await sleep(1000);
-        const response = await fetch(`https://openrouter.ai/api/v1/generation?id=${encodeURIComponent(requestId)}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://openrouter.ai',
-            },
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch generation data');
+export async function callOpenRouterWithTools(options: {
+    apiKey: string;
+    modelId: string;
+    messages: ApiCallMessage[];
+    maxTokens: number;
+    tools?: ToolDefinition[];
+    toolChoice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } };
+    stream: boolean;
+    onContent?: (chunk: string) => void;
+    onToolCallDelta?: (delta: Partial<ToolCall>) => void;
+    signal?: AbortSignal;
+    reasoningEffort?: 'low' | 'medium' | 'high';
+}): Promise<CompletionResult> {
+    const { apiKey, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, signal, reasoningEffort } = options;
+
+    const url = 'https://openrouter.ai/api/v1/chat/completions';
+    const headers: Record<string, string> = {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'MachineLearner',
+    };
+
+    const body: Record<string, unknown> = {
+        model: modelId,
+        messages,
+        max_tokens: maxTokens,
+        stream,
+    };
+
+    if (tools && tools.length > 0) {
+        body.tools = tools;
+        body.tool_choice = toolChoice || 'auto';
+    }
+
+    if (reasoningEffort) {
+        body.reasoning_effort = reasoningEffort;
+    }
+
+    const bodyString = JSON.stringify(body);
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: bodyString,
+        signal,
+    });
+
+    if (!response.ok) {
+        throw new APIError(
+            `API request failed: ${response.status} ${response.statusText}`,
+            url,
+            'POST',
+            response.status,
+            bodyString,
+            await response.clone().text(),
+        );
+    }
+
+    const requestIDHeader = response.headers.get('X-Request-ID') || '';
+    let requestID = requestIDHeader;
+
+    if (!stream) {
         const data = await response.json();
-        return data.data as GenerationData;
-    } catch (error) {
-        console.error('Error fetching generation data:', error);
+        const choice = data.choices?.[0];
+        const content = choice?.message?.content || '';
+        const toolCalls: ToolCall[] | null = choice?.message?.tool_calls || null;
+        const finishReason = choice?.finish_reason || 'stop';
+        const totalTokens = data.usage?.total_tokens;
+        const promptTokens = data.usage?.prompt_tokens;
+        const completionTokens = data.usage?.completion_tokens;
+        const cost = data.usage?.cost ?? undefined;
+        const annotations = choice?.message?.annotations || [];
+
         return {
-            id: requestId,
-            total_cost: 0,
-            model: '',
-            generation_time: 0,
-            provider_name: '',
-            created: 0,
-            streamed: false,
-            canceled: false,
-            finish_reason: 'error'
+            requestID: data.id || requestID,
+            model: data.model || modelId,
+            content,
+            toolCalls,
+            finishReason,
+            totalTokens,
+            promptTokens,
+            completionTokens,
+            cost,
+            annotations,
         };
     }
+
+    // ── Streaming path ──
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('Failed to get response reader');
+
+    const decoder = new TextDecoder();
+    let content = '';
+    let finishReason: 'stop' | 'tool_calls' | 'length' = 'stop';
+    let totalTokens: number | undefined;
+    let promptTokens: number | undefined;
+    let completionTokens: number | undefined;
+    let cost: number | undefined;
+    const annotations: Annotation[] = [];
+    const toolCallAccum: Map<number, { id: string; name: string; argumentsChunks: string[] }> = new Map();
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const data = line.replace('data: ', '');
+                if (data === '[DONE]') {
+                    return {
+                        requestID,
+                        model: modelId,
+                        content,
+                        toolCalls: finishReason === 'tool_calls'
+                            ? [...toolCallAccum.entries()].map(([idx, acc]) => ({
+                                id: acc.id,
+                                type: 'function' as const,
+                                function: {
+                                    name: acc.name,
+                                    arguments: acc.argumentsChunks.join(''),
+                                },
+                            }))
+                            : null,
+                        finishReason,
+                        totalTokens,
+                        promptTokens,
+                        completionTokens,
+                        cost,
+                        annotations,
+                    };
+                }
+
+                try {
+                    const json = JSON.parse(data);
+                    if (json.id) requestID = json.id;
+
+                    const choice = json.choices?.[0];
+                    const delta = choice?.delta;
+                    if (!delta) continue;
+
+                    // Content delta
+                    if (delta.content && onContent) {
+                        content += delta.content;
+                        onContent(delta.content);
+                    }
+
+                    // Tool call deltas
+                    const deltaToolCalls = delta.tool_calls;
+                    if (deltaToolCalls) {
+                        for (const tc of deltaToolCalls) {
+                            const idx: number = tc.index ?? 0;
+                            let acc = toolCallAccum.get(idx);
+                            if (!acc) {
+                                acc = { id: '', name: '', argumentsChunks: [] };
+                                toolCallAccum.set(idx, acc);
+                            }
+                            if (tc.id) acc.id = tc.id;
+                            if (tc.function?.name) acc.name = tc.function.name;
+                            if (tc.function?.arguments) {
+                                acc.argumentsChunks.push(tc.function.arguments);
+                            }
+                            if (onToolCallDelta) {
+                                onToolCallDelta({
+                                    id: acc.id || tc.id,
+                                    type: 'function',
+                                    function: {
+                                        name: acc.name || tc.function?.name || '',
+                                        arguments: acc.argumentsChunks.join(''),
+                                    },
+                                });
+                            }
+                        }
+                    }
+
+                    // Finish reason
+                    const fr = choice.finish_reason;
+                    if (fr) finishReason = fr;
+
+                    // Annotations and usage
+                    if (delta.annotations) {
+                        annotations.push(...delta.annotations);
+                    }
+                    if (json.usage) {
+                        totalTokens = json.usage.total_tokens;
+                        promptTokens = json.usage.prompt_tokens;
+                        completionTokens = json.usage.completion_tokens;
+                        if (json.usage.cost != null) cost = json.usage.cost;
+                    }
+                } catch {
+                    // Skip malformed SSE lines
+                }
+            }
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    return {
+        requestID,
+        model: modelId,
+        content,
+        toolCalls: finishReason === 'tool_calls'
+            ? [...toolCallAccum.entries()].map(([idx, acc]) => ({
+                id: acc.id,
+                type: 'function' as const,
+                function: {
+                    name: acc.name,
+                    arguments: acc.argumentsChunks.join(''),
+                },
+            }))
+            : null,
+        finishReason,
+        totalTokens,
+        promptTokens,
+        completionTokens,
+        cost,
+        annotations,
+    };
+}
+
+// Fetch generation data from OpenRouter Generation API
+export async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData | undefined> {
+    const delaysMs = [1000, 2000, 4000];
+    for (const delay of delaysMs) {
+        await sleep(delay);
+        try {
+            const response = await fetch(`https://openrouter.ai/api/v1/generation?id=${encodeURIComponent(requestId)}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://openrouter.ai',
+                },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                return data.data as GenerationData;
+            }
+        } catch {
+            // continue to next retry
+        }
+    }
+    console.warn('[gen] Generation data unavailable for', requestId);
+    return undefined;
 }
 
 export function createAssistantApiCallMessage(text: string): ApiCallMessage {

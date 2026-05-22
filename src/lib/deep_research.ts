@@ -1,7 +1,8 @@
-import { callOpenRouterChat, createUserApiCallMessage, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData, getModels } from "./models";
+import { callOpenRouterChat, callOpenRouterWithTools, createUserApiCallMessage, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData, getModels } from "./models";
 import { parseResourcesFromContent, resourceInstructions } from "./resources";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource } from "./types";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource, ToolCallRecord } from "./types";
 import { generateID } from "./util";
+import type { ToolRegistry } from "./tools";
 
 async function attachGenerationData(apiKey: string, chatResult: ChatResult): Promise<void> {
     const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
@@ -20,7 +21,8 @@ export async function doDeepResearch(
     strategy : 'deep' | 'broad' | 'auto',
     userMessage: string,
     contextMessages : ApiCallMessage[], 
-    statusCallback : (status: string) => void): Promise<DeepResearchResult> {
+    statusCallback : (status: string) => void,
+    toolRegistry?: ToolRegistry): Promise<DeepResearchResult> {
         const startTime = Date.now(); // Record start time for elapsed_time calculation
         let total_cost = 0;
         let total_web_requests = 0;
@@ -93,16 +95,15 @@ export async function doDeepResearch(
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(apiKey, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
-                fetchGenerationData(apiKey, planResult.requestID).then(data => {
-                    if(data) {
-                        total_cost += data.total_cost || 0;
-                        total_web_requests += data.num_search_results || 0;
-                        if (data.generation_time) {
-                            total_generation_time_ms += data.generation_time;
-                        }
-                        planResult!.generationData = data; // attach generation data to the response
+                const planGenData = await fetchGenerationData(apiKey, planResult.requestID);
+                if (planGenData) {
+                    total_cost += planGenData.total_cost || 0;
+                    total_web_requests += planGenData.num_search_results || 0;
+                    if (planGenData.generation_time) {
+                        total_generation_time_ms += planGenData.generation_time;
                     }
-                });
+                    planResult.generationData = planGenData;
+                }
                 research_plan = planResult.content.trim();
                 plan_prompts.push(plan_prompt);
                 plan_results.push(planResult);
@@ -127,13 +128,15 @@ export async function doDeepResearch(
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(apiKey, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
-                fetchGenerationData(apiKey, planResult.requestID).then(data => {
-                    if(data) {
-                        total_cost += data.total_cost || 0;
-                        total_web_requests += data.num_search_results || 0;
-                        planResult!.generationData = data; // attach generation data to the response
+                const planGenData = await fetchGenerationData(apiKey, planResult.requestID);
+                if (planGenData) {
+                    total_cost += planGenData.total_cost || 0;
+                    total_web_requests += planGenData.num_search_results || 0;
+                    if (planGenData.generation_time) {
+                        total_generation_time_ms += planGenData.generation_time;
                     }
-                });
+                    planResult.generationData = planGenData;
+                }
                 research_plan = planResult.content.trim();
                 plan_prompts.push(plan_prompt);
                 plan_results.push(planResult);
@@ -182,7 +185,8 @@ export async function doDeepResearch(
                         if (data.generation_time) {
                             total_generation_time_ms += data.generation_time;
                         }
-                    }
+                    },
+                    toolRegistry
                 )
             );
 
@@ -207,7 +211,7 @@ export async function doDeepResearch(
             /******************************************************/
             statusCallback("Waiting for generation data...");
             // Collect all generation promises from all threads
-            const allGenerationPromises: Promise<GenerationData>[] = [];
+            const allGenerationPromises: Promise<GenerationData | undefined>[] = [];
             for (const thread of research_threads) {
                 allGenerationPromises.push(...thread.generationPromises);
             }
@@ -375,7 +379,8 @@ export async function execute_research_thread(
     maxTokens: number,
     systemPromptForSubquery: string,
     systemPromptForRefinement: string,
-    handleGenerationData: (data: GenerationData) => void = () => {}
+    handleGenerationData: (data: GenerationData) => void = () => {},
+    toolRegistry?: ToolRegistry
 ): Promise<ResearchThread> {
     // Create the thread object
     const thread: ResearchThread = {
@@ -396,18 +401,45 @@ export async function execute_research_thread(
         }
     ];
 
-    const firstPassResult = await callOpenRouterChat(
-        config.apiKey,
-        config.deepResearchResearchModel,
-        maxTokens,
-        config.deepResearchWebRequestsPerSubrequest,
-        messages_for_subquery,
-        undefined,
-        config.defaultReasoningEffort
-    );
-    thread.firstPass = firstPassResult;
+    let firstPassContent: string;
+    let firstPassResult: ChatResult;
+    if (toolRegistry && toolRegistry.getDefinitions().length > 0) {
+        const result = await callOpenRouterWithTools({
+            apiKey: config.apiKey,
+            modelId: config.deepResearchResearchModel,
+            messages: messages_for_subquery,
+            maxTokens,
+            tools: toolRegistry.getDefinitions(),
+            stream: false,
+            signal: undefined,
+            reasoningEffort: config.defaultReasoningEffort,
+        });
+        firstPassContent = result.content;
+        firstPassResult = {
+            requestID: result.requestID,
+            model: result.model,
+            created: Date.now(),
+            done: true,
+            content: result.content,
+            annotations: result.annotations,
+            totalTokens: result.totalTokens,
+        };
+        thread.firstPass = firstPassResult;
+    } else {
+        firstPassResult = await callOpenRouterChat(
+            config.apiKey,
+            config.deepResearchResearchModel,
+            maxTokens,
+            config.deepResearchWebRequestsPerSubrequest,
+            messages_for_subquery,
+            undefined,
+            config.defaultReasoningEffort
+        );
+        thread.firstPass = firstPassResult;
+        firstPassContent = firstPassResult.content;
+    }
     // Extract resources from first pass content
-    thread.resources = parseResourcesFromContent(firstPassResult.content);
+    thread.resources = parseResourcesFromContent(firstPassContent);
 
     // Start fetching generation data for first pass
     const firstPassGenPromise = (async () => {
@@ -455,16 +487,40 @@ export async function execute_research_thread(
 
     const messages: ApiCallMessage[] = [systemPrompt, userMessage, assistantMessage];
 
-    const refinedResult = await callOpenRouterChat(
-        config.apiKey,
-        config.deepResearchRefiningModel,
-        maxTokens,
-        0,   // no web requests for refinement
-        messages,
-        undefined,
-        config.defaultReasoningEffort
-    );
-    thread.refined = refinedResult;
+    let refinedResult: ChatResult;
+    if (toolRegistry && toolRegistry.getDefinitions().length > 0) {
+        const result = await callOpenRouterWithTools({
+            apiKey: config.apiKey,
+            modelId: config.deepResearchRefiningModel,
+            messages,
+            maxTokens,
+            tools: toolRegistry.getDefinitions(),
+            stream: false,
+            signal: undefined,
+            reasoningEffort: config.defaultReasoningEffort,
+        });
+        refinedResult = {
+            requestID: result.requestID,
+            model: result.model,
+            created: Date.now(),
+            done: true,
+            content: result.content,
+            annotations: result.annotations,
+            totalTokens: result.totalTokens,
+        };
+        thread.refined = refinedResult;
+    } else {
+        refinedResult = await callOpenRouterChat(
+            config.apiKey,
+            config.deepResearchRefiningModel,
+            maxTokens,
+            0,   // no web requests for refinement
+            messages,
+            undefined,
+            config.defaultReasoningEffort
+        );
+        thread.refined = refinedResult;
+    }
 
     // Start fetching generation data for refinement
     const refinedGenPromise = (async () => {

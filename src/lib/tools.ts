@@ -1,0 +1,207 @@
+import { evaluate } from 'mathjs';
+import type { ToolDefinition, ToolCall, ToolExecutionContext, ToolExecutor } from './types';
+
+// ── Tool Definitions (OpenAI-compatible JSON Schema) ──
+
+export const CALCULATOR_TOOL: ToolDefinition = {
+    type: 'function',
+    function: {
+        name: 'scientific_calculator',
+        description:
+            'Evaluate mathematical expressions safely. Supports basic arithmetic, trig functions (sin, cos, tan, asin, acos, atan), logarithms (log, log10, ln), exponents, square roots (sqrt), and constants (pi, e). Use for any numerical computation.',
+        parameters: {
+            type: 'object',
+            properties: {
+                expression: {
+                    type: 'string',
+                    description: "Math expression to evaluate, e.g. 'sqrt(2) * pi', 'log10(1000)', 'sin(pi/2) + cos(0)', '2^10'",
+                },
+            },
+            required: ['expression'],
+        },
+    },
+};
+
+export const WIKIPEDIA_TOOL: ToolDefinition = {
+    type: 'function',
+    function: {
+        name: 'wikipedia_search',
+        description:
+            'Search Wikipedia for information on a topic. Returns summaries, key facts, and links. Ideal for general knowledge, history, science, and current events.',
+        parameters: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'Search query or topic name',
+                },
+                limit: {
+                    type: 'integer',
+                    description: 'Number of results (default 3, max 5)',
+                    default: 3,
+                },
+            },
+            required: ['query'],
+        },
+    },
+};
+
+export const CATHOLIC_TOOL: ToolDefinition = {
+    type: 'function',
+    function: {
+        name: 'catholic_encyclopedia_search',
+        description:
+            'Search the Catholic Encyclopedia for authoritative information on Catholic doctrine, history, saints, liturgy, and theology.',
+        parameters: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: "Search term or topic, e.g. 'Transubstantiation', 'Council of Trent'",
+                },
+                limit: {
+                    type: 'integer',
+                    description: 'Number of results (default 3, max 5)',
+                    default: 3,
+                },
+            },
+            required: ['query'],
+        },
+    },
+};
+
+// ── Tool Executors ──
+
+async function executeCalculator(args: Record<string, unknown>): Promise<string> {
+    const expression = args.expression as string;
+    if (!expression || typeof expression !== 'string') {
+        return 'Error: No expression provided.';
+    }
+    try {
+        const result = evaluate(expression);
+        return String(result);
+    } catch (e) {
+        return `Error evaluating expression: ${e instanceof Error ? e.message : String(e)}`;
+    }
+}
+
+async function executeWikipedia(args: Record<string, unknown>): Promise<string> {
+    const query = args.query as string;
+    const limit = Math.min((args.limit as number) || 3, 5);
+    if (!query) return 'Error: No search query provided.';
+
+    try {
+        const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=${limit}`;
+        const searchRes = await fetch(searchUrl);
+        const searchData = await searchRes.json();
+        const results = searchData.query?.search || [];
+
+        if (results.length === 0) return `No Wikipedia results for "${query}".`;
+
+        const summaries: string[] = [];
+        for (const r of results) {
+            const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(r.title)}`;
+            try {
+                const sumRes = await fetch(summaryUrl);
+                if (!sumRes.ok) continue;
+                const sumData = await sumRes.json();
+                summaries.push(
+                    `**${sumData.title}**\n${sumData.extract?.slice(0, 500) || 'No summary available.'}\n${sumData.content_urls?.desktop?.page || ''}`,
+                );
+            } catch {
+                summaries.push(`**${r.title}** — https://en.wikipedia.org/wiki/${encodeURIComponent(r.title.replace(/ /g, '_'))}`);
+            }
+        }
+        return summaries.join('\n\n') || `No detailed results for "${query}".`;
+    } catch (e) {
+        return `Wikipedia search failed: ${e instanceof Error ? e.message : String(e)}`;
+    }
+}
+
+async function executeCatholicEncyclopedia(args: Record<string, unknown>): Promise<string> {
+    const query = args.query as string;
+    const limit = Math.min((args.limit as number) || 3, 5);
+    if (!query) return 'Error: No search query provided.';
+
+    try {
+        const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' site:newadvent.org/cathen')}&format=json&origin=*&srlimit=${limit}`;
+        const searchRes = await fetch(searchUrl);
+        const searchData = await searchRes.json();
+        const results = searchData.query?.search || [];
+
+        if (results.length === 0) return `No Catholic Encyclopedia results for "${query}".`;
+
+        const entries: string[] = [];
+        for (const r of results) {
+            entries.push(
+                `**${r.title.replace(/ - Wikipedia$/, '')}**\n${r.snippet.replace(/<[^>]+>/g, '')}\nhttps://en.wikipedia.org/wiki/${encodeURIComponent(r.title.replace(/ /g, '_'))}`,
+            );
+        }
+        return entries.join('\n\n') || `No detailed results for "${query}".`;
+    } catch (e) {
+        return `Catholic Encyclopedia search failed: ${e instanceof Error ? e.message : String(e)}`;
+    }
+}
+
+// ── Tool Registry ──
+
+export class ToolRegistry {
+    private definitions: Map<string, ToolDefinition> = new Map();
+    private executors: Map<string, ToolExecutor> = new Map();
+
+    register(definition: ToolDefinition, executor: ToolExecutor): void {
+        const name = definition.function.name;
+        this.definitions.set(name, definition);
+        this.executors.set(name, executor);
+    }
+
+    getDefinitions(): ToolDefinition[] {
+        return [...this.definitions.values()];
+    }
+
+    async execute(name: string, argsJson: string, ctx: ToolExecutionContext): Promise<string> {
+        const executor = this.executors.get(name);
+        if (!executor) return `Unknown tool: ${name}`;
+        let args: Record<string, unknown>;
+        try {
+            args = JSON.parse(argsJson);
+        } catch {
+            return `Invalid arguments for tool ${name}: ${argsJson}`;
+        }
+        return executor(args, ctx);
+    }
+
+    async executeAll(toolCalls: ToolCall[], ctx: ToolExecutionContext): Promise<Array<{ tool_call_id: string; role: 'tool'; content: string }>> {
+        const results = await Promise.all(
+            toolCalls.map(async (tc) => {
+                const content = await this.execute(tc.function.name, tc.function.arguments, ctx);
+                return {
+                    tool_call_id: tc.id,
+                    role: 'tool' as const,
+                    content,
+                };
+            }),
+        );
+        return results;
+    }
+}
+
+// ── Factory ──
+
+export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {
+    const registry = new ToolRegistry();
+
+    const tools: Array<{ definition: ToolDefinition; executor: ToolExecutor }> = [
+        { definition: CALCULATOR_TOOL, executor: executeCalculator },
+        { definition: WIKIPEDIA_TOOL, executor: executeWikipedia },
+        { definition: CATHOLIC_TOOL, executor: executeCatholicEncyclopedia },
+    ];
+
+    for (const tool of tools) {
+        if (enabledToolNames.includes(tool.definition.function.name)) {
+            registry.register(tool.definition, tool.executor);
+        }
+    }
+
+    return registry;
+}

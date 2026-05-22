@@ -2,6 +2,7 @@
     import { onMount, tick } from "svelte";
     import { getModels } from "./lib/models";
     import { doStandardResearch, convertMessageToApiCallMessage, doParallelResearch } from "./lib/research";
+    import { createToolRegistry } from "./lib/tools";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
     import { generateID, escapeHtml, formatModelName, extractConversationReferences, isBraveOrChromium } from "./lib/util";
@@ -57,7 +58,7 @@
     let speechSendCommand = "Computer: send message"; // voice command to send
     let isListening = false;
     let speechRecognition: SpeechRecognition | null = null;
-    let speechTimeout: number | null = null;
+    let speechTimeout: ReturnType<typeof setTimeout> | null = null;
     let conversationDiv: HTMLDivElement;
     let userInput = "";
     let generating = false;
@@ -418,6 +419,10 @@
         }
 
         try {
+            const toolRegistry = localConfig.toolsEnabled
+                ? createToolRegistry(localConfig.enabledTools)
+                : undefined;
+
             if (deepSearch) {
                 console.log("Starting deep research...");
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
@@ -444,6 +449,7 @@
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
                     }, // statusCallback
+                    toolRegistry,
                 );
                 assistantMessage.isGenerating = false;
                 assistantMessage.content = deepResult.content;
@@ -491,6 +497,7 @@
                     (chunk) => {
                         if (firstChunk) {
                             assistantMessage.isGenerating = false;
+                            assistantMessage.status = '';
                             firstChunk = false;
                         }
                         assistantMessage.content += chunk;
@@ -506,12 +513,12 @@
                             // Buffer text for speech until we hit a sentence boundary
                             let buffer = '';
                             let lastPeriod = chunk.lastIndexOf('.');
-                            
+
                             if (lastPeriod !== -1) {
                                 // Split at the last period
                                 buffer = chunk.substring(0, lastPeriod + 1);
                                 const remaining = chunk.substring(lastPeriod + 1);
-                                
+
                                 // Speak the complete sentences
                                 if (buffer) {
                                     const utterance = new SpeechSynthesisUtterance(speechText + buffer);
@@ -520,7 +527,7 @@
                                     utterance.pitch = 1;
                                     speechSynthesis.speak(utterance);
                                 }
-                                
+
                                 // Store any remaining text after the last period
                                 speechText = remaining;
                             } else {
@@ -530,10 +537,21 @@
                         }
                     },
                     (status) => {
+                        if (status) {
+                            assistantMessage.status = status;
+                            currentConversation.messages = currentConversation.messages.map((msg) =>
+                                msg.id === assistantMessage.id ? assistantMessage : msg,
+                            );
+                        }
                         console.log(status);
                     }, // updateStatus callback
                     abortController,
+                    toolRegistry,
                 );
+                assistantMessage.researchResult = result;
+                if (result.toolCallRecords && result.toolCallRecords.length > 0) {
+                    assistantMessage.toolCalls = result.toolCallRecords;
+                }
                 assistantMessage.researchResult = result;
                 if (result.streamingResult.requestID) {
                     assistantMessage.requestID = result.streamingResult.requestID;
@@ -541,6 +559,8 @@
                 if (result.generationData) {
                     assistantMessage.generationData = result.generationData;
                     assistantMessage.totalCost = result.generationData.total_cost || 0;
+                } else if (result.streamingResult.cost != null) {
+                    assistantMessage.totalCost = result.streamingResult.cost;
                 }
                 if (result.annotations) {
                     assistantMessage.annotations = result.annotations;

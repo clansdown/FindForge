@@ -1,6 +1,6 @@
 <script lang="ts">
     import ModalDialog from "./ModalDialog.svelte";
-    import { type DeepResearchResult, type ResearchResult, type GenerationData, type Annotation, type ChatResult, type ResearchThread, sanitizeDeepResearch } from "./types";
+    import { type DeepResearchResult, type ResearchResult, type GenerationData, type Annotation, type ChatResult, type ResearchThread, sanitizeDeepResearch, type ToolCallRecord } from "./types";
     import MarkdownIt from 'markdown-it';
     import { onMount } from 'svelte';
 
@@ -254,6 +254,19 @@
                         </ol>
                     </div>
                 {/if}
+
+                {#if researchResult.toolCallRecords && researchResult.toolCallRecords.length > 0}
+                    <div class="info-block">
+                        <h4>Tool Calls</h4>
+                        {#each researchResult.toolCallRecords as tc}
+                            <div class="tool-call-entry">
+                                <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
+                                <pre>Args: {JSON.stringify(tc.arguments, null, 2)}</pre>
+                                <pre>Result: {tc.result}</pre>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
             </div>
         {/if}
     </div>
@@ -362,5 +375,16 @@
         padding: 0.5rem;
         margin-bottom: 1rem;
         width: 100%;
+    }
+
+    .tool-call-entry {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: #222;
+        border-radius: 4px;
+        border-left: 3px solid #4caf50;
+    }
+    .tool-call-entry pre {
+        font-size: 0.75rem;
     }
 </style>

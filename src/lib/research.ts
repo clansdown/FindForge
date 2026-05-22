@@ -1,7 +1,8 @@
 import { parse } from 'svelte/compiler';
-import { callOpenRouterChat, callOpenRouterStreaming, fetchGenerationData } from './models';
+import { callOpenRouterChat, callOpenRouterStreaming, callOpenRouterWithTools, fetchGenerationData } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
-import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel } from './types';
+import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, CompletionResult, Annotation } from './types';
+import { ToolRegistry } from './tools';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -45,8 +46,13 @@ export async function doStandardResearch(
     history: MessageData[],
     callback: (chunk: string) => void,
     updateStatus: (status: string) => void,
-    abortController?: AbortController
+    abortController?: AbortController,
+    toolRegistry?: ToolRegistry
 ): Promise<ResearchResult> {
+    if (config.toolsEnabled && toolRegistry && toolRegistry.getDefinitions().length > 0) {
+        return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry);
+    }
+
     updateStatus('Starting research...');
     const resources: Resource[] = [];
     const systemPromptUsed = config.systemPrompt || undefined;
@@ -114,6 +120,154 @@ export async function doStandardResearch(
         };
     } catch (error) {
         updateStatus('Research failed');
+        throw error;
+    }
+}
+
+async function doStandardResearchWithTools(
+    maxTokens: number,
+    config: Config,
+    userMessage: MessageData,
+    history: MessageData[],
+    onContent: (chunk: string) => void,
+    onStatus: (status: string) => void,
+    abortController: AbortController | undefined,
+    toolRegistry: ToolRegistry,
+): Promise<ResearchResult> {
+    onStatus('Starting research with tools...');
+    const resources: Resource[] = [];
+    const systemPromptUsed = config.systemPrompt || undefined;
+    const toolCallRecords: ToolCallRecord[] = [];
+
+    const messagesForAPI: ApiCallMessage[] = [];
+
+    if (config.systemPrompt) {
+        messagesForAPI.push({
+            role: 'system',
+            content: [{ type: 'text', text: config.systemPrompt + '\n\n' + resourceInstructions }],
+        });
+    }
+
+    if (config.includePreviousMessagesAsContext) {
+        for (const m of history) {
+            if (!m.hidden) {
+                messagesForAPI.push(convertMessageToApiCallMessage(m));
+            }
+        }
+    }
+    messagesForAPI.push(convertMessageToApiCallMessage(userMessage));
+
+    const tools = toolRegistry.getDefinitions();
+    let iteration = 0;
+    let finalContent = '';
+    let lastResult: CompletionResult | null = null;
+    const allAnnotations: Annotation[] = [];
+    const maxIterations = config.maxToolIterations || 8;
+
+    try {
+        while (iteration < maxIterations) {
+            const isLastAttempt = iteration >= maxIterations - 1;
+            const result: CompletionResult = await callOpenRouterWithTools({
+                apiKey: config.apiKey,
+                modelId: config.defaultModel,
+                messages: messagesForAPI,
+                maxTokens,
+                tools: isLastAttempt ? undefined : tools,
+                toolChoice: isLastAttempt ? 'none' : 'auto',
+                stream: iteration === 0 || isLastAttempt,
+                onContent: (chunk) => {
+                    finalContent += chunk;
+                    onContent(chunk);
+                },
+                onToolCallDelta: () => {},
+                signal: abortController?.signal,
+                reasoningEffort: config.defaultReasoningEffort,
+            });
+            lastResult = result;
+            if (result.annotations) {
+                allAnnotations.push(...result.annotations);
+            }
+
+            if (result.finishReason !== 'tool_calls' || !result.toolCalls || result.toolCalls.length === 0) {
+                finalContent = result.content || finalContent;
+                break;
+            }
+
+            // Record and execute tool calls
+            onStatus(`Using ${result.toolCalls.map(t => t.function.name).join(', ')}...`);
+
+            const assistantMsg: ApiCallMessage = {
+                role: 'assistant',
+                content: [{ type: 'text', text: '' }],
+                tool_calls: result.toolCalls,
+            };
+            messagesForAPI.push(assistantMsg);
+
+            const ctx = { config, signal: abortController?.signal };
+            const startTimeMs = Date.now();
+
+            const toolResults = await toolRegistry.executeAll(result.toolCalls, ctx);
+
+            for (let i = 0; i < result.toolCalls.length; i++) {
+                const tc = result.toolCalls[i];
+                const tr = toolResults[i];
+                const durationMs = Date.now() - startTimeMs;
+                toolCallRecords.push({
+                    id: tc.id,
+                    name: tc.function.name,
+                    arguments: JSON.parse(tc.function.arguments || '{}'),
+                    result: tr.content,
+                    startTimeMs,
+                    durationMs,
+                });
+                messagesForAPI.push({
+                    role: 'tool',
+                    tool_call_id: tr.tool_call_id,
+                    content: [{ type: 'text', text: tr.content }],
+                });
+            }
+
+            onStatus('');
+            iteration++;
+
+            if (iteration >= maxIterations && !abortController?.signal.aborted) {
+                // Force final answer
+                onStatus('Returning final answer...');
+            }
+        }
+
+        if (finalContent) {
+            resources.push(...parseResourcesFromContent(finalContent));
+        }
+        onStatus('Research completed');
+
+        const generationData = lastResult?.requestID
+            ? await fetchGenerationData(config.apiKey, lastResult.requestID)
+            : undefined;
+
+        return {
+            systemPrompt: systemPromptUsed,
+            content: finalContent,
+            streamingResult: {
+                requestID: lastResult?.requestID || '',
+                model: lastResult?.model || config.defaultModel,
+                created: Date.now(),
+                done: true,
+                totalTokens: lastResult?.totalTokens,
+                promptTokens: lastResult?.promptTokens,
+                completionTokens: lastResult?.completionTokens,
+                cost: lastResult?.cost,
+                annotations: allAnnotations,
+                generationData,
+            },
+            generationData,
+            resources,
+            annotations: allAnnotations,
+            contextWasIncluded: config.includePreviousMessagesAsContext,
+            toolCallRecords,
+        };
+    } catch (error) {
+        onStatus('Research failed');
         throw error;
     }
 }

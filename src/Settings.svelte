@@ -332,6 +332,55 @@
             </select>
         </div>
 
+        <div class="form-group">
+            <h4>Tools</h4>
+            <div class="form-group">
+                <label for="tools-enabled">
+                    <input type="checkbox" id="tools-enabled" bind:checked={localConfig.toolsEnabled} />
+                    Enable Tools (LLM can call calculator, search, etc.)
+                </label>
+            </div>
+            {#if localConfig.toolsEnabled}
+                <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('scientific_calculator')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'scientific_calculator'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'scientific_calculator');
+                            }} />
+                        Scientific Calculator
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('wikipedia_search')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'wikipedia_search'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'wikipedia_search');
+                            }} />
+                        Wikipedia Search
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('catholic_encyclopedia_search')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'catholic_encyclopedia_search'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'catholic_encyclopedia_search');
+                            }} />
+                        Catholic Encyclopedia Search
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
+                    <label for="max-tool-iterations">Max Tool Iterations:</label>
+                    <input type="number" id="max-tool-iterations" bind:value={localConfig.maxToolIterations} min="1" max="20" style="width: 80px;" />
+                </div>
+            {/if}
+        </div>
+
         <!------------------------------>
         <!-- Deep Research Configuration -->
         <!------------------------------>
