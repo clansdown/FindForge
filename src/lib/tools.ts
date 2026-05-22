@@ -1,4 +1,6 @@
 import { evaluate } from 'mathjs';
+import { Readability } from '@mozilla/readability';
+import TurndownService from 'turndown';
 import type { ToolDefinition, ToolCall, ToolExecutionContext, ToolExecutor } from './types';
 
 // ── Tool Definitions (OpenAI-compatible JSON Schema) ──
@@ -66,6 +68,25 @@ export const CATHOLIC_TOOL: ToolDefinition = {
                 },
             },
             required: ['query'],
+        },
+    },
+};
+
+export const WEB_FETCH_TOOL: ToolDefinition = {
+    type: 'function',
+    function: {
+        name: 'web_fetch',
+        description:
+            'Fetch a web page and extract its main content as clean markdown. Use this after getting search results to read the full text of specific pages. Returns the page title and cleaned markdown content.',
+        parameters: {
+            type: 'object',
+            properties: {
+                url: {
+                    type: 'string',
+                    description: 'The URL of the web page to fetch',
+                },
+            },
+            required: ['url'],
         },
     },
 };
@@ -143,6 +164,63 @@ async function executeCatholicEncyclopedia(args: Record<string, unknown>): Promi
     }
 }
 
+async function executeWebFetch(args: Record<string, unknown>): Promise<string> {
+    const url = args.url as string;
+    if (!url) return 'Error: No URL provided.';
+
+    let html: string;
+    try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) {
+            return `Error: HTTP ${response.status} ${response.statusText} for ${url}`;
+        }
+        const contentType = response.headers.get('Content-Type') || '';
+        if (!contentType.includes('text/html') && !contentType.includes('text/plain')) {
+            return `Error: Unsupported content type ${contentType} for ${url}. Expected an HTML page.`;
+        }
+        html = await response.text();
+    } catch (e) {
+        if (e instanceof DOMException && e.name === 'TimeoutError') {
+            return `Error: Request timed out for ${url}`;
+        }
+        // TODO: When the Cloudflare Worker proxy is available, retry via proxy:
+        // const proxyUrl = `https://findforge-proxy.chris-f57.workers.dev/fetch?url=${encodeURIComponent(url)}`;
+        // const response = await fetch(proxyUrl);
+        // html = await response.text();
+        console.warn('[web_fetch] Network/CORS error fetching:', url, e);
+        return `Error: Could not fetch ${url} — CORS or network error.`;
+    }
+
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        doc.querySelectorAll('script, style, nav, footer, header, aside, iframe, noscript, svg, form, .sidebar, .footer, .header').forEach(el => el.remove());
+
+        const reader = new Readability(doc);
+        const article = reader.parse();
+
+        if (!article || !article.content || (article.textContent?.trim().length ?? 0) < 100) {
+            console.warn('[web_fetch] Possible SPA detected — page has minimal content, may require JavaScript:', url);
+            // TODO: Use a Cloudflare browser-rendering service for SPAs that require JavaScript
+        }
+
+        if (!article || !article.content) {
+            return `Error: Could not extract content from ${url}. The page may require JavaScript.`;
+        }
+
+        const turndownService = new TurndownService({
+            headingStyle: 'atx',
+            codeBlockStyle: 'fenced',
+        });
+        const markdown = turndownService.turndown(article.content);
+        const title = article.title ? `# ${article.title}\n\n` : '';
+        return (title + markdown).trim();
+    } catch (e) {
+        return `Error processing ${url}: ${e instanceof Error ? e.message : String(e)}`;
+    }
+}
+
 // ── Tool Registry ──
 
 export class ToolRegistry {
@@ -195,6 +273,7 @@ export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {
         { definition: CALCULATOR_TOOL, executor: executeCalculator },
         { definition: WIKIPEDIA_TOOL, executor: executeWikipedia },
         { definition: CATHOLIC_TOOL, executor: executeCatholicEncyclopedia },
+        { definition: WEB_FETCH_TOOL, executor: executeWebFetch },
     ];
 
     for (const tool of tools) {

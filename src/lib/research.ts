@@ -226,6 +226,21 @@ async function doStandardResearchWithTools(
                     tool_call_id: tr.tool_call_id,
                     content: [{ type: 'text', text: tr.content }],
                 });
+
+                // Track successful web_fetch calls as resources
+                if (tc.function.name === 'web_fetch' && !tr.content.startsWith('Error:')) {
+                    let url = '';
+                    try {
+                        url = JSON.parse(tc.function.arguments || '{}').url;
+                    } catch {}
+                    if (url) {
+                        resources.push({
+                            url,
+                            type: 'web_fetch',
+                            summary: tr.content.slice(0, 200),
+                        });
+                    }
+                }
             }
 
             onStatus('');
