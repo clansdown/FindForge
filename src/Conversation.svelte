@@ -568,7 +568,7 @@
                 if(result.resources) {
                     assistantMessage.resources = result.resources;
                 }
-                currentConversation.messages = currentConversation.messages; // trigger reactivity
+                currentConversation.messages = currentConversation.messages.map(msg => (msg.id === assistantMessage.id ? { ...assistantMessage } : msg));
                 await tick(); // Ensure DOM updates
             }
             userInput = ""; // Clear input after sending

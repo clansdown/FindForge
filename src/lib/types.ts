@@ -339,6 +339,7 @@ export interface ResearchThread {
     generationPromises: Promise<GenerationData | undefined>[];   // new field
     handleGenerationData: (data: GenerationData) => void;
     resources?: Resource[];   // resources extracted from first pass
+    toolCallRecords?: ToolCallRecord[]; // tool calls made during this thread
 }
 
 export interface Resource {

@@ -22,12 +22,14 @@
   },
   "dependencies": {
     "@clerk/clerk-js": "^6.11.3",
+    "@mozilla/readability": "^0.6.0",
     "bootstrap": "^5.3.8",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "markdown-it-highlightjs": "^4.2.0",
     "markdown-it-link-attributes": "^4.0.1",
     "mathjs": "^14.4.0",
-    "svelte-select": "^5.8.3"
+    "svelte-select": "^5.8.3",
+    "turndown": "^7.2.4"
   }
 }

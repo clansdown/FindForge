@@ -194,6 +194,7 @@ async function doStandardResearchWithTools(
             }
 
             // Record and execute tool calls
+            console.log(`[Tools] LLM requested: ${result.toolCalls.map(t => t.function.name).join(', ')}`, result.toolCalls);
             onStatus(`Using ${result.toolCalls.map(t => t.function.name).join(', ')}...`);
 
             const assistantMsg: ApiCallMessage = {
@@ -229,6 +230,9 @@ async function doStandardResearchWithTools(
 
             onStatus('');
             iteration++;
+            if (toolCallRecords.length > 0) {
+                console.log(`[Tools] ${toolCallRecords.length} tools executed:`, toolCallRecords);
+            }
 
             if (iteration >= maxIterations && !abortController?.signal.aborted) {
                 // Force final answer

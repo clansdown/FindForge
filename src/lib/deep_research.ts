@@ -372,6 +372,18 @@ async function determineStrategy(
     return { strategy, chatResult: response };
 }
 
+function captureToolCalls(result: import("./types").CompletionResult, config: Config, toolRegistry: ToolRegistry): import("./types").ToolCallRecord[] {
+    if (!result.toolCalls) return [];
+    return result.toolCalls.map(tc => ({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: JSON.parse(tc.function.arguments || '{}'),
+        result: '',
+        startTimeMs: Date.now(),
+        durationMs: 0,
+    }));
+}
+
 export async function execute_research_thread(
     config: Config,
     prompt: string,
@@ -414,6 +426,7 @@ export async function execute_research_thread(
             signal: undefined,
             reasoningEffort: config.defaultReasoningEffort,
         });
+        thread.toolCallRecords = captureToolCalls(result, config, toolRegistry);
         firstPassContent = result.content;
         firstPassResult = {
             requestID: result.requestID,
@@ -499,6 +512,11 @@ export async function execute_research_thread(
             signal: undefined,
             reasoningEffort: config.defaultReasoningEffort,
         });
+        if (result.toolCalls && !thread.toolCallRecords) {
+            thread.toolCallRecords = captureToolCalls(result, config, toolRegistry);
+        } else if (result.toolCalls && thread.toolCallRecords) {
+            thread.toolCallRecords.push(...captureToolCalls(result, config, toolRegistry));
+        }
         refinedResult = {
             requestID: result.requestID,
             model: result.model,

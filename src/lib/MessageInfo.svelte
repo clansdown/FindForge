@@ -174,6 +174,21 @@
                                     {/if}
                                 </div>
                             {/if}
+
+                            <details>
+                                <summary><h5>Tool Calls ({selectedThread?.toolCallRecords?.length ?? 0})</h5></summary>
+                                {#if selectedThread?.toolCallRecords && selectedThread.toolCallRecords.length > 0}
+                                    {#each selectedThread.toolCallRecords as tc}
+                                        <div class="tool-call-entry">
+                                            <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
+                                            <pre>Args: {JSON.stringify(tc.arguments, null, 2)}</pre>
+                                            <pre>Result: {tc.result}</pre>
+                                        </div>
+                                    {/each}
+                                {:else}
+                                    <p>No tools were called.</p>
+                                {/if}
+                            </details>
                         </div>
                     </div>
                 {:else if activeTab === 'synthesis'}
@@ -255,18 +270,29 @@
                     </div>
                 {/if}
 
-                {#if researchResult.toolCallRecords && researchResult.toolCallRecords.length > 0}
-                    <div class="info-block">
-                        <h4>Tool Calls</h4>
-                        {#each researchResult.toolCallRecords as tc}
-                            <div class="tool-call-entry">
-                                <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
-                                <pre>Args: {JSON.stringify(tc.arguments, null, 2)}</pre>
-                                <pre>Result: {tc.result}</pre>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
+                <div class="info-block">
+                    <details>
+                        <summary><h4>Tool Calls ({researchResult.toolCallRecords?.length ?? 0})</h4></summary>
+                        {#if researchResult.toolCallRecords && researchResult.toolCallRecords.length > 0}
+                            {#each researchResult.toolCallRecords as tc}
+                                <div class="tool-call-entry">
+                                    <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
+                                    <pre>Args: {JSON.stringify(tc.arguments, null, 2)}</pre>
+                                    <pre>Result: {tc.result}</pre>
+                                </div>
+                            {/each}
+                        {:else}
+                            <p>No tools were called.</p>
+                        {/if}
+                    </details>
+                </div>
+
+                <div class="info-block">
+                    <details>
+                        <summary><h4>Debug</h4></summary>
+                        <pre>{JSON.stringify(researchResult, null, 2)}</pre>
+                    </details>
+                </div>
             </div>
         {/if}
     </div>
@@ -386,5 +412,16 @@
     }
     .tool-call-entry pre {
         font-size: 0.75rem;
+    }
+
+    details {
+        margin-top: 0.5rem;
+    }
+    details summary {
+        cursor: pointer;
+        color: #ddd;
+    }
+    details summary h4, details summary h5 {
+        display: inline;
     }
 </style>

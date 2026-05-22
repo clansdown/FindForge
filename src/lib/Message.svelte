@@ -57,6 +57,7 @@
         currentAnnotations = message.annotations || [];
         currentResources = message.resources || [];
         currentGenerationData = message.generationData;
+        currentResearchResult = message.researchResult;
     }
 
     const md = new MarkdownIt({
