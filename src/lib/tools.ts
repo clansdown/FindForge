@@ -168,6 +168,28 @@ async function executeWebFetch(args: Record<string, unknown>): Promise<string> {
     const url = args.url as string;
     if (!url) return 'Error: No URL provided.';
 
+    // Intercept Wikipedia URLs — use the MediaWiki REST API (CORS-friendly)
+    const wikiMatch = url.match(/^https?:\/\/([a-z]{2,3})(?:\.m)?\.wikipedia\.org\/wiki\/([^#?]+)/);
+    if (wikiMatch) {
+        const lang = wikiMatch[1];
+        const title = decodeURIComponent(wikiMatch[2].replace(/_/g, ' '));
+        const apiUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
+        try {
+            const res = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) });
+            if (!res.ok) return `Error: Wikipedia API returned HTTP ${res.status}`;
+            const html = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            doc.querySelectorAll('.mw-editsection, #toc, .toc, nav, .sidebar, .footer, .noprint').forEach(el => el.remove());
+            const turndownService = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+            const markdown = turndownService.turndown(doc.body.innerHTML);
+            const titleLine = `# Wikipedia: ${title}\n\n`;
+            return titleLine + markdown.trim();
+        } catch (e) {
+            console.warn('[web_fetch] Wikipedia API error:', url, e);
+        }
+    }
+
     let html: string;
     try {
         const response = await fetch(url, { signal: AbortSignal.timeout(15000) });

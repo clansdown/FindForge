@@ -1,7 +1,7 @@
 import { parse } from 'svelte/compiler';
-import { callOpenRouterChat, callOpenRouterStreaming, callOpenRouterWithTools, fetchGenerationData } from './models';
+import { callOpenRouterChat, callOpenRouterWithTools, fetchGenerationData } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
-import type { ApiCallMessage, StreamingResult, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, CompletionResult, Annotation } from './types';
+import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, CompletionResult, Annotation } from './types';
 import { ToolRegistry } from './tools';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
@@ -47,82 +47,12 @@ export async function doStandardResearch(
     callback: (chunk: string) => void,
     updateStatus: (status: string) => void,
     abortController?: AbortController,
-    toolRegistry?: ToolRegistry
+    toolRegistry?: ToolRegistry,
+    onThinking?: (chunk: string) => void,
 ): Promise<ResearchResult> {
-    if (config.toolsEnabled && toolRegistry && toolRegistry.getDefinitions().length > 0) {
-        return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry);
-    }
-
-    updateStatus('Starting research...');
-    const resources: Resource[] = [];
-    const systemPromptUsed = config.systemPrompt || undefined;
-    
-    // Prepare messages for API
-    const messagesForAPI: ApiCallMessage[] = [];
-    
-    // Add system prompt with resource instructions
-    if (config.systemPrompt) {
-        messagesForAPI.push({ 
-            role: 'system', 
-            content: [{ type: 'text', text: config.systemPrompt + '\n\n' + resourceInstructions }] 
-        });
-    }
-    
-    // Add history if enabled
-    if (config.includePreviousMessagesAsContext) {
-        for (const m of history) {
-            if (!m.hidden) {
-                messagesForAPI.push(convertMessageToApiCallMessage(m));
-            }
-        }
-    } 
-    // Always include the current user message
-    messagesForAPI.push(convertMessageToApiCallMessage(userMessage));
-    
-    
-    const maxWebRequests = config.allowWebSearch ? config.webSearchMaxResults : 0;
-    
-    console.log('Messages for API:', messagesForAPI);
-
-    try {
-        let content = '';
-        const streamingResult = await callOpenRouterStreaming(
-            config.apiKey,
-            config.defaultModel,
-            maxTokens,
-            maxWebRequests,
-            messagesForAPI,
-            (chunk) => {
-                content += chunk;
-                callback(chunk);
-            },
-            abortController
-        );
-        let generationData: GenerationData | undefined = undefined;
-        if (streamingResult.requestID) {
-            generationData = await fetchGenerationData(config.apiKey, streamingResult.requestID);
-            if(generationData) streamingResult.generationData = generationData;
-        }
-        // Parse any resources from the response, using our tracked content
-        if (content) {
-            console.log("parsed resources: ", parseResourcesFromContent(content));
-            resources.push(...parseResourcesFromContent(content));
-        }
-        updateStatus('Research completed');
-        return { 
-            systemPrompt: systemPromptUsed,
-            content,
-            streamingResult, 
-            generationData, 
-            annotations: streamingResult.annotations || [], 
-            resources,
-            contextWasIncluded: config.includePreviousMessagesAsContext
-        };
-    } catch (error) {
-        updateStatus('Research failed');
-        throw error;
-    }
+    return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry ?? new ToolRegistry(), onThinking);
 }
+
 
 async function doStandardResearchWithTools(
     maxTokens: number,
@@ -133,6 +63,7 @@ async function doStandardResearchWithTools(
     onStatus: (status: string) => void,
     abortController: AbortController | undefined,
     toolRegistry: ToolRegistry,
+    onThinking?: (chunk: string) => void,
 ): Promise<ResearchResult> {
     onStatus('Starting research with tools...');
     const resources: Resource[] = [];
@@ -167,19 +98,22 @@ async function doStandardResearchWithTools(
     try {
         while (iteration < maxIterations) {
             const isLastAttempt = iteration >= maxIterations - 1;
+            const availableTools = isLastAttempt ? undefined : tools;
+            console.log(`[Tools] Offering ${availableTools?.length ?? 0} tools to LLM`);
             const result: CompletionResult = await callOpenRouterWithTools({
                 apiKey: config.apiKey,
                 modelId: config.defaultModel,
                 messages: messagesForAPI,
                 maxTokens,
-                tools: isLastAttempt ? undefined : tools,
+                tools: availableTools,
                 toolChoice: isLastAttempt ? 'none' : 'auto',
-                stream: iteration === 0 || isLastAttempt,
+                stream: true,
                 onContent: (chunk) => {
                     finalContent += chunk;
                     onContent(chunk);
                 },
                 onToolCallDelta: () => {},
+                onReasoning: onThinking,
                 signal: abortController?.signal,
                 reasoningEffort: config.defaultReasoningEffort,
             });
@@ -195,7 +129,15 @@ async function doStandardResearchWithTools(
 
             // Record and execute tool calls
             console.log(`[Tools] LLM requested: ${result.toolCalls.map(t => t.function.name).join(', ')}`, result.toolCalls);
-            onStatus(`Using ${result.toolCalls.map(t => t.function.name).join(', ')}...`);
+            onStatus(`Using ${result.toolCalls.map(t => {
+                if (t.function.name === 'web_fetch') {
+                    try {
+                        const args = JSON.parse(t.function.arguments || '{}');
+                        return args.url ? `web_fetch:${args.url}` : 'web_fetch';
+                    } catch { return 'web_fetch'; }
+                }
+                return t.function.name;
+            }).join(', ')}...`);
 
             const assistantMsg: ApiCallMessage = {
                 role: 'assistant',

@@ -1,5 +1,12 @@
 import { callOpenRouterChat, callOpenRouterWithTools, createUserApiCallMessage, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData, getModels } from "./models";
 import { parseResourcesFromContent, resourceInstructions } from "./resources";
+import {
+    STRATEGY_PROMPT,
+    deepPlanPrompt, deepPlanRefinementPrompt,
+    broadPlanPrompt, broadPlanRefinementPrompt,
+    SUBQUERY_PROMPT, REFINEMENT_PROMPT,
+    SYNTHESIS_PROMPT_INITIAL, SYNTHESIS_PROMPT_REFINEMENT,
+} from "./prompts";
 import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource, ToolCallRecord } from "./types";
 import { generateID } from "./util";
 import type { ToolRegistry } from "./tools";
@@ -85,9 +92,9 @@ export async function doDeepResearch(
             if(actualStrategy === 'deep') {
                 let plan_prompt_text: string;
                 if (phase_index === 0) {
-                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to the user's question or goal, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>. Wrap any reasoning you do in <REASONING> and </REASONING>. ` + resourceInstructions;
+                    plan_prompt_text = deepPlanPrompt(max_subsets);
                 } else {
-                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and the previous answer (shown below) to create a plan for further researching the user's question or goal. Focus on anything in the user's question or goal which may not have been addressed in the first answer. Secondarily, consider anything that could use elaboration or further detail. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you improve upon or verify the previous answer. Each prompt should be clear and specific, and should not require any further clarification from the user. The prompts should be designed to gather information that is relevant to improving or verifying the previous answer, and should not include any unnecessary or irrelevant information. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a better final answer or solution to the user's question or goal. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with </prompt>. Wrap any reasoning you do in <REASONING> and </REASONING>. ` + resourceInstructions;
+                    plan_prompt_text = deepPlanRefinementPrompt(max_subsets);
                 }
                 const system_prompt = createSystemApiCallMessage(plan_prompt = plan_prompt_text);
                 const messages_for_api: ApiCallMessage[] = phase_index === 0 
@@ -118,9 +125,9 @@ export async function doDeepResearch(
             } else if (actualStrategy === 'broad') {
                 let plan_prompt_text: string;
                 if (phase_index === 0) {
-                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and create a plan for researching the user's question or goal. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each of which should be a single question or task that will help you answer the user's question or achieve their goal. Each prompt should be designed to gather a broad overview of the topic and should not focus on any one aspect too deeply. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a final answer or solution to the user's question. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>". Wrap any reasoning you do in <REASONING> and </REASONING>.` + resourceInstructions;
+                    plan_prompt_text = broadPlanPrompt(max_subsets);
                 } else {
-                    plan_prompt_text = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. Analyze the user's messages and the previous answer (shown below) to create an improved broad research plan. This plan should consist of up to ${max_subsets} prompts to be fed into an LLM, each designed to gather additional broad information that complements or verifies the previous answer. Each prompt should cover a different aspect of the topic broadly and should not focus too deeply on any one area. The prompts should be clear and specific, and should not require any further clarification from the user. The plan should be structured in a way that allows you to build on the information gathered in previous prompts, and should lead to a more comprehensive final answer. The results of those prompts will be fed back to you for analysis and synthesis into a final answer. Each prompt should begin with "<prompt>" and end with "</prompt>". Wrap any reasoning you do in <REASONING> and </REASONING>.` + resourceInstructions;
+                    plan_prompt_text = broadPlanRefinementPrompt(max_subsets);
                 }
                 const system_prompt = createSystemApiCallMessage(plan_prompt = plan_prompt_text);
                 const messages_for_api: ApiCallMessage[] = phase_index === 0 
@@ -167,9 +174,9 @@ export async function doDeepResearch(
             const userQuery = userMessage;
 
             // Execute all research threads in parallel using execute_research_thread
-            const subquerySystemPrompt = `You are an expert researcher who is willing to think outside the box when necessary to find high quality data or evidence. The following prompt is designed to gather information that is relevant to a bigger question or goal and will be used to synthesize an answer to it. Your answer will be fed into another LLM, so be clear and detailed in your response. Include any information which might be relevant. Do not worry about politeness or formalities, just provide the information requested.` + resourceInstructions;
+            const subquerySystemPrompt = SUBQUERY_PROMPT + resourceInstructions;
 
-            const refinementSystemPrompt = `You are an expert researcher. Your task is to extract and summarize all information from the provided research result that is relevant to the user's original query. Only include information that is relevant or potentially relevant to the query, but include all potentially relevant information, including details. Omit completely irrelevant information. Do not expand on anything. Your output will be fed into an LLM for synthesis. Do not worry about politeness or formalities. The original research result is provided below.`;
+            const refinementSystemPrompt = REFINEMENT_PROMPT;
 
             const threadPromises = prompts.map(prompt => 
                 execute_research_thread(
@@ -222,9 +229,9 @@ export async function doDeepResearch(
             statusCallback("Synthesizing research results.");
             let synthesis_prompt_string: string;
             if (phase_index === 0) {
-                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the research results and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+                synthesis_prompt_string = SYNTHESIS_PROMPT_INITIAL + config.deepResearchSystemPrompt;
             } else {
-                synthesis_prompt_string = `You are an expert researcher and analyst. Analyze the previous answer to the user's question or goal in light of the new research results and refine the answer to create an improved answer. Focus on addressing any gaps, weaknesses, or inaccuracies in the previous answer. Prefer expanding the answer to removing anything. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the refined answer for the user in <ANSWER> and </ANSWER> tags. ` + config.deepResearchSystemPrompt;
+                synthesis_prompt_string = SYNTHESIS_PROMPT_REFINEMENT + config.deepResearchSystemPrompt;
             }
             synthesisPromptStrings.push(synthesis_prompt_string);
             const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
@@ -331,7 +338,7 @@ async function determineStrategy(
         role: 'system',
         content: [{
             type: 'text',
-            text: "Analyze the user's messages (and assistant's messages if there are any) and determine the best research strategy to answer the question or achieve the goal. If the messages indicate a need for deep research, use 'deep'. If they suggest a broad overview, use 'broad'. If unsure, default to 'unsure'. Reply with only those words and no explanation.",
+            text: STRATEGY_PROMPT,
         }],
     };
     const messages_for_api : ApiCallMessage[] = [system_prompt, ...messages, userMessage];

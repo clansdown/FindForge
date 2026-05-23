@@ -1,4 +1,5 @@
 import { generateID } from "./util";
+import { DEFAULT_SYSTEM_PROMPT, DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT } from "./prompts";
 
 export type ApplicationMode = 'research' | 'brainstorming';
 
@@ -36,8 +37,8 @@ export class Config {
     enabledTools: string[]; // list of enabled tool names
     maxToolIterations: number; // max tool-calling loop iterations
 
-    static defaultSystemPrompt ='You are a helpful AI assistant. When mentioning research papers provide full citations suitable for searching for the paper on the internet. Omit any disclaimers. Remember that experts can be wrong. Be concise but include detail.';
-    static defaultDeepResearchSynthesisPrompt = `Address the user's question or goal directly. The answer should be detailed, accurate, informative, clear, and dense, without omitting key details. The answer should explain any reasoning involved. Cite all sources. The language should be in the style of a helpful but businesslike research assistant. Focus on clear, precise, and factual prose with section headings, but use tables and lists if they aid in clarity or readability.`; // appended to the internal system prompt
+    static defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT;
+    static defaultDeepResearchSynthesisPrompt = DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT;
 
     constructor() {
         this.historyWidth = 400;
@@ -75,8 +76,8 @@ export class Config {
         this.defaultSystemPromptId = 'default';
         this.defaultSynthesisPromptId = 'synthesis_default';
         this.speakMessages = false;
-        this.toolsEnabled = false;
-        this.enabledTools = [];
+        this.toolsEnabled = true;
+        this.enabledTools = ['scientific_calculator', 'wikipedia_search', 'catholic_encyclopedia_search', 'web_fetch'];
         this.maxToolIterations = 8;
         this.autoSave = true;
 
@@ -129,6 +130,16 @@ export class Config {
                 name: 'Default',
                 prompt: Config.defaultDeepResearchSynthesisPrompt
             });
+        }
+
+        // Sync top-level prompts from selected entries
+        const selectedPrompt = this.systemPrompts.find(p => p.id === this.defaultSystemPromptId);
+        if (selectedPrompt) {
+            this.systemPrompt = selectedPrompt.prompt;
+        }
+        const selectedSynthesisPrompt = this.synthesisPrompts.find(p => p.id === this.defaultSynthesisPromptId);
+        if (selectedSynthesisPrompt) {
+            this.deepResearchSystemPrompt = selectedSynthesisPrompt.prompt;
         }
     }
 }
@@ -230,6 +241,7 @@ export interface MessageData {
     attachments?: Attachment[]; // array of file attachments
     isGenerating?: boolean; // true when the message is being generated
     status?: string; // status text for deep research
+    thinking?: string; // LLM reasoning/thinking during generation
     deepResearchResult?: DeepResearchResult; // result of deep research, if it was done
     researchResult?: ResearchResult; // result of standard research, if it was done
     researchResults?: ResearchResult[]; // results of standard research, if multiple were done

@@ -269,10 +269,11 @@ export async function callOpenRouterWithTools(options: {
     stream: boolean;
     onContent?: (chunk: string) => void;
     onToolCallDelta?: (delta: Partial<ToolCall>) => void;
+    onReasoning?: (chunk: string) => void;
     signal?: AbortSignal;
     reasoningEffort?: 'low' | 'medium' | 'high';
 }): Promise<CompletionResult> {
-    const { apiKey, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, signal, reasoningEffort } = options;
+    const { apiKey, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, signal, reasoningEffort } = options;
 
     const url = 'https://openrouter.ai/api/v1/chat/completions';
     const headers: Record<string, string> = {
@@ -407,6 +408,11 @@ export async function callOpenRouterWithTools(options: {
                     if (delta.content && onContent) {
                         content += delta.content;
                         onContent(delta.content);
+                    }
+
+                    // Reasoning delta (e.g. DeepSeek R1 chain-of-thought)
+                    if (delta.reasoning && onReasoning) {
+                        onReasoning(delta.reasoning);
                     }
 
                     // Tool call deltas

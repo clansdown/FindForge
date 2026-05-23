@@ -419,9 +419,7 @@
         }
 
         try {
-            const toolRegistry = localConfig.toolsEnabled
-                ? createToolRegistry(localConfig.enabledTools)
-                : undefined;
+            const toolRegistry = createToolRegistry(localConfig.enabledTools);
 
             if (deepSearch) {
                 console.log("Starting deep research...");
@@ -498,6 +496,7 @@
                         if (firstChunk) {
                             assistantMessage.isGenerating = false;
                             assistantMessage.status = '';
+                            assistantMessage.thinking = '';
                             firstChunk = false;
                         }
                         assistantMessage.content += chunk;
@@ -505,7 +504,9 @@
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
                         tick();
-                        scrollToBottom();
+                        if (!/<RESOURCES>/.test(assistantMessage.content)) {
+                            scrollToBottom();
+                        }
 
                         // Only speak new chunks if enabled and no resources tag seen yet
                         const hasResourcesTag = /<RESOURCES>/.test(assistantMessage.content);
@@ -547,6 +548,9 @@
                     }, // updateStatus callback
                     abortController,
                     toolRegistry,
+                    (thinkingChunk) => {
+                        assistantMessage.thinking = (assistantMessage.thinking || '') + thinkingChunk;
+                    },
                 );
                 assistantMessage.researchResult = result;
                 if (result.toolCallRecords && result.toolCallRecords.length > 0) {

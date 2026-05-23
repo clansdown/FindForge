@@ -4,6 +4,7 @@
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
+    import ThinkingBox from "./ThinkingBox.svelte";
     
     import type {
         MessageData,
@@ -215,6 +216,9 @@
                 {:else} 
                     <!-- Assistant Message -->
                     {#if message.isGenerating}
+                        {#if message.thinking}
+                            <ThinkingBox thinking={message.thinking} lines={8} />
+                        {/if}
                         {#if message.status}
                             <div class="status">{@html message.status}</div>
                         {/if}
