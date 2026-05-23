@@ -7,7 +7,9 @@ export function parseResourcesFromContent(content: string): Resource[] {
     const resources: Resource[] = [];
     const resourceRegex = /<RESOURCE>(.*?)<\/RESOURCE>/gs;
     let resourceMatch;
+    let matchCount = 0;
     while ((resourceMatch = resourceRegex.exec(content)) !== null) {
+        matchCount++;
         const resourceBlock = resourceMatch[1];
         const urlMatch = /<URL>(.*?)<\/URL>/s.exec(resourceBlock);
         const titleMatch = /<TITLE>(.*?)<\/TITLE>/s.exec(resourceBlock);
@@ -16,6 +18,12 @@ export function parseResourcesFromContent(content: string): Resource[] {
         const typeMatch = /<TYPE>(.*?)<\/TYPE>/s.exec(resourceBlock);
         const purposeMatch = /<PURPOSE>(.*?)<\/PURPOSE>/s.exec(resourceBlock);
         const summaryMatch = /<SUMMARY>(.*?)<\/SUMMARY>/s.exec(resourceBlock);
+
+        console.log('[resources] parseResourcesFromContent match #' + matchCount + ':', {
+            rawBlock: resourceBlock.slice(0, 500),
+            urlFull: urlMatch?.[1]?.trim(),
+            title: titleMatch?.[1]?.trim(),
+        });
 
         if (urlMatch && urlMatch[1]) {
             const resource: Resource = {
@@ -30,5 +38,14 @@ export function parseResourcesFromContent(content: string): Resource[] {
             resources.push(resource);
         }
     }
+    console.log('[resources] parseResourcesFromContent:', {
+        contentLength: content.length,
+        containsResourcesSection: content.includes('<RESOURCES>'),
+        containsResourceTag: content.includes('<RESOURCE>'),
+        matchCount,
+        extractedCount: resources.length,
+        resources: resources.map(r => ({ url: r.url, title: r.title })),
+        contentTail: content.slice(-2000),
+    });
     return resources;
 }

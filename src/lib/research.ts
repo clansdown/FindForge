@@ -69,6 +69,11 @@ async function doStandardResearchWithTools(
     const resources: Resource[] = [];
     const systemPromptUsed = config.systemPrompt || undefined;
     const toolCallRecords: ToolCallRecord[] = [];
+    console.log('[resources] doStandardResearchWithTools initialized:', {
+        hasSystemPrompt: !!config.systemPrompt,
+        configPromptSnippet: config.systemPrompt?.slice(0, 100),
+        toolsRegistered: toolRegistry.getDefinitions().map(t => t.function.name),
+    });
 
     const messagesForAPI: ApiCallMessage[] = [];
 
@@ -170,17 +175,27 @@ async function doStandardResearchWithTools(
                 });
 
                 // Track successful web_fetch calls as resources
-                if (tc.function.name === 'web_fetch' && !tr.content.startsWith('Error:')) {
-                    let url = '';
-                    try {
-                        url = JSON.parse(tc.function.arguments || '{}').url;
-                    } catch {}
-                    if (url) {
-                        resources.push({
-                            url,
-                            type: 'web_fetch',
-                            summary: tr.content.slice(0, 200),
-                        });
+                if (tc.function.name === 'web_fetch') {
+                    const isError = tr.content.startsWith('Error:');
+                    console.log('[resources] web_fetch result:', {
+                        arguments: tc.function.arguments,
+                        isError,
+                        contentSample: tr.content.slice(0, 300),
+                        fullContent: tr.content,
+                    });
+                    if (!isError) {
+                        let url = '';
+                        try {
+                            url = JSON.parse(tc.function.arguments || '{}').url;
+                        } catch {}
+                        if (url) {
+                            resources.push({
+                                url,
+                                type: 'web_fetch',
+                                summary: tr.content.slice(0, 200),
+                            });
+                            console.log('[resources] pushed web_fetch resource:', { url, resourcesSoFar: resources.length, resources: resources.map(r => ({ url: r.url })) });
+                        }
                     }
                 }
             }
@@ -198,7 +213,15 @@ async function doStandardResearchWithTools(
         }
 
         if (finalContent) {
-            resources.push(...parseResourcesFromContent(finalContent));
+            console.log('[resources] finalContent before parse:', {
+                length: finalContent.length,
+                containsResourceTag: finalContent.includes('<RESOURCE>'),
+                containsRESOURCESTag: finalContent.includes('<RESOURCES>'),
+                finalContent,
+            });
+            const parsed = parseResourcesFromContent(finalContent);
+            console.log('[resources] parsed from finalContent:', { count: parsed.length, parsed });
+            resources.push(...parsed);
         }
         onStatus('Research completed');
 
@@ -206,6 +229,12 @@ async function doStandardResearchWithTools(
             ? await fetchGenerationData(config.apiKey, lastResult.requestID)
             : undefined;
 
+        console.log('[resources] returning ResearchResult:', {
+            resourceCount: resources.length,
+            resources: resources.map(r => ({ url: r.url, title: r.title })),
+            toolCallCount: toolCallRecords.length,
+            finalContentLength: finalContent?.length,
+        });
         return {
             systemPrompt: systemPromptUsed,
             content: finalContent,
@@ -288,8 +317,8 @@ export async function doParallelResearch(
             if (chatResult.requestID) {
                 generationData = await fetchGenerationData(config.apiKey, chatResult.requestID);
             }
-            
-            return { 
+
+            return {
                 systemPrompt: prompt.prompt,
                 systemPromptName: prompt.name,
                 modelId: model.modelId,

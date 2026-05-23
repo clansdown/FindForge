@@ -504,9 +504,6 @@
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
                         tick();
-                        if (!/<RESOURCES>/.test(assistantMessage.content)) {
-                            scrollToBottom();
-                        }
 
                         // Only speak new chunks if enabled and no resources tag seen yet
                         const hasResourcesTag = /<RESOURCES>/.test(assistantMessage.content);
@@ -570,9 +567,25 @@
                     assistantMessage.annotations = result.annotations;
                 }
                 if(result.resources) {
+                    console.log('[resources] assigning to assistantMessage:', { count: result.resources.length, resultResources: result.resources });
                     assistantMessage.resources = result.resources;
                 }
+                if (result.annotations) {
+                    assistantMessage.annotations = result.annotations;
+                }
+                console.log('[resources] before spread:', {
+                    assistantMsgResources: assistantMessage.resources?.length,
+                    resources: assistantMessage.resources,
+                    assistantMsgAnnotations: assistantMessage.annotations?.length,
+                    annotations: assistantMessage.annotations,
+                });
                 currentConversation.messages = currentConversation.messages.map(msg => (msg.id === assistantMessage.id ? { ...assistantMessage } : msg));
+                const updatedMsg = currentConversation.messages.find(m => m.id === assistantMessage.id);
+                console.log('[resources] after spread:', {
+                    updatedMsgResources: updatedMsg?.resources?.length,
+                    resources: updatedMsg?.resources,
+                    updatedMsgAnnotations: updatedMsg?.annotations?.length,
+                });
                 await tick(); // Ensure DOM updates
             }
             userInput = ""; // Clear input after sending

@@ -181,7 +181,7 @@
                             class="save-button"
                             on:click={saveMessageToFile}
                             title="Save raw markdown to file">💾</button>
-                        {#if message.annotations && message.annotations.length > 0}
+                        {#if (message.annotations && message.annotations.length > 0) || (message.resources && message.resources.length > 0)}
                             <button
                                 class="resources-button"
                                 on:click={() => showResources = true}
