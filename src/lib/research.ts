@@ -255,6 +255,7 @@ async function doStandardResearchWithTools(
             annotations: allAnnotations,
             contextWasIncluded: config.includePreviousMessagesAsContext,
             toolCallRecords,
+            toolIterations: iteration,
         };
     } catch (error) {
         onStatus('Research failed');

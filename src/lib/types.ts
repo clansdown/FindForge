@@ -389,6 +389,7 @@ export interface ResearchResult {
     annotations: Annotation[];
     contextWasIncluded?: boolean; // true if the previous messages were included in the context
     toolCallRecords?: ToolCallRecord[]; // tool calls executed during this research
+    toolIterations?: number; // number of tool-calling rounds
 }
 
 

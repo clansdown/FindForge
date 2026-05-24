@@ -181,8 +181,15 @@
                                     {#each selectedThread.toolCallRecords as tc}
                                         <div class="tool-call-entry">
                                             <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
-                                            <pre>Args: {JSON.stringify(tc.arguments, null, 2)}</pre>
-                                            <pre>Result: {tc.result}</pre>
+                                            <p class="tool-detail">Args: {JSON.stringify(tc.arguments)}</p>
+                                            {#if tc.result.length <= 100}
+                                                <p class="tool-detail">Result: {tc.result}</p>
+                                            {:else}
+                                                <details>
+                                                    <summary>Result ({tc.result.length} chars)</summary>
+                                                    <pre>{tc.result}</pre>
+                                                </details>
+                                            {/if}
                                         </div>
                                     {/each}
                                 {:else}
@@ -244,6 +251,9 @@
                     <p><strong>Canceled:</strong> {researchResult.generationData.canceled ? 'Yes' : 'No'}</p>
                     <p><strong>Finish Reason:</strong> {researchResult.generationData.finish_reason}</p>
                 {/if}
+                {#if researchResult.toolIterations != null}
+                    <p><strong>Tool Rounds:</strong> {researchResult.toolIterations}</p>
+                {/if}
                 {#if researchResult.systemPrompt}
                     <div class="info-block">
                         {#if researchResult.systemPromptName}
@@ -277,8 +287,15 @@
                             {#each researchResult.toolCallRecords as tc}
                                 <div class="tool-call-entry">
                                     <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
-                                    <pre>Args: {JSON.stringify(tc.arguments, null, 2)}</pre>
-                                    <pre>Result: {tc.result}</pre>
+                                    <p class="tool-detail">Args: {JSON.stringify(tc.arguments)}</p>
+                                    {#if tc.result.length <= 100}
+                                        <p class="tool-detail">Result: {tc.result}</p>
+                                    {:else}
+                                        <details>
+                                            <summary>Result ({tc.result.length} chars)</summary>
+                                            <pre>{tc.result}</pre>
+                                        </details>
+                                    {/if}
                                 </div>
                             {/each}
                         {:else}
@@ -414,6 +431,21 @@
         font-size: 0.75rem;
     }
 
+    .tool-detail {
+        margin: 0.25rem 0;
+        font-size: 0.8rem;
+        color: #bbb;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+    .tool-call-entry details {
+        margin-top: 0.25rem;
+    }
+    .tool-call-entry details summary {
+        font-size: 0.8rem;
+        color: #aaa;
+        cursor: pointer;
+    }
     details {
         margin-top: 0.5rem;
     }
