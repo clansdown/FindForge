@@ -92,6 +92,40 @@ export const WEB_FETCH_TOOL: ToolDefinition = {
     },
 };
 
+export const PUBMED_TOOL: ToolDefinition = {
+    type: 'function',
+    function: {
+        name: 'pubmed_search',
+        description:
+            'Search PubMed for biomedical and life sciences research papers. Returns formatted citations with titles, authors, journal info, DOIs, and links to PubMed Central when available.',
+        parameters: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Search query. Supports PubMed syntax: boolean operators (AND, OR, NOT), field tags ([tiab], [au], [dp]), and MeSH terms.' },
+                max_results: { type: 'number', description: 'Number of results to return (1-10, default 5).' },
+            },
+            required: ['query'],
+        },
+    },
+};
+
+export const ARXIV_TOOL: ToolDefinition = {
+    type: 'function',
+    function: {
+        name: 'arxiv_search',
+        description:
+            'Search arXiv for scientific preprints in physics, mathematics, computer science, and related fields. Returns formatted citations with titles, authors, abstracts, and direct PDF links.',
+        parameters: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Search query. Prefix with field codes: ti: (title), au: (author), abs: (abstract), cat: (category), or all: (all fields). Example: "ti:transformer + attention".' },
+                max_results: { type: 'number', description: 'Number of results to return (1-10, default 5).' },
+            },
+            required: ['query'],
+        },
+    },
+};
+
 // ── Tool Executors ──
 
 async function executeCalculator(args: Record<string, unknown>): Promise<string> {
@@ -321,6 +355,92 @@ async function extractContentFromHtml(html: string, url: string): Promise<string
     }
 }
 
+async function executePubMed(args: Record<string, unknown>): Promise<string> {
+    const query = args.query as string;
+    const maxResults = Math.min(Number(args.max_results) || 5, 10);
+    if (!query) return 'Error: No query provided.';
+
+    try {
+        const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax=${maxResults}&term=${encodeURIComponent(query)}`;
+        const searchResp = await fetch(searchUrl);
+        if (!searchResp.ok) return `PubMed search failed: HTTP ${searchResp.status}`;
+        const searchData = await searchResp.json();
+        const pmids = searchData.esearchresult?.idlist || [];
+        if (!pmids.length) return 'No PubMed results found.';
+
+        const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json`;
+        const summaryResp = await fetch(summaryUrl);
+        if (!summaryResp.ok) return `PubMed summary fetch failed: HTTP ${summaryResp.status}`;
+        const summaryData = await summaryResp.json();
+
+        const uids: string[] = summaryData.result?.uids || [];
+        let output = '';
+        for (const uid of uids) {
+            const doc = summaryData.result[uid];
+            if (!doc) continue;
+            const title = doc.title || 'Untitled';
+            const authors = (doc.authors || []).map((a: { name: string }) => a.name).join(', ');
+            const journal = doc.source || '';
+            const pubdate = doc.pubdate || '';
+            const doi = (doc.articleids || []).find((id: { idtype: string }) => id.idtype === 'doi')?.value || '';
+            const pmcid = (doc.articleids || []).find((id: { idtype: string }) => id.idtype === 'pmc' || id.idtype === 'pmcid')?.value || '';
+
+            output += `### ${title}\n`;
+            if (authors) output += `**Authors:** ${authors}\n`;
+            if (journal || pubdate) output += `**Published:** ${[journal, pubdate].filter(Boolean).join(', ')}\n`;
+            output += `**PMID:** [${uid}](https://pubmed.ncbi.nlm.nih.gov/${uid}/)`;
+            if (doi) output += ` | **DOI:** [${doi}](https://doi.org/${doi})`;
+            if (pmcid) output += ` | **PMC:** [${pmcid}](https://www.ncbi.nlm.nih.gov/pmc/articles/${pmcid}/)`;
+            output += '\n\n';
+        }
+        return output || 'No results to display.';
+    } catch (e) {
+        return `PubMed search failed: ${e instanceof Error ? e.message : String(e)}`;
+    }
+}
+
+async function executeArxiv(args: Record<string, unknown>): Promise<string> {
+    const query = args.query as string;
+    const maxResults = Math.min(Number(args.max_results) || 5, 10);
+    if (!query) return 'Error: No query provided.';
+
+    const token = await getClerkToken();
+    if (!token) return 'Error: Sign in to enable arXiv search (CORS proxy requires authentication).';
+
+    try {
+        const url = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&max_results=${maxResults}`;
+        const xmlText = await fetchViaProxy(url, token);
+
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        const parserError = xmlDoc.querySelector('parsererror');
+        if (parserError) return 'Error: Failed to parse arXiv response.';
+
+        const entries = xmlDoc.querySelectorAll('entry');
+        if (!entries.length) return 'No arXiv results found.';
+
+        let output = '';
+        for (const entry of entries) {
+            const title = entry.querySelector('title')?.textContent?.trim() || 'Untitled';
+            const authors = [...entry.querySelectorAll('author name')].map(n => n.textContent?.trim()).filter(Boolean).join(', ');
+            const summary = entry.querySelector('summary')?.textContent?.trim() || '';
+            const published = entry.querySelector('published')?.textContent?.trim() || '';
+            const idUrl = entry.querySelector('id')?.textContent?.trim() || '';
+            const arxivId = idUrl.replace(/^https?:\/\/arxiv\.org\/abs\//, '');
+
+            output += `### ${title}\n`;
+            if (authors) output += `**Authors:** ${authors}\n`;
+            if (published) output += `**Published:** ${published.substring(0, 10)}\n`;
+            if (summary) output += `**Abstract:** ${summary.substring(0, 500)}${summary.length > 500 ? '...' : ''}\n`;
+            if (arxivId) output += `**arXiv:** [${arxivId}](https://arxiv.org/abs/${arxivId})\n`;
+            output += '\n';
+        }
+        return output || 'No results to display.';
+    } catch (e) {
+        return `arXiv search failed: ${e instanceof Error ? e.message : String(e)}`;
+    }
+}
+
 // ── Tool Registry ──
 
 export class ToolRegistry {
@@ -374,6 +494,8 @@ export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {
         { definition: WIKIPEDIA_TOOL, executor: executeWikipedia },
         { definition: CATHOLIC_TOOL, executor: executeCatholicEncyclopedia },
         { definition: WEB_FETCH_TOOL, executor: executeWebFetch },
+        { definition: PUBMED_TOOL, executor: executePubMed },
+        { definition: ARXIV_TOOL, executor: executeArxiv },
     ];
 
     for (const tool of tools) {

@@ -77,7 +77,7 @@ export class Config {
         this.defaultSynthesisPromptId = 'synthesis_default';
         this.speakMessages = false;
         this.toolsEnabled = true;
-        this.enabledTools = ['scientific_calculator', 'wikipedia_search', 'catholic_encyclopedia_search', 'web_fetch'];
+        this.enabledTools = ['scientific_calculator', 'wikipedia_search', 'catholic_encyclopedia_search', 'web_fetch', 'pubmed_search', 'arxiv_search'];
         this.maxToolIterations = 8;
         this.autoSave = true;
 

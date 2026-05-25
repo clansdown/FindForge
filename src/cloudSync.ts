@@ -604,16 +604,55 @@ export async function syncResetThenPull(): Promise<void> {
     if (!isClerkEnabled() || !isSignedIn()) return;
 
     return withSyncLock(async (ctx) => {
-        // Clear local manifest to force full re-sync
+        const appHandle = await getOPFSHandle();
+        const localPaths = await walkOpfsDirectory(appHandle, '');
+        const appPaths = localPaths.filter((p: string) =>
+            !p.startsWith('preferences/syncManifest') &&
+            !p.startsWith('sync/')
+        );
+
+        // Phase 1: Mark all local files as dirty and persist to journal
+        for (const path of appPaths) {
+            const content = await readLocalFile(path);
+            if (content !== null) {
+                recordWrite(path, computeHash(content));
+            }
+        }
+        await drainQueue();
+
+        // Phase 2: Clear manifest to force fresh state
         await saveManifest({});
 
-        const remoteFiles = await listRemoteFiles('');
-        const appHandle = await getOPFSHandle();
-
+        // Phase 3: Upload all local files
         const newManifest: SyncManifest = {};
+        for (let i = 0; i < appPaths.length; i++) {
+            const path = appPaths[i];
+            STATE.syncProgress = { current: i + 1, total: appPaths.length, phase: 'Uploading' };
+            try {
+                const content = await readLocalFile(path);
+                if (content === null) continue;
+                const { etag } = await uploadFile(
+                    path,
+                    content,
+                    path.endsWith('.json') ? 'application/json' : 'text/plain'
+                );
+                newManifest[path] = {
+                    hash: computeHash(content),
+                    etag,
+                    mtime: new Date().toISOString()
+                };
+            } catch (err) {
+                console.error(`Failed to upload ${path}:`, err);
+            }
+        }
 
-        // Manifest rebuilt from scratch below — no journal entry needed for bulk download.
-        for (const remoteFile of remoteFiles) {
+        // Phase 4: Download remote files we don't already have
+        const uploadedPaths = new Set(Object.keys(newManifest));
+        const remoteFiles = await listRemoteFiles('');
+        const remoteOnly = remoteFiles.filter(f => !uploadedPaths.has(f.path));
+        for (let i = 0; i < remoteOnly.length; i++) {
+            const remoteFile = remoteOnly[i];
+            STATE.syncProgress = { current: i + 1, total: remoteOnly.length, phase: 'Downloading' };
             try {
                 const result = await downloadFile(remoteFile.path);
                 if (result === null) continue;
@@ -629,12 +668,13 @@ export async function syncResetThenPull(): Promise<void> {
             }
         }
 
+        // Phase 5: Save manifest and trim journal
         await saveManifest(newManifest);
+        await truncateJournalEntriesBefore(getCheckpoint().lastId);
         const now = new Date().toISOString();
         STATE.lastSyncTime = now;
         await setLastCloudCheckTime(now);
         STATE.syncProgress = null;
-
     });
 }
 

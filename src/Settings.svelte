@@ -11,6 +11,7 @@
         enableCloudSync,
         disableCloudSync,
         triggerManualSync,
+        triggerCompleteResync,
         isSignedIn
     } from "./cloudSync";
 
@@ -386,6 +387,28 @@
                     </label>
                 </div>
                 <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('pubmed_search')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'pubmed_search'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'pubmed_search');
+                            }} />
+                        PubMed Search
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('arxiv_search')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'arxiv_search'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'arxiv_search');
+                            }} />
+                        arXiv Search
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
                     <label for="max-tool-iterations">Max Tool Iterations:</label>
                     <input type="number" id="max-tool-iterations" bind:value={localConfig.maxToolIterations} min="1" max="20" style="width: 80px;" />
                 </div>
@@ -662,8 +685,9 @@
             </div>
 
             {#if $cloudSyncStore.enabled}
-                <div class="form-group">
+                <div class="form-group" style="display: flex; gap: 0.5rem;">
                     <button on:click={() => triggerManualSync().catch(err => alert('Sync failed: ' + err.message))}>Sync Now</button>
+                    <button on:click={() => triggerCompleteResync().catch(err => alert('Full re-sync failed: ' + err.message))}>Full Re-sync</button>
                 </div>
             {/if}
         {:else}
