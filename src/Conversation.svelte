@@ -13,7 +13,6 @@
         MessageData,
         GenerationData,
         Model,
-        OpenRouterCredits,
         Attachment,
         ApiCallMessage,
         ApiCallMessageContent,
@@ -37,6 +36,7 @@
     import GettingStarted from "./GettingStarted.svelte";
     import Message from "./lib/Message.svelte";
     import type { Writable } from "svelte/store";
+    import { creditStore } from "./lib/creditStore";
 
     /***************/
     /* Properties  */
@@ -44,9 +44,7 @@
     export let currentConversation: ConversationData;
     export let applicationMode: Writable<ApplicationMode>;
     export let saveConversation: (conversation: ConversationData) => void;
-    export let refreshAvailableCredits: () => Promise<void>;
     export let config: Config;
-    export let availableCredits: OpenRouterCredits | undefined;
 
     
     /*******************/
@@ -134,12 +132,9 @@
         lastMessageCount = messageCount;
     }
 
-    // Disable web search if no credits available
-    $: if (availableCredits) {
-        const remaining = availableCredits.total_credits - availableCredits.total_usage;
-        if (remaining <= 0 && localConfig.allowWebSearch) {
-            localConfig.allowWebSearch = false;
-        }
+    // Disable web search if no balance available
+    $: if ($creditStore.balance != null && $creditStore.balance <= 0 && localConfig.allowWebSearch) {
+        localConfig.allowWebSearch = false;
     }
 
     $: { // Get all resources from conversation
@@ -493,11 +488,10 @@
                     userMessage,
                     currentConversation.messages.slice(0, -2), // history (all messages except current user and assistant)
                     (chunk) => {
-                        if (firstChunk) {
-                            assistantMessage.isGenerating = false;
-                            assistantMessage.status = '';
-                            assistantMessage.thinking = '';
-                            firstChunk = false;
+                            if (firstChunk) {
+                                assistantMessage.isGenerating = false;
+                                assistantMessage.status = '';
+                                firstChunk = false;
                         }
                         assistantMessage.content += chunk;
                         currentConversation.messages = currentConversation.messages.map((msg) =>
@@ -616,7 +610,6 @@
             currentConversation.messages = currentConversation.messages.map((msg) => (msg.id === assistantMessage.id ? assistantMessage : msg));
             if(localConfig.autoSave)
                 saveConversation(currentConversation);
-            refreshAvailableCredits();
         }
     }
 

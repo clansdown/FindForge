@@ -2,10 +2,10 @@
   import MenuBar from './MenuBar.svelte';
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
-  import type { ApplicationMode, Config, ConversationData, OpenRouterCredits } from './lib/types';
+  import type { ApplicationMode, Config, ConversationData } from './lib/types';
   import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation, initializeConversationStorage } from './lib/storage';
-  import { generateID, sleep } from './lib/util';
-  import { fetchOpenRouterCredits } from './lib/models';
+  import { generateID } from './lib/util';
+  import { creditStore, refreshCredits } from './lib/creditStore';
   import Intro from './Intro.svelte';
   import { getLocalPreferenceStore } from './lib/storage';
   import { onMount } from 'svelte';
@@ -23,13 +23,12 @@
     updated: new Date().valueOf()
   };
   let conversations: ConversationData[] = [];
-  let availableOpenrouterCredits: OpenRouterCredits | undefined;
 
   initialize();
 
-  // Refresh credits when the API key changes
-  $: if (config?.apiKey) {
-    refreshAvailableCredits(0);
+  // Refresh credits when config changes (apiKey toggle, init, etc.)
+  $: if (config) {
+    refreshCredits(config);
   }
 
   onMount(() => {
@@ -38,7 +37,7 @@
 
     const handleConfigUpdated = (e: Event) => {
       config = (e as CustomEvent).detail as Config;
-      refreshAvailableCredits(0);
+      refreshCredits(config);
     };
 
     const handleConversationsUpdated = (e: Event) => {
@@ -74,21 +73,6 @@
       });
     });
   }
-
-  async function refreshAvailableCredits(delay:number = 5000) {
-    if (config.apiKey) {
-      try {
-        if(delay) await sleep(delay);
-        availableOpenrouterCredits = await fetchOpenRouterCredits(config.apiKey);
-      } catch (e) {
-        console.error('Failed to fetch OpenRouter credits', e);
-        availableOpenrouterCredits = undefined;
-      }
-    } else {
-      availableOpenrouterCredits = undefined;
-    }
-  }
-
 
   function startDrag() {
     isDragging = true;
@@ -149,7 +133,7 @@
 </script>
 
 <main>
-  <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} credits={availableOpenrouterCredits} {applicationMode} />
+  <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} {applicationMode} />
   {#if config?.apiKey}
     <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
     <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
@@ -160,7 +144,7 @@
         <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
       {/if}
       <div class="conversation-container">
-        <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {refreshAvailableCredits} availableCredits={availableOpenrouterCredits} {applicationMode} />
+        <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {applicationMode} />
       </div>
     </div>
   {:else}

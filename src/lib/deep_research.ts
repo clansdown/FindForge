@@ -63,7 +63,7 @@ export async function doDeepResearch(
             statusCallback("Determining research strategy.");
             try {
                 const user_api_message = createUserApiCallMessage(userMessage);
-                const { strategy: determinedStrategy, chatResult } = await determineStrategy(apiKey, models, contextMessages, user_api_message, config.defaultReasoningEffort);
+                const { strategy: determinedStrategy, chatResult } = await determineStrategy(config, models, contextMessages, user_api_message);
                 actualStrategy = determinedStrategy;
                 chat_results.push(chatResult);
                 if (chatResult.annotations) {
@@ -101,7 +101,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(apiKey, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 const planGenData = await fetchGenerationData(apiKey, planResult.requestID);
                 if (planGenData) {
                     total_cost += planGenData.total_cost || 0;
@@ -134,7 +134,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(apiKey, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
                 const planGenData = await fetchGenerationData(apiKey, planResult.requestID);
                 if (planGenData) {
                     total_cost += planGenData.total_cost || 0;
@@ -249,7 +249,7 @@ export async function doDeepResearch(
             }
 
             const synthesisResponse = await callOpenRouterChat(
-                apiKey,
+                config,
                 config.deepResearchSynthesisModel,
                 config.deepResearchMaxSynthesisTokens,
                 0,   // web requests
@@ -328,11 +328,10 @@ export async function doDeepResearch(
 
 
 async function determineStrategy(
-    apiKey: string,
+    config: Config,
     models: ModelsForResearch,
     messages: ApiCallMessage[],
-    userMessage: ApiCallMessage,
-    reasoningEffort: 'low'|'medium'|'high'
+    userMessage: ApiCallMessage
 ): Promise<{ strategy: 'deep' | 'broad', chatResult: ChatResult }> {
     const system_prompt : ApiCallMessage = {
         role: 'system',
@@ -344,15 +343,15 @@ async function determineStrategy(
     const messages_for_api : ApiCallMessage[] = [system_prompt, ...messages, userMessage];
 
     const response = await callOpenRouterChat(
-        apiKey,
+        config,
         models.reasoning,
         500, // maxTokens: we only need a single word
         0,  // maxWebRequests: none for this step
         messages_for_api,
         undefined,
-        reasoningEffort
+        config.defaultReasoningEffort
     );
-    const generationData = await fetchGenerationData(apiKey, response.requestID);
+    const generationData = await fetchGenerationData(config.apiKey, response.requestID);
     if (generationData) {
         response.generationData = generationData;
     }
@@ -424,7 +423,7 @@ export async function execute_research_thread(
     let firstPassResult: ChatResult;
     if (toolRegistry && toolRegistry.getDefinitions().length > 0) {
         const result = await callOpenRouterWithTools({
-            apiKey: config.apiKey,
+            config,
             modelId: config.deepResearchResearchModel,
             messages: messages_for_subquery,
             maxTokens,
@@ -447,7 +446,7 @@ export async function execute_research_thread(
         thread.firstPass = firstPassResult;
     } else {
         firstPassResult = await callOpenRouterChat(
-            config.apiKey,
+            config,
             config.deepResearchResearchModel,
             maxTokens,
             config.deepResearchWebRequestsPerSubrequest,
@@ -510,7 +509,7 @@ export async function execute_research_thread(
     let refinedResult: ChatResult;
     if (toolRegistry && toolRegistry.getDefinitions().length > 0) {
         const result = await callOpenRouterWithTools({
-            apiKey: config.apiKey,
+            config,
             modelId: config.deepResearchRefiningModel,
             messages,
             maxTokens,
@@ -536,7 +535,7 @@ export async function execute_research_thread(
         thread.refined = refinedResult;
     } else {
         refinedResult = await callOpenRouterChat(
-            config.apiKey,
+            config,
             config.deepResearchRefiningModel,
             maxTokens,
             0,   // no web requests for refinement

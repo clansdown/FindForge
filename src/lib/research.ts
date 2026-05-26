@@ -106,7 +106,7 @@ async function doStandardResearchWithTools(
             const availableTools = isLastAttempt ? undefined : tools;
             console.log(`[Tools] Offering ${availableTools?.length ?? 0} tools to LLM`);
             const result: CompletionResult = await callOpenRouterWithTools({
-                apiKey: config.apiKey,
+                config,
                 modelId: config.defaultModel,
                 messages: messagesForAPI,
                 maxTokens,
@@ -143,6 +143,7 @@ async function doStandardResearchWithTools(
                 }
                 return t.function.name;
             }).join(', ')}...`);
+            if (onThinking) onThinking('\n\n---\n');
 
             const assistantMsg: ApiCallMessage = {
                 role: 'assistant',
@@ -306,7 +307,7 @@ export async function doParallelResearch(
         
         try {
             const chatResult = await callOpenRouterChat(
-                config.apiKey,
+                config,
                 model.modelId,
                 maxTokens,
                 maxWebRequests,

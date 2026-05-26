@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ApplicationMode, Config, OpenRouterCredits } from './lib/types';
+  import type { ApplicationMode, Config } from './lib/types';
   import Settings from './Settings.svelte';
   import About from './About.svelte';
   import GettingStarted from './GettingStarted.svelte';
@@ -7,6 +7,7 @@
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
   import type { Writable } from 'svelte/store';
+  import { creditStore } from './lib/creditStore';
   import { cloudSyncStore, triggerManualSync, enableCloudSync, isSignedIn, getClerk } from './cloudSync';
 
   export let config: Config;
@@ -19,7 +20,6 @@
 
   export let showHistory: boolean;
   export let newConversation: () => void;
-  export let credits: OpenRouterCredits | undefined;
   export let applicationMode: Writable<ApplicationMode>;
 
   let activeMenu: string | null = null;
@@ -146,15 +146,21 @@
   </button>
   {/if}
 
-  <div class="credits" title="Available OpenRouter Credits">
-    {#if credits}
-      Available: ${(credits.total_credits - credits.total_usage).toFixed(2)}
+  <div class="credits" title="Available balance">
+    {#if $creditStore.balance != null}
+      {#if $creditStore.unit === 'dollars'}
+        ${$creditStore.balance.toFixed(2)}
+      {:else}
+        {$creditStore.balance} credits
+      {/if}
+    {:else if $creditStore.isLoading}
+      ...
     {/if}
   </div>
 </div>
 
 {#if config}
-<Settings bind:config bind:isOpen={showSettings} {credits} />
+<Settings bind:config bind:isOpen={showSettings} />
 {/if}
 <About bind:isOpen={showAbout} onClose={() => showAbout = false} />
 <ModalDialog isOpen={showGettingStarted} onClose={() => showGettingStarted = false}>

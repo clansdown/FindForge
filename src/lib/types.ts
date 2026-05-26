@@ -36,6 +36,7 @@ export class Config {
     toolsEnabled: boolean; // whether to enable tool calling
     enabledTools: string[]; // list of enabled tool names
     maxToolIterations: number; // max tool-calling loop iterations
+    freeModelsOnly: boolean; // if true, auto-appends :free suffix to all models
 
     static defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT;
     static defaultDeepResearchSynthesisPrompt = DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT;
@@ -79,6 +80,7 @@ export class Config {
         this.toolsEnabled = true;
         this.enabledTools = ['scientific_calculator', 'wikipedia_search', 'catholic_encyclopedia_search', 'web_fetch', 'pubmed_search', 'arxiv_search'];
         this.maxToolIterations = 8;
+        this.freeModelsOnly = false;
         this.autoSave = true;
 
         this.systemPrompts = [

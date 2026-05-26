@@ -1,6 +1,15 @@
 import { type Config, type Model, type StreamingResult, type GenerationData, type OpenRouterCredits, type ChatResult, type ApiCallMessage, type ToolDefinition, type ToolCall, type CompletionResult, type Annotation, APIError } from './types';
 import { sleep } from './util';
+import { getClerkToken } from '../auth';
 
+const OPENROUTER_DIRECT_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_PROXY_BASE_URL = import.meta.env.DEV
+    ? 'http://localhost:8789'
+    : 'https://findforge-openrouter.chris-f57.workers.dev';
+const OPENROUTER_PROXY_URL = OPENROUTER_PROXY_BASE_URL + '/chat/completions';
+const USERS_WORKER_URL = import.meta.env.DEV
+    ? 'http://localhost:8790'
+    : 'https://findforge-users.chris-f57.workers.dev';
 
 let cachedModels: Model[] | null = null;
 
@@ -64,20 +73,84 @@ export async function fetchOpenRouterCredits(apiKey: string): Promise<OpenRouter
 }
 
 export async function getModels(config: Config): Promise<Model[]> {
-    if (!config.apiKey) {
-        throw new Error('API key is required to fetch models');
-    }
-    
     if (cachedModels) {
         return cachedModels;
     }
-    
-    cachedModels = await fetchModels(config.apiKey);
+
+    try {
+        if (config.apiKey) {
+            cachedModels = await fetchModels(config.apiKey);
+        } else {
+            cachedModels = await fetchModels('');
+        }
+    } catch {
+        cachedModels = [];
+    }
+
     return cachedModels;
 }
 
+// ── OpenRouter routing abstraction ──
+
+async function getOpenRouterEndpoint(config: Config): Promise<{ url: string; headers: Record<string, string> }> {
+    if (config.apiKey) {
+        return {
+            url: OPENROUTER_DIRECT_URL,
+            headers: {
+                'Authorization': `Bearer ${config.apiKey}`,
+                'Content-Type': 'application/json',
+                'X-Title': 'MachineLearner',
+            },
+        };
+    }
+    const token = await getClerkToken();
+    if (!token) throw new Error('OpenRouter requires an API key or Clerk authentication.');
+    return {
+        url: OPENROUTER_PROXY_URL,
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+    };
+}
+
+async function enforceModel(config: Config, modelId: string): Promise<string> {
+    if (config.apiKey) return modelId;
+    if (modelId.endsWith(':free')) return modelId;
+    if (config.freeModelsOnly) return modelId + ':free';
+    try {
+        const token = await getClerkToken();
+        if (token) {
+            const resp = await fetch(`${USERS_WORKER_URL}/credits`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (resp.ok) {
+                const data = await resp.json() as { credits: number };
+                if (data.credits <= 0) return modelId + ':free';
+            }
+        }
+    } catch (e) {
+        console.warn('[credits] Check failed:', e);
+    }
+    return modelId;
+}
+
+async function openRouterFetch(
+    config: Config,
+    body: Record<string, unknown>,
+    signal?: AbortSignal
+): Promise<Response> {
+    const endpoint = await getOpenRouterEndpoint(config);
+    return fetch(endpoint.url, {
+        method: 'POST',
+        headers: endpoint.headers,
+        body: JSON.stringify(body),
+        signal,
+    });
+}
+
 export async function callOpenRouterStreaming(
-  apiKey: string,
+  config: Config,
   modelId: string,
   maxTokens: number,
   maxWebRequests: number,
@@ -85,15 +158,9 @@ export async function callOpenRouterStreaming(
   callback: (chunk: string) => void,
   abortController?: AbortController
 ): Promise<StreamingResult> {
-  const url = 'https://openrouter.ai/api/v1/chat/completions';
-  const headers = {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-    'X-Title': 'MachineLearner',
-  };
-
+  const finalModel = await enforceModel(config, modelId);
   const body = {
-    model: modelId,
+    model: finalModel,
     messages : messages,
     max_tokens: maxTokens,
     stream: true,
@@ -101,17 +168,12 @@ export async function callOpenRouterStreaming(
   };
   const body_string = JSON.stringify(body);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: body_string,
-    signal: abortController?.signal
-  });
+  const response = await openRouterFetch(config, body, abortController?.signal);
 
   if (!response.ok) {
     throw new APIError(
         `API request failed: ${response.status} ${response.statusText}`,
-        url,
+        response.url,
         'POST',
         response.status,
         body_string,
@@ -189,7 +251,7 @@ export async function callOpenRouterStreaming(
  * Returns a promise that resolves to a ChatResult object containing the response.
  */
 export async function callOpenRouterChat(
-  apiKey: string,
+  config: Config,
   modelId: string,
   maxTokens: number,
   maxWebRequests: number,
@@ -197,15 +259,9 @@ export async function callOpenRouterChat(
   abortController?: AbortController,
   reasoning_effort?: 'low' | 'medium' | 'high'
 ): Promise<ChatResult> {
-  const url = 'https://openrouter.ai/api/v1/chat/completions';
-  const headers = {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-    'X-Title': 'MachineLearner',
-  };
-
+  const finalModel = await enforceModel(config, modelId);
   const body: any = {
-    model: modelId,
+    model: finalModel,
     messages : messages,
     max_tokens: maxTokens,
     stream: false,
@@ -216,18 +272,12 @@ export async function callOpenRouterChat(
   }
   const body_string = JSON.stringify(body);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: body_string,
-    signal: abortController?.signal
-  });
-  
+  const response = await openRouterFetch(config, body, abortController?.signal);
 
   if (!response.ok) {
     throw new APIError(
         `API request failed: ${response.status} ${response.statusText}`,
-        url,
+        response.url,
         'POST',
         response.status,
         body_string,
@@ -260,7 +310,7 @@ export async function callOpenRouterChat(
 }
 
 export async function callOpenRouterWithTools(options: {
-    apiKey: string;
+    config: Config;
     modelId: string;
     messages: ApiCallMessage[];
     maxTokens: number;
@@ -273,17 +323,11 @@ export async function callOpenRouterWithTools(options: {
     signal?: AbortSignal;
     reasoningEffort?: 'low' | 'medium' | 'high';
 }): Promise<CompletionResult> {
-    const { apiKey, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, signal, reasoningEffort } = options;
+    const { config, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, signal, reasoningEffort } = options;
 
-    const url = 'https://openrouter.ai/api/v1/chat/completions';
-    const headers: Record<string, string> = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'X-Title': 'MachineLearner',
-    };
-
+    const finalModel = await enforceModel(config, modelId);
     const body: Record<string, unknown> = {
-        model: modelId,
+        model: finalModel,
         messages,
         max_tokens: maxTokens,
         stream,
@@ -300,17 +344,12 @@ export async function callOpenRouterWithTools(options: {
 
     const bodyString = JSON.stringify(body);
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: bodyString,
-        signal,
-    });
+    const response = await openRouterFetch(config, body, signal);
 
     if (!response.ok) {
         throw new APIError(
             `API request failed: ${response.status} ${response.statusText}`,
-            url,
+            response.url,
             'POST',
             response.status,
             bodyString,

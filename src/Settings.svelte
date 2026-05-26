@@ -1,13 +1,13 @@
 <script lang="ts">
     import { saveConfig, getLocalPreference } from "./lib/storage";
-    import { Config, type Model, type OpenRouterCredits } from "./lib/types";
+    import { Config, type Model } from "./lib/types";
     import { onDestroy, onMount } from "svelte";
     import { getModels } from "./lib/models";
     import ModalDialog from "./lib/ModalDialog.svelte";
     import { generateID } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
-    import {
-        cloudSyncStore,
+    import { creditStore } from "./lib/creditStore";
+    import { cloudSyncStore,
         enableCloudSync,
         disableCloudSync,
         triggerManualSync,
@@ -17,7 +17,6 @@
 
     export let config: Config;
     export let isOpen: boolean = false;
-    export let credits: OpenRouterCredits | undefined;
 
     import ToggleSwitch from "./lib/ToggleSwitch.svelte";
 
@@ -39,8 +38,6 @@
     let currentSynthesisPromptText: string = '';
 
     let configSnapshot = '';
-
-    $: remainingCredits = credits ? credits.total_credits - credits.total_usage : -1;
 
     $: filteredModels = (
         modelFilter
@@ -413,6 +410,27 @@
                     <input type="number" id="max-tool-iterations" bind:value={localConfig.maxToolIterations} min="1" max="20" style="width: 80px;" />
                 </div>
             {/if}
+        </div>
+
+        <div class="form-group">
+            <h4>Model Access</h4>
+            {#if $creditStore.balance != null}
+                <p>
+                    Available:
+                    {#if $creditStore.unit === 'dollars'}
+                        ${$creditStore.balance.toFixed(2)}
+                    {:else}
+                        {$creditStore.balance} credits
+                    {/if}
+                </p>
+            {/if}
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" bind:checked={localConfig.freeModelsOnly} />
+                    Free Models Only (auto-append :free suffix)
+                </label>
+                <p class="help-text">When enabled, any model selection will use the free tier. Auto-enforced when credit balance reaches 0.</p>
+            </div>
         </div>
 
         <!------------------------------>
