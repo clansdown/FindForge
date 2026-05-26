@@ -488,7 +488,7 @@
                     userMessage,
                     currentConversation.messages.slice(0, -2), // history (all messages except current user and assistant)
                     (chunk) => {
-                            if (firstChunk) {
+                            if (firstChunk && !localConfig.toolsEnabled) {
                                 assistantMessage.isGenerating = false;
                                 assistantMessage.status = '';
                                 firstChunk = false;
@@ -531,6 +531,9 @@
                     (status) => {
                         if (status) {
                             assistantMessage.status = status;
+                            if (!assistantMessage.isGenerating) {
+                                assistantMessage.isGenerating = true;
+                            }
                             currentConversation.messages = currentConversation.messages.map((msg) =>
                                 msg.id === assistantMessage.id ? assistantMessage : msg,
                             );
@@ -782,6 +785,7 @@
     <MessageInfo 
         researchResult={currentConversation.messages.find(m => m.id === showInfoFor)?.researchResult}
         deepResearchResult={currentConversation.messages.find(m => m.id === showInfoFor)?.deepResearchResult}
+        thinking={currentConversation.messages.find(m => m.id === showInfoFor)?.thinking}
         onClose={() => showInfoFor = null} 
     />
 {/if}

@@ -74,3 +74,8 @@ export const SYNTHESIS_PROMPT_INITIAL =
 
 export const SYNTHESIS_PROMPT_REFINEMENT = 
 `You are an expert researcher and analyst. Analyze the previous answer to the user's question or goal in light of the new research results and refine the answer to create an improved answer. Focus on addressing any gaps, weaknesses, or inaccuracies in the previous answer. Prefer expanding the answer to removing anything. Wrap any reasoning prior to the answer in <REASONING> and </REASONING> tags. Wrap the refined answer for the user in <ANSWER> and </ANSWER> tags. `;
+
+export const TOOL_LIMIT_INSTRUCTION = 
+`You have reached the maximum number of tool calls. No more tools are available. 
+Please generate your final answer to the user's question using all the information you have gathered. 
+Be sure to include the <RESOURCES> section at the end of your response with citations for all sources you used.`;

@@ -1,14 +1,13 @@
-import { type Config, type Model, type StreamingResult, type GenerationData, type OpenRouterCredits, type ChatResult, type ApiCallMessage, type ToolDefinition, type ToolCall, type CompletionResult, type Annotation, APIError } from './types';
-import { sleep } from './util';
+import { type Config, type Model, type StreamingResult, type OpenRouterCredits, type ChatResult, type ApiCallMessage, type ToolDefinition, type ToolCall, type CompletionResult, type Annotation, APIError } from './types';
 import { getClerkToken } from '../auth';
 
 const OPENROUTER_DIRECT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_PROXY_BASE_URL = import.meta.env.DEV
-    ? 'http://localhost:8789'
+    ? '/openrouter-proxy'
     : 'https://findforge-openrouter.chris-f57.workers.dev';
 const OPENROUTER_PROXY_URL = OPENROUTER_PROXY_BASE_URL + '/chat/completions';
 const USERS_WORKER_URL = import.meta.env.DEV
-    ? 'http://localhost:8790'
+    ? '/users-worker'
     : 'https://findforge-users.chris-f57.workers.dev';
 
 let cachedModels: Model[] | null = null;
@@ -526,32 +525,6 @@ export async function callOpenRouterWithTools(options: {
         cost,
         annotations,
     };
-}
-
-// Fetch generation data from OpenRouter Generation API
-export async function fetchGenerationData(apiKey : string, requestId : string): Promise<GenerationData | undefined> {
-    const delaysMs = [1000, 2000, 4000];
-    for (const delay of delaysMs) {
-        await sleep(delay);
-        try {
-            const response = await fetch(`https://openrouter.ai/api/v1/generation?id=${encodeURIComponent(requestId)}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://openrouter.ai',
-                },
-            });
-            if (response.ok) {
-                const data = await response.json();
-                return data.data as GenerationData;
-            }
-        } catch {
-            // continue to next retry
-        }
-    }
-    console.warn('[gen] Generation data unavailable for', requestId);
-    return undefined;
 }
 
 export function createAssistantApiCallMessage(text: string): ApiCallMessage {

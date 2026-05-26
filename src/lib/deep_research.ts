@@ -1,4 +1,4 @@
-import { callOpenRouterChat, callOpenRouterWithTools, createUserApiCallMessage, createAssistantApiCallMessage, createSystemApiCallMessage, fetchGenerationData, getModels } from "./models";
+import { callOpenRouterChat, callOpenRouterWithTools, createUserApiCallMessage, createAssistantApiCallMessage, createSystemApiCallMessage, getModels } from "./models";
 import { parseResourcesFromContent, resourceInstructions } from "./resources";
 import {
     STRATEGY_PROMPT,
@@ -10,15 +10,6 @@ import {
 import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource, ToolCallRecord } from "./types";
 import { generateID } from "./util";
 import type { ToolRegistry } from "./tools";
-
-async function attachGenerationData(apiKey: string, chatResult: ChatResult): Promise<void> {
-    const generationData = await fetchGenerationData(apiKey, chatResult.requestID);
-    if (generationData) {
-        chatResult.generationData = generationData;
-    }
-}
-
-
 
 export async function doDeepResearch(
     config: Config,
@@ -102,15 +93,20 @@ export async function doDeepResearch(
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
-                const planGenData = await fetchGenerationData(apiKey, planResult.requestID);
-                if (planGenData) {
-                    total_cost += planGenData.total_cost || 0;
-                    total_web_requests += planGenData.num_search_results || 0;
-                    if (planGenData.generation_time) {
-                        total_generation_time_ms += planGenData.generation_time;
-                    }
-                    planResult.generationData = planGenData;
-                }
+                total_cost += planResult.cost ?? 0;
+                planResult.generationData = {
+                    id: planResult.requestID || '',
+                    total_cost: planResult.cost ?? 0,
+                    model: planResult.model || '',
+                    generation_time: 0,
+                    provider_name: '',
+                    created: Date.now(),
+                    streamed: true,
+                    canceled: false,
+                    finish_reason: planResult.finishReason || 'stop',
+                    tokens_prompt: planResult.promptTokens,
+                    tokens_completion: planResult.completionTokens,
+                };
                 research_plan = planResult.content.trim();
                 plan_prompts.push(plan_prompt);
                 plan_results.push(planResult);
@@ -135,15 +131,20 @@ export async function doDeepResearch(
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
                 planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
-                const planGenData = await fetchGenerationData(apiKey, planResult.requestID);
-                if (planGenData) {
-                    total_cost += planGenData.total_cost || 0;
-                    total_web_requests += planGenData.num_search_results || 0;
-                    if (planGenData.generation_time) {
-                        total_generation_time_ms += planGenData.generation_time;
-                    }
-                    planResult.generationData = planGenData;
-                }
+                total_cost += planResult.cost ?? 0;
+                planResult.generationData = {
+                    id: planResult.requestID || '',
+                    total_cost: planResult.cost ?? 0,
+                    model: planResult.model || '',
+                    generation_time: 0,
+                    provider_name: '',
+                    created: Date.now(),
+                    streamed: true,
+                    canceled: false,
+                    finish_reason: planResult.finishReason || 'stop',
+                    tokens_prompt: planResult.promptTokens,
+                    tokens_completion: planResult.completionTokens,
+                };
                 research_plan = planResult.content.trim();
                 plan_prompts.push(plan_prompt);
                 plan_results.push(planResult);
@@ -216,13 +217,6 @@ export async function doDeepResearch(
             /******************************************************/
             /* Wait for all generation data and update totals      */
             /******************************************************/
-            statusCallback("Waiting for generation data...");
-            // Collect all generation promises from all threads
-            const allGenerationPromises: Promise<GenerationData | undefined>[] = [];
-            for (const thread of research_threads) {
-                allGenerationPromises.push(...thread.generationPromises);
-            }
-
             /*********************/
             /* Do the synthesis */
             /*********************/
@@ -258,19 +252,22 @@ export async function doDeepResearch(
             synthesisResults.push(synthesisResponse);
 
             statusCallback("Research synthesis complete.");
-            statusCallback("Fetching synthesis generation data.");
             
 
-            // Fetch the generation data for the synthesis step
-            const synthesisGenerationData = await fetchGenerationData(apiKey, synthesisResponse.requestID);
-            if (synthesisGenerationData) {
-                total_cost += synthesisGenerationData.total_cost || 0;
-                total_web_requests += synthesisGenerationData.num_search_results || 0;
-                if (synthesisGenerationData.generation_time) {
-                    total_generation_time_ms += synthesisGenerationData.generation_time;
-                }
-                synthesisResponse.generationData = synthesisGenerationData; // attach generation data to the response
-            }
+            total_cost += synthesisResponse.cost ?? 0;
+            synthesisResponse.generationData = {
+                id: synthesisResponse.requestID || '',
+                total_cost: synthesisResponse.cost ?? 0,
+                model: synthesisResponse.model || '',
+                generation_time: 0,
+                provider_name: '',
+                created: Date.now(),
+                streamed: true,
+                canceled: false,
+                finish_reason: synthesisResponse.finishReason || 'stop',
+                tokens_prompt: synthesisResponse.promptTokens,
+                tokens_completion: synthesisResponse.completionTokens,
+            };
 
             // Parse the answer content from the synthesis response and handle annotations
             let synthesisContent = synthesisResponse.content;
@@ -351,9 +348,20 @@ async function determineStrategy(
         undefined,
         config.defaultReasoningEffort
     );
-    const generationData = await fetchGenerationData(config.apiKey, response.requestID);
-    if (generationData) {
-        response.generationData = generationData;
+    if (response.requestID) {
+        response.generationData = {
+            id: response.requestID,
+            total_cost: response.cost ?? 0,
+            model: response.model || '',
+            generation_time: 0,
+            provider_name: '',
+            created: Date.now(),
+            streamed: true,
+            canceled: false,
+            finish_reason: response.finishReason || 'stop',
+            tokens_prompt: response.promptTokens,
+            tokens_completion: response.completionTokens,
+        };
     }
 
     const strategyResponse = response.content.trim().toLowerCase();
@@ -460,16 +468,22 @@ export async function execute_research_thread(
     // Extract resources from first pass content
     thread.resources = parseResourcesFromContent(firstPassContent);
 
-    // Start fetching generation data for first pass
-    const firstPassGenPromise = (async () => {
-        const data = await fetchGenerationData(config.apiKey, firstPassResult.requestID);
-        if (data) {
-            firstPassResult.generationData = data;
-            thread.handleGenerationData(data);
-        }
-        return data;
-    })();
-    thread.generationPromises.push(firstPassGenPromise);
+    if (firstPassResult.requestID) {
+        firstPassResult.generationData = {
+            id: firstPassResult.requestID,
+            total_cost: firstPassResult.cost ?? 0,
+            model: firstPassResult.model || '',
+            generation_time: 0,
+            provider_name: '',
+            created: Date.now(),
+            streamed: true,
+            canceled: false,
+            finish_reason: firstPassResult.finishReason || 'stop',
+            tokens_prompt: firstPassResult.promptTokens,
+            tokens_completion: firstPassResult.completionTokens,
+        };
+        thread.handleGenerationData(firstPassResult.generationData);
+    }
 
     /*********************/
     /* Refinement pass */
@@ -546,16 +560,22 @@ export async function execute_research_thread(
         thread.refined = refinedResult;
     }
 
-    // Start fetching generation data for refinement
-    const refinedGenPromise = (async () => {
-        const data = await fetchGenerationData(config.apiKey, refinedResult.requestID);
-        if (data) {
-            refinedResult.generationData = data;
-            thread.handleGenerationData(data);
-        }
-        return data;
-    })();
-    thread.generationPromises.push(refinedGenPromise);
+    if (refinedResult.requestID) {
+        refinedResult.generationData = {
+            id: refinedResult.requestID,
+            total_cost: refinedResult.cost ?? 0,
+            model: refinedResult.model || '',
+            generation_time: 0,
+            provider_name: '',
+            created: Date.now(),
+            streamed: true,
+            canceled: false,
+            finish_reason: refinedResult.finishReason || 'stop',
+            tokens_prompt: refinedResult.promptTokens,
+            tokens_completion: refinedResult.completionTokens,
+        };
+        thread.handleGenerationData(refinedResult.generationData);
+    }
 
     return thread;
 }

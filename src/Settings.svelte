@@ -406,6 +406,17 @@
                     </label>
                 </div>
                 <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('pubmed_fetch')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'pubmed_fetch'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'pubmed_fetch');
+                            }} />
+                        PubMed Full-Text Fetch
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
                     <label for="max-tool-iterations">Max Tool Iterations:</label>
                     <input type="number" id="max-tool-iterations" bind:value={localConfig.maxToolIterations} min="1" max="20" style="width: 80px;" />
                 </div>

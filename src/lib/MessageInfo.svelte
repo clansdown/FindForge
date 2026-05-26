@@ -6,6 +6,7 @@
 
     export let researchResult: ResearchResult | undefined = undefined;
     export let deepResearchResult: DeepResearchResult | undefined = undefined;
+    export let thinking: string | undefined = undefined;
     export let onClose: () => void;
 
     const md = new MarkdownIt();
@@ -277,6 +278,15 @@
                                 <li>{@html formatAnnotation(annotation)}</li>
                             {/each}
                         </ol>
+                    </div>
+                {/if}
+
+                {#if thinking}
+                    <div class="info-block">
+                        <details>
+                            <summary><h4>Thinking</h4></summary>
+                            <pre>{thinking}</pre>
+                        </details>
                     </div>
                 {/if}
 

@@ -4,7 +4,7 @@ import { fetchOpenRouterCredits } from './models';
 import { getClerkToken } from '../auth';
 
 const USERS_WORKER_URL = import.meta.env.DEV
-    ? 'http://localhost:8790'
+    ? '/users-worker'
     : 'https://findforge-users.chris-f57.workers.dev';
 
 export type CreditInfo = {

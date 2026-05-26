@@ -40,7 +40,7 @@ import type {
 // ── Constants ──
 
 const WORKER_BASE_URL = import.meta.env.DEV
-    ? 'http://localhost:8787'
+    ? '/storage'
     : 'https://findforge-storage.chris-f57.workers.dev';
 
 const SYNC_INTERVAL_MS = 60 * 60 * 1000;

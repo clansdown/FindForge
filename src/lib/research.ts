@@ -1,8 +1,9 @@
 import { parse } from 'svelte/compiler';
-import { callOpenRouterChat, callOpenRouterWithTools, fetchGenerationData } from './models';
+import { callOpenRouterChat, callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
 import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, CompletionResult, Annotation } from './types';
 import { ToolRegistry } from './tools';
+import { TOOL_LIMIT_INSTRUCTION } from './prompts';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -99,12 +100,22 @@ async function doStandardResearchWithTools(
     let lastResult: CompletionResult | null = null;
     const allAnnotations: Annotation[] = [];
     const maxIterations = config.maxToolIterations || 8;
+    console.log(`[Tools] Starting tool-calling loop: maxIterations=${maxIterations}, tools=[${tools.map(t => t.function.name).join(', ')}]`);
 
     try {
         while (iteration < maxIterations) {
             const isLastAttempt = iteration >= maxIterations - 1;
             const availableTools = isLastAttempt ? undefined : tools;
-            console.log(`[Tools] Offering ${availableTools?.length ?? 0} tools to LLM`);
+            console.log(`[Tools] [${iteration + 1}/${maxIterations}]${isLastAttempt ? ' <<< FINAL (tools disabled)' : ''} calling LLM with ${availableTools?.length ?? 0} tools`);
+
+            if (isLastAttempt && toolCallRecords.length > 0) {
+                messagesForAPI.push({
+                    role: 'user',
+                    content: [{ type: 'text', text: TOOL_LIMIT_INSTRUCTION }],
+                });
+                console.log(`[Tools] [${iteration + 1}/${maxIterations}] injected STOP instruction (${toolCallRecords.length} prior tool calls exhausted limit)`);
+            }
+
             const result: CompletionResult = await callOpenRouterWithTools({
                 config,
                 modelId: config.defaultModel,
@@ -123,6 +134,9 @@ async function doStandardResearchWithTools(
                 reasoningEffort: config.defaultReasoningEffort,
             });
             lastResult = result;
+            const costStr = result.cost != null ? `$${result.cost.toFixed(6)}` : 'N/A';
+            const tokStr = result.totalTokens != null ? `${result.totalTokens} (p${result.promptTokens ?? 0}+c${result.completionTokens ?? 0})` : 'N/A';
+            console.log(`[Tools] [${iteration + 1}/${maxIterations}] response: finish=${result.finishReason}, model=${result.model}, cost=${costStr}, tokens=${tokStr}`);
             if (result.annotations) {
                 allAnnotations.push(...result.annotations);
             }
@@ -133,7 +147,7 @@ async function doStandardResearchWithTools(
             }
 
             // Record and execute tool calls
-            console.log(`[Tools] LLM requested: ${result.toolCalls.map(t => t.function.name).join(', ')}`, result.toolCalls);
+            console.log(`[Tools] [${iteration + 1}/${maxIterations}] LLM requested ${result.toolCalls.length} tools: ${result.toolCalls.map(t => t.function.name).join(', ')}`, result.toolCalls);
             onStatus(`Using ${result.toolCalls.map(t => {
                 if (t.function.name === 'web_fetch') {
                     try {
@@ -201,17 +215,16 @@ async function doStandardResearchWithTools(
                 }
             }
 
+            console.log(`[Tools] [${iteration + 1}/${maxIterations}] round complete: ${result.toolCalls.length} tool(s) executed`);
             onStatus('');
             iteration++;
-            if (toolCallRecords.length > 0) {
-                console.log(`[Tools] ${toolCallRecords.length} tools executed:`, toolCallRecords);
-            }
 
             if (iteration >= maxIterations && !abortController?.signal.aborted) {
                 // Force final answer
                 onStatus('Returning final answer...');
             }
         }
+        console.log(`[Tools] Loop ended: ${toolCallRecords.length} total tool calls across ${iteration} rounds, final finish_reason=${lastResult?.finishReason || 'N/A'}`);
 
         if (finalContent) {
             console.log('[resources] finalContent before parse:', {
@@ -226,9 +239,19 @@ async function doStandardResearchWithTools(
         }
         onStatus('Research completed');
 
-        const generationData = lastResult?.requestID
-            ? await fetchGenerationData(config.apiKey, lastResult.requestID)
-            : undefined;
+        const generationData: GenerationData | undefined = lastResult ? {
+            id: lastResult.requestID || '',
+            total_cost: lastResult.cost ?? 0,
+            model: lastResult.model || config.defaultModel,
+            generation_time: 0,
+            provider_name: '',
+            created: Date.now(),
+            streamed: true,
+            canceled: abortController?.signal.aborted ?? false,
+            finish_reason: lastResult.finishReason || 'stop',
+            tokens_prompt: lastResult.promptTokens,
+            tokens_completion: lastResult.completionTokens,
+        } : undefined;
 
         console.log('[resources] returning ResearchResult:', {
             resourceCount: resources.length,
@@ -315,10 +338,19 @@ export async function doParallelResearch(
                 abortController
             );
             
-            let generationData: GenerationData | undefined = undefined;
-            if (chatResult.requestID) {
-                generationData = await fetchGenerationData(config.apiKey, chatResult.requestID);
-            }
+            const generationData: GenerationData | undefined = chatResult.requestID ? {
+                id: chatResult.requestID,
+                total_cost: chatResult.cost ?? 0,
+                model: chatResult.model || config.defaultModel,
+                generation_time: 0,
+                provider_name: '',
+                created: Date.now(),
+                streamed: true,
+                canceled: false,
+                finish_reason: chatResult.finishReason || 'stop',
+                tokens_prompt: chatResult.promptTokens,
+                tokens_completion: chatResult.completionTokens,
+            } : undefined;
 
             return {
                 systemPrompt: prompt.prompt,

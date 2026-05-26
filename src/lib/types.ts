@@ -40,6 +40,15 @@ export class Config {
 
     static defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT;
     static defaultDeepResearchSynthesisPrompt = DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT;
+    static readonly defaultEnabledTools = [
+        'scientific_calculator',
+        'wikipedia_search',
+        'catholic_encyclopedia_search',
+        'web_fetch',
+        'pubmed_search',
+        'arxiv_search',
+        'pubmed_fetch',
+    ];
 
     constructor() {
         this.historyWidth = 400;
@@ -78,7 +87,7 @@ export class Config {
         this.defaultSynthesisPromptId = 'synthesis_default';
         this.speakMessages = false;
         this.toolsEnabled = true;
-        this.enabledTools = ['scientific_calculator', 'wikipedia_search', 'catholic_encyclopedia_search', 'web_fetch', 'pubmed_search', 'arxiv_search'];
+        this.enabledTools = [...Config.defaultEnabledTools];
         this.maxToolIterations = 8;
         this.freeModelsOnly = false;
         this.autoSave = true;
@@ -142,6 +151,13 @@ export class Config {
         const selectedSynthesisPrompt = this.synthesisPrompts.find(p => p.id === this.defaultSynthesisPromptId);
         if (selectedSynthesisPrompt) {
             this.deepResearchSystemPrompt = selectedSynthesisPrompt.prompt;
+        }
+
+        // Merge any new tools not present in saved config (handles upgrades)
+        for (const tool of Config.defaultEnabledTools) {
+            if (!this.enabledTools.includes(tool)) {
+                this.enabledTools = [...this.enabledTools, tool];
+            }
         }
     }
 }

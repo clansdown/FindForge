@@ -215,10 +215,10 @@
                     </div>
                 {:else} 
                     <!-- Assistant Message -->
+                    {#if message.thinking}
+                        <ThinkingBox thinking={message.thinking} lines={8} />
+                    {/if}
                     {#if message.isGenerating}
-                        {#if message.thinking}
-                            <ThinkingBox thinking={message.thinking} lines={8} />
-                        {/if}
                         {#if message.status}
                             <div class="status">{@html message.status}</div>
                         {/if}
@@ -297,6 +297,7 @@
     <MessageInfo
         researchResult={currentResearchResult}
         deepResearchResult={message.deepResearchResult}
+        thinking={message.thinking}
         onClose={() => showInfo = false}
     />
 {/if}
