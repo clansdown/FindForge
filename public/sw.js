@@ -1,9 +1,7 @@
 const CACHE_NAME = 'findforge-research-v1';
 
 function networkFirst(request, cacheName, fetchEvent) {
-    const fetchOptions = (fetchEvent.request.mode === 'navigate' || request.url.endsWith('.html'))
-        ? { cache: 'no-cache' }
-        : {};
+    const fetchOptions = { cache: 'no-cache' };
     return fetch(request, fetchOptions).then(function(response) {
         if (response.ok) {
             const responseClone = response.clone();

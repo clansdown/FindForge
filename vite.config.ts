@@ -1,23 +1,10 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
-import fs from 'fs';
-import path from 'path';
-
-declare function require(name: string): any;
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     svelte(),
-    {
-      name: 'exclude-clerk-key',
-      closeBundle() {
-          const distPath = path.resolve('dist', 'clerk-key.js');
-          if (fs.existsSync(distPath)) {
-            fs.unlinkSync(distPath);
-          }
-      }
-    }
   ],
   server: {
     // Other server options (port, open, etc.)
