@@ -3,7 +3,7 @@
     import type { Config, Model, ExperimentationOptions, SystemPrompt, ParallelResearchModel, ApplicationMode } from "./lib/types";
     import { onMount } from "svelte";
     import PushButton from "./lib/PushButton.svelte";
-    import { formatModelName } from "./lib/util";
+    import { formatModelName, formatModelLabel } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
     import Select from "svelte-select";
     import IconCheckedList from "./lib/IconCheckedList.svelte";
@@ -124,17 +124,8 @@
         <select bind:value={config.defaultModel}>
             {#each filteredModels as model}
                 <option value={model.id}>
-                    {formatModelName(model.name)}
-                    (${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, ${(parseFloat(model.pricing.completion) * 1000000).toFixed(2)}/M)
+                    {formatModelLabel(model)}
                 </option>
-            {/each}
-        </select>
-    </div>
-
-    <div class="toolbar-group" title="System prompt to use for this conversation">
-        <select bind:value={config.systemPrompt}>
-            {#each config.systemPrompts as prompt}
-                <option value={prompt.prompt}>{prompt.name}</option>
             {/each}
         </select>
     </div>
@@ -172,8 +163,8 @@
         <PushButton title="Use Text-to-speech to read out the LLM's response" bind:pushed={config.speakMessages} disabled={experimentMode || deepSearch}>🔊</PushButton>
     </div>
     <div class="toolbar-group">
-        <label title="Toggle auto-saving of conversations">
-            <PushButton title="Auto-save conversations" bind:pushed={config.autoSave} on:toggle={() => config.autoSave = !config.autoSave}>💾</PushButton>
+        <label title="Toggle auto-saving of topics">
+            <PushButton title="Auto-save topics" bind:pushed={config.autoSave} on:toggle={() => config.autoSave = !config.autoSave}>💾</PushButton>
         </label>
 
     </div>
@@ -187,8 +178,7 @@
       <select id="reasoning-model" bind:value={config.defaultReasoningModel}>
         {#each filteredModels as model}
           <option value={model.id}>
-            {formatModelName(model.name)}
-            (${(parseFloat(model.pricing.prompt)*1000000).toFixed(2)}/M, ${(parseFloat(model.pricing.completion)*1000000).toFixed(2)}/M)
+            {formatModelLabel(model)}
           </option>
         {/each}
       </select>

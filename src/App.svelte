@@ -17,7 +17,7 @@
   let splitContainer: HTMLDivElement;
   let currentConversation : ConversationData = {
     id: generateID(),
-    title: 'New Conversation',
+    title: 'New Topic',
     messages: [],
     created: new Date().valueOf(),
     updated: new Date().valueOf()
@@ -93,7 +93,7 @@
   function newConversation() {
     currentConversation = {
       id: generateID(),
-      title: 'New Conversation',
+      title: 'New Topic',
       messages: [],
       created: new Date().valueOf(),
       updated: new Date().valueOf()
@@ -105,7 +105,7 @@
   }
 
   function removeConversation(conversation: ConversationData) {
-    if (confirm('Are you sure you want to delete this conversation? This action is permanent and cannot be undone.')) {
+    if (confirm('Are you sure you want to delete this topic? This action is permanent and cannot be undone.')) {
       deleteConversation(conversation.id);
       conversations = conversations.filter(c => c.id !== conversation.id);
     }

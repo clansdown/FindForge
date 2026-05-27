@@ -256,7 +256,7 @@ export async function callOpenRouterChat(
   maxWebRequests: number,
   messages: ApiCallMessage[],
   abortController?: AbortController,
-  reasoning_effort?: 'low' | 'medium' | 'high'
+  reasoning_effort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh'
 ): Promise<ChatResult> {
   const finalModel = await enforceModel(config, modelId);
   const body: any = {
@@ -266,7 +266,7 @@ export async function callOpenRouterChat(
     stream: false,
     plugins: maxWebRequests > 0 ? [{ id: "web", max_results: maxWebRequests }] : [],
   };
-  if (reasoning_effort) {
+  if (reasoning_effort && reasoning_effort !== 'none') {
     body.reasoning_effort = reasoning_effort;
   }
   const body_string = JSON.stringify(body);
@@ -320,7 +320,7 @@ export async function callOpenRouterWithTools(options: {
     onToolCallDelta?: (delta: Partial<ToolCall>) => void;
     onReasoning?: (chunk: string) => void;
     signal?: AbortSignal;
-    reasoningEffort?: 'low' | 'medium' | 'high';
+    reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh';
 }): Promise<CompletionResult> {
     const { config, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, signal, reasoningEffort } = options;
 
@@ -337,7 +337,7 @@ export async function callOpenRouterWithTools(options: {
         body.tool_choice = toolChoice || 'auto';
     }
 
-    if (reasoningEffort) {
+    if (reasoningEffort && reasoningEffort !== 'none') {
         body.reasoning_effort = reasoningEffort;
     }
 

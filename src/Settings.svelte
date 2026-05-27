@@ -4,7 +4,7 @@
     import { onDestroy, onMount } from "svelte";
     import { getModels } from "./lib/models";
     import ModalDialog from "./lib/ModalDialog.svelte";
-    import { generateID } from "./lib/util";
+    import { generateID, formatModelLabel } from "./lib/util";
     import { estimateDeepResearchCost } from "./lib/deep_research";
     import { creditStore } from "./lib/creditStore";
     import { cloudSyncStore,
@@ -24,7 +24,7 @@
     let openrouterModels: Model[] = [];
     let availableModels: Model[] = [];
     let modelFetchError: string | null = null;
-    let currentTab: "general" | "model" | "deep-research" | "cloud-sync" = config?.apiKey ? "general" : "model";
+    let currentTab: "general" | "model" | "deep-research" | "tools" | "cloud-sync" | "config" = config?.apiKey ? "general" : "model";
     let modelFilter = "";
     let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;
@@ -257,7 +257,7 @@
     }
 </script>
 
-<ModalDialog on:close={() => (isOpen = false)} {isOpen}>
+<ModalDialog on:close={() => (isOpen = false)} {isOpen} size="xlg">
     <h2>Settings</h2>
 
     <ul class="nav nav-tabs">
@@ -267,8 +267,14 @@
         <li class="nav-item" class:active={currentTab === "deep-research"}>
             <button class="nav-link" on:click={() => (currentTab = "deep-research")}>Deep Research</button>
         </li>
+        <li class="nav-item" class:active={currentTab === "config"}>
+            <button class="nav-link" on:click={() => (currentTab = "config")}>Config</button>
+        </li>
         <li class="nav-item" class:active={currentTab === "model"}>
             <button class="nav-link" on:click={() => (currentTab = "model")}>Models</button>
+        </li>
+        <li class="nav-item" class:active={currentTab === "tools"}>
+            <button class="nav-link" on:click={() => (currentTab = "tools")}>Tools</button>
         </li>
         <li class="nav-item" class:active={currentTab === "cloud-sync"}>
             <button class="nav-link" on:click={() => (currentTab = "cloud-sync")}>Cloud Sync</button>
@@ -288,7 +294,7 @@
             </select>
         </div>
 
-        <button class="small" on:click={() => showPromptEditor = !showPromptEditor}>
+        <button class="small" style="margin-bottom: 1rem;" on:click={() => showPromptEditor = !showPromptEditor}>
             {showPromptEditor ? 'Hide' : 'Manage'} Prompts
         </button>
 
@@ -321,16 +327,27 @@
         </div>
         {/if}
 
-        <div class="form-group">
-            <label for="allow-web-search">
-                <input type="checkbox" id="allow-web-search" bind:checked={localConfig.allowWebSearch} />
-                Allow Web Search
+        <div class="form-group" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <label for="tools-enabled" style="display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                <input type="checkbox" id="tools-enabled" bind:checked={localConfig.toolsEnabled} />
+                Enable Tools
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                Max Iterations:
+                <input type="number" bind:value={localConfig.maxToolIterations} min="1" max="100" style="width: 70px;" />
             </label>
         </div>
 
-        <div class="form-group">
-            <label for="web-search-max-results">Web Search Max Results:</label>
-            <input type="number" id="web-search-max-results" bind:value={localConfig.webSearchMaxResults} min="1" />
+        <div class="form-group" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                <input type="checkbox" bind:checked={localConfig.allowWebSearch} />
+                Web Search
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                Max Results:
+                <input type="number" bind:value={localConfig.webSearchMaxResults} min="1" style="width: 70px;" />
+            </label>
         </div>
 
         <div class="form-group">
@@ -338,143 +355,6 @@
                 <input type="checkbox" id="include-previous-messages" bind:checked={localConfig.includePreviousMessagesAsContext} />
                 Include Previous Messages as Context
             </label>
-        </div>
-
-        <div class="form-group">
-            <label for="search-engine">Search Engine:</label>
-            <select id="search-engine" bind:value={localConfig.searchEngine}>
-                <option value="duckduckgo">DuckDuckGo</option>
-                <option value="kagi">Kagi</option>
-                <option value="brave">Brave</option>
-                <option value="bing">Bing</option>
-                <option value="google">Google</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <h4>Tools</h4>
-            <div class="form-group">
-                <label for="tools-enabled">
-                    <input type="checkbox" id="tools-enabled" bind:checked={localConfig.toolsEnabled} />
-                    Enable Tools (LLM can call calculator, search, etc.)
-                </label>
-            </div>
-            {#if localConfig.toolsEnabled}
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('scientific_calculator')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'scientific_calculator'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'scientific_calculator');
-                            }} />
-                        Scientific Calculator
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('wikipedia_search')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'wikipedia_search'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'wikipedia_search');
-                            }} />
-                        Wikipedia Search
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('catholic_encyclopedia_search')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'catholic_encyclopedia_search'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'catholic_encyclopedia_search');
-                            }} />
-                        Catholic Encyclopedia Search
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('web_fetch')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'web_fetch'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'web_fetch');
-                            }} />
-                        Web Page Fetch
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('pubmed_search')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'pubmed_search'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'pubmed_search');
-                            }} />
-                        PubMed Search
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('crossref_search')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'crossref_search'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'crossref_search');
-                            }} />
-                        Crossref Search
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('pubmed_fetch')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'pubmed_fetch'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'pubmed_fetch');
-                            }} />
-                        PubMed Full-Text Fetch
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('fetch_paper')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'fetch_paper'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'fetch_paper');
-                            }} />
-                        Fetch Full Paper
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('sep_search')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'sep_search'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'sep_search');
-                            }} />
-                        Stanford Encyclopedia Search
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('fandom_search')}
-                            on:change={(e) => {
-                                const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'fandom_search'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'fandom_search');
-                            }} />
-                        Fandom Wiki Search
-                    </label>
-                </div>
-                <div class="form-group" style="margin-left: 2rem;">
-                    <label for="max-tool-iterations">Max Tool Iterations:</label>
-                    <input type="number" id="max-tool-iterations" bind:value={localConfig.maxToolIterations} min="1" max="20" style="width: 80px;" />
-                </div>
-            {/if}
         </div>
 
         <div class="form-group">
@@ -498,32 +378,7 @@
             </div>
         </div>
 
-        <!------------------------------>
-        <!-- Document Cache -->
-        <!------------------------------>
-        <div class="form-group">
-            <h4>Document Cache</h4>
-            {#if cacheStats}
-                <p>Used: {(cacheStats.usedBytes / 1_000_000).toFixed(1)} MB / {(cacheStats.limitBytes / 1_000_000).toFixed(0)} MB ({cacheStats.entryCount} files)</p>
-                <div class="form-group">
-                    <label for="cache-limit">Cache Limit (MB):</label>
-                    <input type="number" id="cache-limit" bind:value={cacheLimitMb} min="100" max="10000"
-                        on:change={async () => {
-                            const { setSizeLimit } = await import('./lib/docCache');
-                            const saved = await setSizeLimit(cacheLimitMb * 1_000_000);
-                            cacheLimitMb = saved / 1_000_000;
-                            const { getCacheStats } = await import('./lib/docCache');
-                            cacheStats = await getCacheStats();
-                        }} />
-                </div>
-                {#if !pwaInstalled && cacheStats && cacheStats.usedBytes / cacheStats.limitBytes > 0.9}
-                    <p class="help-text warning-text">Install the app for unlimited local storage.</p>
-                {/if}
-                <button class="btn btn-sm btn-outline-danger" on:click={handleClearCache}>Clear Cache</button>
-            {:else}
-                <p>Calculating...</p>
-            {/if}
-        </div>
+
 
         <!------------------------------>
         <!-- Deep Research Configuration -->
@@ -612,10 +467,29 @@
             <select id="deep-research-planning-model" bind:value={localConfig.deepResearchPlanningModel}>
                 {#each availableModels as model}
                     <option value={model.id}>
-                        {model.name}
-                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
-                            parseFloat(model.pricing.completion) * 1000000
-                        ).toFixed(2)}/M)
+                        {formatModelLabel(model)}
+                    </option>
+                {/each}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-planning-effort">Planning Thinking Level:</label>
+            <select id="deep-research-planning-effort" bind:value={localConfig.deepResearchPlanningEffort}>
+                <option value="none">None</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">Max</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-research-model">Research Model:</label>
+            <select id="deep-research-research-model" bind:value={localConfig.deepResearchResearchModel}>
+                {#each availableModels as model}
+                    <option value={model.id}>
+                        {formatModelLabel(model)}
                     </option>
                 {/each}
             </select>
@@ -626,10 +500,7 @@
             <select id="deep-research-research-model" bind:value={localConfig.deepResearchResearchModel}>
                 {#each availableModels as model}
                     <option value={model.id}>
-                        {model.name}
-                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
-                            parseFloat(model.pricing.completion) * 1000000
-                        ).toFixed(2)}/M)
+                        {formatModelLabel(model)}
                     </option>
                 {/each}
             </select>
@@ -640,10 +511,29 @@
             <select id="deep-research-refining-model" bind:value={localConfig.deepResearchRefiningModel}>
                 {#each availableModels as model}
                     <option value={model.id}>
-                        {model.name}
-                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
-                            parseFloat(model.pricing.completion) * 1000000
-                        ).toFixed(2)}/M)
+                        {formatModelLabel(model)}
+                    </option>
+                {/each}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-refining-effort">Refining Thinking Level:</label>
+            <select id="deep-research-refining-effort" bind:value={localConfig.deepResearchRefiningEffort}>
+                <option value="none">None</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">Max</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-synthesis-model">Synthesis Model:</label>
+            <select id="deep-research-synthesis-model" bind:value={localConfig.deepResearchSynthesisModel}>
+                {#each availableModels as model}
+                    <option value={model.id}>
+                        {formatModelLabel(model)}
                     </option>
                 {/each}
             </select>
@@ -654,12 +544,20 @@
             <select id="deep-research-synthesis-model" bind:value={localConfig.deepResearchSynthesisModel}>
                 {#each availableModels as model}
                     <option value={model.id}>
-                        {model.name}
-                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
-                            parseFloat(model.pricing.completion) * 1000000
-                        ).toFixed(2)}/M)
+                        {formatModelLabel(model)}
                     </option>
                 {/each}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="deep-research-synthesis-effort">Synthesis Thinking Level:</label>
+            <select id="deep-research-synthesis-effort" bind:value={localConfig.deepResearchSynthesisEffort}>
+                <option value="none">None</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">Max</option>
             </select>
         </div>
 
@@ -673,6 +571,51 @@
                     {estimatedDeepResearchCost}
                 {/if}
             </div>
+        </div>
+
+        <!------------------------------>
+        <!-- Config -->
+        <!------------------------------>
+    {:else if currentTab === "config"}
+        <div class="form-group">
+            <h4>Search Engine</h4>
+            <label style="display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                Search Engine (selected text):
+                <select bind:value={localConfig.searchEngine} style="width: auto;">
+                    <option value="duckduckgo">DuckDuckGo</option>
+                    <option value="kagi">Kagi</option>
+                    <option value="brave">Brave</option>
+                    <option value="bing">Bing</option>
+                    <option value="google">Google</option>
+                </select>
+            </label>
+        </div>
+
+        <!------------------------------>
+        <!-- Document Cache -->
+        <!------------------------------>
+        <div class="form-group">
+            <h4>Document Cache</h4>
+            {#if cacheStats}
+                <p>Used: {(cacheStats.usedBytes / 1_000_000).toFixed(1)} MB / {(cacheStats.limitBytes / 1_000_000).toFixed(0)} MB ({cacheStats.entryCount} files)</p>
+                <div class="form-group">
+                    <label for="cache-limit">Cache Limit (MB):</label>
+                    <input type="number" id="cache-limit" bind:value={cacheLimitMb} min="100" max="10000"
+                        on:change={async () => {
+                            const { setSizeLimit } = await import('./lib/docCache');
+                            const saved = await setSizeLimit(cacheLimitMb * 1_000_000);
+                            cacheLimitMb = saved / 1_000_000;
+                            const { getCacheStats } = await import('./lib/docCache');
+                            cacheStats = await getCacheStats();
+                        }} />
+                </div>
+                {#if !pwaInstalled && cacheStats && cacheStats.usedBytes / cacheStats.limitBytes > 0.9}
+                    <p class="help-text warning-text">Install the app for unlimited local storage.</p>
+                {/if}
+                <button class="btn btn-sm btn-outline-danger" on:click={handleClearCache}>Clear Cache</button>
+            {:else}
+                <p>Calculating...</p>
+            {/if}
         </div>
 
         <!------------------------->
@@ -689,10 +632,7 @@
             <select id="default-model" bind:value={localConfig.defaultModel}>
                 {#each availableModels as model}
                     <option value={model.id}>
-                        {model.name}
-                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
-                            parseFloat(model.pricing.completion) * 1000000
-                        ).toFixed(2)}/M)
+                        {formatModelLabel(model)}
                     </option>
                 {/each}
             </select>
@@ -706,10 +646,7 @@
             <select id="default-reasoning-model" bind:value={localConfig.defaultReasoningModel}>
                 {#each availableModels as model}
                     <option value={model.id}>
-                        {model.name}
-                        (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
-                            parseFloat(model.pricing.completion) * 1000000
-                        ).toFixed(2)}/M)
+                        {formatModelLabel(model)}
                     </option>
                 {/each}
             </select>
@@ -718,9 +655,11 @@
         <div class="form-group">
             <label for="default-reasoning-effort">Default Reasoning Effort:</label>
             <select id="default-reasoning-effort" bind:value={localConfig.defaultReasoningEffort}>
+                <option value="none">None</option>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
+                <option value="xhigh">Max</option>
             </select>
         </div>
 
@@ -747,20 +686,138 @@
                             <input type="checkbox" id={model.id} bind:checked={model.allowed} />
                             <label for={model.id} style="margin-right: 1rem;"
                                 >{model.name}
-                                (In: ${(parseFloat(model.pricing.prompt) * 1000000).toFixed(2)}/M, Out: ${(
-                                    parseFloat(model.pricing.completion) * 1000000
-                                ).toFixed(2)}/M)
                             </label>
                         </div>
                     </div>
                 {/each}
             </div>
         </div>
+    {:else if currentTab === "tools"}
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('scientific_calculator')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'scientific_calculator'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'scientific_calculator');
+                        }} />
+                    <strong>Scientific Calculator</strong>
+                    <p class="help-text">Evaluate mathematical expressions and numerical computations.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('wikipedia_search')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'wikipedia_search'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'wikipedia_search');
+                        }} />
+                    <strong>Wikipedia Search</strong>
+                    <p class="help-text">Search general knowledge, history, science, and current events.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('catholic_encyclopedia_search')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'catholic_encyclopedia_search'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'catholic_encyclopedia_search');
+                        }} />
+                    <strong>Catholic Encyclopedia Search</strong>
+                    <p class="help-text">Search Catholic doctrine, history, saints, and theology.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('web_fetch')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'web_fetch'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'web_fetch');
+                        }} />
+                    <strong>Web Page Fetch</strong>
+                    <p class="help-text">Fetch and extract main content from any web page.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('pubmed_search')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'pubmed_search'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'pubmed_search');
+                        }} />
+                    <strong>PubMed Search</strong>
+                    <p class="help-text">Search biomedical and life sciences research papers.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('crossref_search')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'crossref_search'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'crossref_search');
+                        }} />
+                    <strong>Crossref Search</strong>
+                    <p class="help-text">Search preprints and papers across all disciplines.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('pubmed_fetch')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'pubmed_fetch'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'pubmed_fetch');
+                        }} />
+                    <strong>PubMed Full-Text Fetch</strong>
+                    <p class="help-text">Fetch full text of open-access biomedical articles.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('fetch_paper')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'fetch_paper'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'fetch_paper');
+                        }} />
+                    <strong>Fetch Full Paper</strong>
+                    <p class="help-text">Fetch full text of papers by DOI, arXiv ID, or URL.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('sep_search')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'sep_search'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'sep_search');
+                        }} />
+                    <strong>Stanford Encyclopedia Search</strong>
+                    <p class="help-text">Search and fetch articles from the Stanford Encyclopedia of Philosophy.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('fandom_search')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'fandom_search'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'fandom_search');
+                        }} />
+                    <strong>Fandom Wiki Search</strong>
+                    <p class="help-text">Search wikis for games, movies, TV shows, and entertainment.</p>
+                </label>
+            </div>
     {:else if currentTab === "cloud-sync"}
         <div class="form-group">
             <h4>Cloud Sync</h4>
             <p class="help-text">
-                Sync your settings, conversations, and credentials across devices using FindForge Cloud Storage.
+                Sync your settings, topics, and credentials across devices using FindForge Cloud Storage.
                 {#if !isSignedIn()}
                     <br/><strong>Sign in with Clerk to enable cloud sync.</strong>
                 {/if}
@@ -916,5 +973,9 @@
         border-radius: .3rem;
         margin-left: 1rem;
         margin-right: 1rem;
+    }
+
+    :global(.nav-tabs) {
+        border-bottom: 1px solid #ddd !important;
     }
 </style>

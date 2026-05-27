@@ -92,7 +92,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.deepResearchPlanningEffort);
                 total_cost += planResult.cost ?? 0;
                 planResult.generationData = {
                     id: planResult.requestID || '',
@@ -130,7 +130,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.defaultReasoningEffort);
+                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.deepResearchPlanningEffort);
                 total_cost += planResult.cost ?? 0;
                 planResult.generationData = {
                     id: planResult.requestID || '',
@@ -247,7 +247,9 @@ export async function doDeepResearch(
                 config.deepResearchSynthesisModel,
                 config.deepResearchMaxSynthesisTokens,
                 0,   // web requests
-                messages_for_synthesis
+                messages_for_synthesis,
+                undefined,
+                config.deepResearchSynthesisEffort
             );
             synthesisResults.push(synthesisResponse);
 
@@ -438,7 +440,7 @@ export async function execute_research_thread(
             tools: toolRegistry.getDefinitions(),
             stream: false,
             signal: undefined,
-            reasoningEffort: config.defaultReasoningEffort,
+            reasoningEffort: config.deepResearchResearchEffort,
         });
         thread.toolCallRecords = captureToolCalls(result, config, toolRegistry);
         firstPassContent = result.content;
@@ -460,7 +462,7 @@ export async function execute_research_thread(
             config.deepResearchWebRequestsPerSubrequest,
             messages_for_subquery,
             undefined,
-            config.defaultReasoningEffort
+            config.deepResearchResearchEffort
         );
         thread.firstPass = firstPassResult;
         firstPassContent = firstPassResult.content;
@@ -530,7 +532,7 @@ export async function execute_research_thread(
             tools: toolRegistry.getDefinitions(),
             stream: false,
             signal: undefined,
-            reasoningEffort: config.defaultReasoningEffort,
+            reasoningEffort: config.deepResearchRefiningEffort,
         });
         if (result.toolCalls && !thread.toolCallRecords) {
             thread.toolCallRecords = captureToolCalls(result, config, toolRegistry);
@@ -555,7 +557,7 @@ export async function execute_research_thread(
             0,   // no web requests for refinement
             messages,
             undefined,
-            config.defaultReasoningEffort
+            config.deepResearchRefiningEffort
         );
         thread.refined = refinedResult;
     }

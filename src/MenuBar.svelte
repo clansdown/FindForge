@@ -82,17 +82,13 @@
     <button on:click={() => toggleMenu('file')}>App</button>
     {#if activeMenu === 'file'}
       <div class="dropdown">
-        <button on:click={() => { newConversation(); closeMenu(); }}>New "Conversation"</button>
+        <button on:click={() => { newConversation(); closeMenu(); }}>New Topic</button>
         <div class="menu-separator"></div>
         <button on:click={() => { $applicationMode = 'research';  }}>
           {#if $applicationMode === 'research'}✓{:else}&nbsp;&nbsp;&nbsp;{/if} Research
         </button>
         <button on:click={() => { $applicationMode = 'brainstorming';  }}>
           {#if $applicationMode === 'brainstorming'}✓{:else}&nbsp;&nbsp;&nbsp;{/if} Brainstorming
-        </button>
-        <div class="menu-separator"></div>
-        <button on:click={() => { showSettings = true; closeMenu(); }}>
-          Settings
         </button>
       </div>
     {/if}
@@ -104,6 +100,10 @@
       <div class="dropdown">
         <button on:click={() => { showHistory = !showHistory; closeMenu(); }}>
           {#if showHistory}✓{/if} History
+        </button>
+        <div class="menu-separator"></div>
+        <button on:click={() => { showSettings = true; closeMenu(); }}>
+          Settings
         </button>
       </div>
     {/if}

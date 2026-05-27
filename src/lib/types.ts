@@ -8,7 +8,7 @@ export class Config {
     apiKey!: string;
     defaultModel!: string; // model ID
     defaultReasoningModel!: string; // model ID for reasoning
-    defaultReasoningEffort: 'low' | 'medium' | 'high' = 'medium'; // default thinking effort for reasoning
+    defaultReasoningEffort: 'none' | 'low' | 'medium' | 'high' | 'xhigh' = 'high'; // default thinking effort for reasoning
     availableModels!: string[]; // model IDs
     systemPrompt!: string;
     allowWebSearch!: boolean;
@@ -28,6 +28,10 @@ export class Config {
     deepResearchResearchModel: string;
     deepResearchRefiningModel: string;
     deepResearchSynthesisModel: string;
+    deepResearchPlanningEffort: 'none' | 'low' | 'medium' | 'high' | 'xhigh';
+    deepResearchResearchEffort: 'none' | 'low' | 'medium' | 'high' | 'xhigh';
+    deepResearchRefiningEffort: 'none' | 'low' | 'medium' | 'high' | 'xhigh';
+    deepResearchSynthesisEffort: 'none' | 'low' | 'medium' | 'high' | 'xhigh';
     systemPrompts: SystemPrompt[];
     synthesisPrompts : SystemPrompt[];
     defaultSystemPromptId: string;
@@ -56,14 +60,12 @@ export class Config {
     constructor() {
         this.historyWidth = 400;
         this.apiKey = '';
-        this.defaultModel = 'deepseek/deepseek-chat-v3-0324:free';
-        this.defaultReasoningModel = 'deepseek/deepseek-r1-0528:free';
-        this.defaultReasoningEffort = 'medium'; // default thinking effort for reasoning
+        this.defaultModel = 'deepseek/deepseek-chat-v4-flash:free';
+        this.defaultReasoningModel = 'deepseek/deepseek-chat-v4-flash:free';
+        this.defaultReasoningEffort = 'high';
         this.availableModels = [
-            'deepseek/deepseek-chat-v3-0324:free',
-            'deepseek/deepseek-chat-v3-0324',
-            'deepseek/deepseek-chat-v3-0324:free',
-            'deepseek/deepseek-chat-v3-0324',
+            'deepseek/deepseek-chat-v4-flash:free',
+            'deepseek/deepseek-chat-v4-flash',
             'google/gemini-2.5-pro-preview',
             'google/gemini-2.5-flash-preview-05-20',
             'openai/gpt-4.1',
@@ -86,6 +88,10 @@ export class Config {
         this.deepResearchResearchModel = this.defaultReasoningModel;
         this.deepResearchRefiningModel = this.defaultModel;
         this.deepResearchSynthesisModel = this.defaultModel;
+        this.deepResearchPlanningEffort = 'high';
+        this.deepResearchResearchEffort = 'high';
+        this.deepResearchRefiningEffort = 'high';
+        this.deepResearchSynthesisEffort = 'high';
         this.defaultSystemPromptId = 'default';
         this.defaultSynthesisPromptId = 'synthesis_default';
         this.speakMessages = false;
@@ -162,6 +168,12 @@ export class Config {
                 this.enabledTools = [...this.enabledTools, tool];
             }
         }
+
+        // Ensure deep research thinking level fields (handles upgrades from older configs)
+        if (!this.deepResearchPlanningEffort) this.deepResearchPlanningEffort = 'high';
+        if (!this.deepResearchResearchEffort) this.deepResearchResearchEffort = 'high';
+        if (!this.deepResearchRefiningEffort) this.deepResearchRefiningEffort = 'high';
+        if (!this.deepResearchSynthesisEffort) this.deepResearchSynthesisEffort = 'high';
     }
 }
 

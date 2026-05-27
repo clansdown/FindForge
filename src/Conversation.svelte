@@ -372,7 +372,7 @@
         currentConversation.messages.push(userMessage);
 
         // Set title if first message in new conversation
-        if (currentConversation.messages.length === 1 && currentConversation.title === "New Conversation") {
+        if (currentConversation.messages.length === 1 && currentConversation.title === "New Topic") {
             setTitle(userMessage);
         }
 
@@ -577,8 +577,8 @@
                             assistantMessage.toolCallProgress[index] = progress;
                         } else {
                             assistantMessage.toolCallProgress.push(progress);
-                            scrollToBottom();
                         }
+                        scrollToBottom();
                         currentConversation.messages = currentConversation.messages.map((msg) =>
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
@@ -587,6 +587,7 @@
                 assistantMessage.researchResult = result;
                 if (result.toolCallRecords && result.toolCallRecords.length > 0) {
                     assistantMessage.toolCalls = result.toolCallRecords;
+                    scrollToBottom();
                 }
                 assistantMessage.researchResult = result;
                 if (result.streamingResult.requestID) {
@@ -740,8 +741,13 @@
 <div class="conversation">
     <div class="conversation-header">
         <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
+        <select class="prompt-override" bind:value={localConfig.systemPrompt} title="System prompt to use for this topic">
+            {#each localConfig.systemPrompts as prompt}
+                <option value={prompt.prompt}>{prompt.name}</option>
+            {/each}
+        </select>
         {#if allConversationResources.length > 0 || allConversationAnnotations.length > 0}
-            <button class="resources-button" on:click={() => showAllResources = true} title="View all web resources used in this conversation">🌐</button>
+            <button class="resources-button" on:click={() => showAllResources = true} title="View all web resources used in this topic">🌐</button>
         {/if}
     </div>
     <!-- Toolbar goes here -->
@@ -881,6 +887,15 @@
     .conversation-title:focus {
         outline: none;
         border-bottom: 1px solid #666;
+    }
+
+    .prompt-override {
+        background-color: #333;
+        color: white;
+        border: 1px solid #666;
+        border-radius: 4px;
+        padding: 0.25rem;
+        max-width: 200px;
     }
 
     .conversation-window {

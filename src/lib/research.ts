@@ -388,7 +388,8 @@ export async function doParallelResearch(
                 maxTokens,
                 maxWebRequests,
                 messagesForAPI,
-                abortController
+                abortController,
+                config.defaultReasoningEffort
             );
             
             const generationData: GenerationData | undefined = chatResult.requestID ? {

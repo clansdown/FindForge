@@ -27,6 +27,12 @@ export function formatModelName(name: string): string {
     return name;
 }
 
+export function formatModelLabel(model: { name: string; pricing: { prompt: string; completion: string } }): string {
+    const inCost = (parseFloat(model.pricing.prompt) * 1_000_000).toFixed(2);
+    const outCost = (parseFloat(model.pricing.completion) * 1_000_000).toFixed(2);
+    return `${formatModelName(model.name)} ($${inCost}/$${outCost})`;
+}
+
 export function extractConversationReferences(conversation: ConversationData): {
     resources: Resource[];
     annotations: Annotation[];

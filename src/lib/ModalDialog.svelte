@@ -4,6 +4,7 @@
   export let isOpen: boolean;
   export let onClose: (() => void) | undefined = undefined;
   export let scrollOverflow : boolean = true;
+  export let size: 'md' | 'lg' | 'xlg' = 'md';
   
   const dispatch = createEventDispatcher();
 
@@ -39,7 +40,7 @@
      aria-modal="true" 
      tabindex="0">
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="modal-content" on:click|stopPropagation class:overflow={scrollOverflow}>
+  <div class="modal-content" on:click|stopPropagation class:overflow={scrollOverflow} class:modal-lg={size === 'lg'} class:modal-xlg={size === 'xlg'}>
     <slot></slot>
   </div>
 </div>
@@ -73,6 +74,13 @@
     width: 80%;
     max-width: 860px;
     max-height: 92vh;
+  }
+
+  .modal-lg {
+    max-width: 1100px;
+  }
+  .modal-xlg {
+    max-width: 1400px;
   }
 
   @media (max-width: 600px) {
