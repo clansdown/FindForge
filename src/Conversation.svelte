@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, tick } from "svelte";
     import { getModels } from "./lib/models";
-    import { doStandardResearch, convertMessageToApiCallMessage, doParallelResearch } from "./lib/research";
+    import { doStandardResearch, convertMessageToApiCallMessage, convertToolCallsToToolMessages, doParallelResearch } from "./lib/research";
     import { createToolRegistry } from "./lib/tools";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
@@ -419,7 +419,13 @@
             if (deepSearch) {
                 console.log("Starting deep research...");
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
-                const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
+                const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
+                    const msgs = [convertMessageToApiCallMessage(msg)];
+                    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+                        msgs.push(...convertToolCallsToToolMessages(msg.toolCalls));
+                    }
+                    return msgs;
+                });
                 const modelsForResearch: ModelsForResearch = {
                     reasoning: localConfig.defaultReasoningModel,
                     editor: localConfig.defaultModel,
@@ -455,7 +461,13 @@
                 }
             } else if (experimentationOptions.parallelResearch) {
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
-                const apiCallMessages = currentConversation.messages.slice(0, -1).map((msg) => convertMessageToApiCallMessage(msg));
+                const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
+                    const msgs = [convertMessageToApiCallMessage(msg)];
+                    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+                        msgs.push(...convertToolCallsToToolMessages(msg.toolCalls));
+                    }
+                    return msgs;
+                });
                 const results = await doParallelResearch(
                     16384, // maxTokens
                     localConfig,

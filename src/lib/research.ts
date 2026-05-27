@@ -34,10 +34,31 @@ export function convertMessageToApiCallMessage(message: MessageData): ApiCallMes
         }
     }
     
-    return {
+    const result: ApiCallMessage = {
         role: message.role,
         content: contentParts
     };
+
+    if (message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0) {
+        result.tool_calls = message.toolCalls.map(tc => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: {
+                name: tc.name,
+                arguments: JSON.stringify(tc.arguments),
+            },
+        }));
+    }
+
+    return result;
+}
+
+export function convertToolCallsToToolMessages(toolCalls: ToolCallRecord[]): ApiCallMessage[] {
+    return toolCalls.map(tc => ({
+        role: 'tool',
+        tool_call_id: tc.id,
+        content: [{ type: 'text', text: tc.result }],
+    }));
 }
 
 export async function doStandardResearch(
@@ -89,6 +110,9 @@ async function doStandardResearchWithTools(
         for (const m of history) {
             if (!m.hidden) {
                 messagesForAPI.push(convertMessageToApiCallMessage(m));
+                if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+                    messagesForAPI.push(...convertToolCallsToToolMessages(m.toolCalls));
+                }
             }
         }
     }
@@ -306,6 +330,9 @@ export async function doParallelResearch(
         for (const m of history) {
             if (!m.hidden) {
                 baseMessages.push(convertMessageToApiCallMessage(m));
+                if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+                    baseMessages.push(...convertToolCallsToToolMessages(m.toolCalls));
+                }
             }
         }
     }
