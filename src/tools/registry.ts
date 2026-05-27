@@ -7,6 +7,7 @@ import { PUBMED_TOOL, executePubMed } from './pubmed_search';
 import { CROSSREF_TOOL, executeCrossrefSearch } from './crossref_search';
 import { PUBMED_FETCH_TOOL, executePubMedFetch } from './pubmed_fetch';
 import { FETCH_PAPER_TOOL, executeFetchPaper } from './fetch_paper';
+import { SEP_TOOL, executeSepSearch } from './stanford_encyclopedia_of_philosophy';
 
 export class ToolRegistry {
     private definitions: Map<string, ToolDefinition> = new Map();
@@ -60,6 +61,7 @@ export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {
         { definition: CROSSREF_TOOL, executor: executeCrossrefSearch },
         { definition: PUBMED_FETCH_TOOL, executor: executePubMedFetch },
         { definition: FETCH_PAPER_TOOL, executor: executeFetchPaper },
+        { definition: SEP_TOOL, executor: executeSepSearch },
     ];
 
     for (const tool of tools) {

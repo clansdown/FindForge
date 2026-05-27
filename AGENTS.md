@@ -109,6 +109,7 @@ src/tools/
   crossref_search.ts       — crossref_search
   pubmed_fetch.ts          — pubmed_fetch
   fetch_paper.ts           — fetch_paper (Crossref resolution, arXiv/bioRxiv/PDF pipelines, caching)
+  stanford_encyclopedia_of_philosophy.ts — sep_search (DuckDuckGo site-search + DOM extraction via proxy)
   registry.ts              — ToolRegistry class + createToolRegistry factory
 ```
 

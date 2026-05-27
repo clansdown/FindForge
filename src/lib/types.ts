@@ -49,6 +49,7 @@ export class Config {
         'crossref_search',
         'pubmed_fetch',
         'fetch_paper',
+        'sep_search',
     ];
 
     constructor() {
