@@ -48,6 +48,7 @@ export class Config {
         'pubmed_search',
         'crossref_search',
         'pubmed_fetch',
+        'fetch_paper',
     ];
 
     constructor() {
@@ -314,6 +315,9 @@ export interface ToolDefinition {
         description: string;
         parameters: Record<string, unknown>;
     };
+    displayName: string;
+    formatArgs: (args: Record<string, unknown>) => string;
+    formatResult: (result: string) => string;
 }
 
 export interface ToolCall {
@@ -329,7 +333,9 @@ export interface ToolCallRecord {
     id: string;
     name: string;
     arguments: Record<string, unknown>;
+    formattedArgs?: string;
     result: string;
+    formattedResult?: string;
     startTimeMs: number;
     durationMs: number;
 }
@@ -339,8 +345,10 @@ export interface ToolCallProgress {
     name: string;
     displayName: string;
     args: Record<string, unknown>;
+    formattedArgs?: string;
     status: 'pending' | 'running' | 'completed' | 'error';
     result?: string;
+    formattedResult?: string;
     durationMs?: number;
 }
 
@@ -360,6 +368,7 @@ export interface CompletionResult {
 export interface ToolExecutionContext {
     config: Config;
     signal?: AbortSignal;
+    onStatus?: (status: string) => void;
 }
 
 export type ToolExecutor = (args: Record<string, unknown>, ctx: ToolExecutionContext) => Promise<string>;

@@ -182,6 +182,9 @@
                                     {#each selectedThread.toolCallRecords as tc}
                                         <div class="tool-call-entry">
                                             <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
+                                            {#if tc.formattedArgs || tc.formattedResult}
+                                                <p class="tool-detail">{tc.formattedArgs}{tc.formattedArgs && tc.formattedResult ? ' · ' : ''}{tc.formattedResult}</p>
+                                            {/if}
                                             <p class="tool-detail">Args: {JSON.stringify(tc.arguments)}</p>
                                             {#if tc.result.length <= 100}
                                                 <p class="tool-detail">Result: {tc.result}</p>
@@ -297,6 +300,9 @@
                             {#each researchResult.toolCallRecords as tc}
                                 <div class="tool-call-entry">
                                     <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
+                                    {#if tc.formattedArgs || tc.formattedResult}
+                                        <p class="tool-detail">{tc.formattedArgs}{tc.formattedArgs && tc.formattedResult ? ' · ' : ''}{tc.formattedResult}</p>
+                                    {/if}
                                     <p class="tool-detail">Args: {JSON.stringify(tc.arguments)}</p>
                                     {#if tc.result.length <= 100}
                                         <p class="tool-detail">Result: {tc.result}</p>

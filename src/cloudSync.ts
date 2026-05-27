@@ -62,6 +62,27 @@ const MANIFEST_PATH = 'preferences/syncManifest';
 const CLOUD_STATE_PATH = 'cloud-state.json';
 const SYNC_SAFETY_WINDOW_MS = 10000;
 
+/**
+ * Path prefixes under /research/ that should NEVER be synced to the cloud.
+ *
+ * - `preferences/syncManifest` — local-only sync state file, updated atomically inside lock
+ * - `sync/` — crash-recovery journal files (journals A/B, checkpoint)
+ * - `doc-cache/` — document cache for fetched papers / PDFs, private to this device
+ *
+ * Add new local-only prefixes here so both the diff walk and the complete
+ * re-sync walk stay in sync. Missing a prefix in one filter but not the other
+ * would cause cache files to be synced (or the manifest to be treated as data).
+ */
+const SYNC_IGNORE_PREFIXES = [
+    'preferences/syncManifest',
+    'sync/',
+    'doc-cache/',
+];
+
+function isPathIgnored(path: string): boolean {
+    return SYNC_IGNORE_PREFIXES.some(prefix => path.startsWith(prefix));
+}
+
 // ── State ──
 
 type CloudSyncState = {
@@ -356,10 +377,7 @@ async function computeSyncActions(existingManifest: SyncManifest): Promise<SyncA
     const appHandle = await getOPFSHandle();
     const localPaths = await walkOpfsDirectory(appHandle, '');
     // Filter out sync journal and manifest paths
-    const appPaths = localPaths.filter((p: string) =>
-        !p.startsWith('preferences/syncManifest') &&
-        !p.startsWith('sync/')
-    );
+    const appPaths = localPaths.filter((p: string) => !isPathIgnored(p));
 
     // Get remote file list
     let remoteFiles: SyncFileInfo[] = [];
@@ -606,10 +624,7 @@ export async function syncResetThenPull(): Promise<void> {
     return withSyncLock(async (ctx) => {
         const appHandle = await getOPFSHandle();
         const localPaths = await walkOpfsDirectory(appHandle, '');
-        const appPaths = localPaths.filter((p: string) =>
-            !p.startsWith('preferences/syncManifest') &&
-            !p.startsWith('sync/')
-        );
+        const appPaths = localPaths.filter((p: string) => !isPathIgnored(p));
 
         // Phase 1: Mark all local files as dirty and persist to journal
         for (const path of appPaths) {

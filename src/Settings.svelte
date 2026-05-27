@@ -39,6 +39,27 @@
 
     let configSnapshot = '';
 
+    // ── Document cache state ──
+    let cacheStats: { usedBytes: number; entryCount: number; limitBytes: number } | null = null;
+    let cacheLimitMb = 1000;
+    let pwaInstalled = false;
+
+    onMount(async () => {
+        const { getCacheStats, isPwaInstalled } = await import('./lib/docCache');
+        const stats = await getCacheStats();
+        cacheStats = stats;
+        cacheLimitMb = stats.limitBytes / 1_000_000;
+        pwaInstalled = isPwaInstalled();
+    });
+
+    async function handleClearCache() {
+        const { clearCache } = await import('./lib/docCache');
+        await clearCache();
+        if (cacheStats) {
+            cacheStats = { usedBytes: 0, entryCount: 0, limitBytes: cacheStats.limitBytes };
+        }
+    }
+
     $: filteredModels = (
         modelFilter
             ? openrouterModels.filter(
@@ -417,6 +438,17 @@
                     </label>
                 </div>
                 <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('fetch_paper')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'fetch_paper'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'fetch_paper');
+                            }} />
+                        Fetch Full Paper
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
                     <label for="max-tool-iterations">Max Tool Iterations:</label>
                     <input type="number" id="max-tool-iterations" bind:value={localConfig.maxToolIterations} min="1" max="20" style="width: 80px;" />
                 </div>
@@ -442,6 +474,33 @@
                 </label>
                 <p class="help-text">When enabled, any model selection will use the free tier. Auto-enforced when credit balance reaches 0.</p>
             </div>
+        </div>
+
+        <!------------------------------>
+        <!-- Document Cache -->
+        <!------------------------------>
+        <div class="form-group">
+            <h4>Document Cache</h4>
+            {#if cacheStats}
+                <p>Used: {(cacheStats.usedBytes / 1_000_000).toFixed(1)} MB / {(cacheStats.limitBytes / 1_000_000).toFixed(0)} MB ({cacheStats.entryCount} files)</p>
+                <div class="form-group">
+                    <label for="cache-limit">Cache Limit (MB):</label>
+                    <input type="number" id="cache-limit" bind:value={cacheLimitMb} min="100" max="10000"
+                        on:change={async () => {
+                            const { setSizeLimit } = await import('./lib/docCache');
+                            const saved = await setSizeLimit(cacheLimitMb * 1_000_000);
+                            cacheLimitMb = saved / 1_000_000;
+                            const { getCacheStats } = await import('./lib/docCache');
+                            cacheStats = await getCacheStats();
+                        }} />
+                </div>
+                {#if !pwaInstalled && cacheStats && cacheStats.usedBytes / cacheStats.limitBytes > 0.9}
+                    <p class="help-text warning-text">Install the app for unlimited local storage.</p>
+                {/if}
+                <button class="btn btn-sm btn-outline-danger" on:click={handleClearCache}>Clear Cache</button>
+            {:else}
+                <p>Calculating...</p>
+            {/if}
         </div>
 
         <!------------------------------>

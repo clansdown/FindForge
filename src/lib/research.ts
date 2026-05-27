@@ -2,7 +2,7 @@ import { parse } from 'svelte/compiler';
 import { callOpenRouterChat, callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
 import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation } from './types';
-import { ToolRegistry, TOOL_DISPLAY_NAMES } from './tools';
+import { ToolRegistry } from './tools';
 import { TOOL_LIMIT_INSTRUCTION } from './prompts';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
@@ -183,16 +183,19 @@ async function doStandardResearchWithTools(
             };
             messagesForAPI.push(assistantMsg);
 
-            const ctx = { config, signal: abortController?.signal };
+            const ctx = { config, signal: abortController?.signal, onStatus };
             const startTimeMs = Date.now();
 
             if (onToolCallProgress) {
                 for (const tc of result.toolCalls) {
+                    const def = toolRegistry.getDefinition(tc.function.name);
+                    const parsedArgs = JSON.parse(tc.function.arguments || '{}');
                     onToolCallProgress({
                         id: tc.id,
                         name: tc.function.name,
-                        displayName: TOOL_DISPLAY_NAMES[tc.function.name] || tc.function.name,
-                        args: JSON.parse(tc.function.arguments || '{}'),
+                        displayName: def?.displayName || tc.function.name,
+                        args: parsedArgs,
+                        formattedArgs: def?.formatArgs(parsedArgs),
                         status: 'running',
                     });
                 }
@@ -204,11 +207,16 @@ async function doStandardResearchWithTools(
                 const tc = result.toolCalls[i];
                 const tr = toolResults[i];
                 const durationMs = Date.now() - startTimeMs;
+                const def = toolRegistry.getDefinition(tc.function.name);
+                const parsedArgs = JSON.parse(tc.function.arguments || '{}');
+                const formattedResult = def?.formatResult(tr.content);
                 toolCallRecords.push({
                     id: tc.id,
                     name: tc.function.name,
-                    arguments: JSON.parse(tc.function.arguments || '{}'),
+                    arguments: parsedArgs,
+                    formattedArgs: def?.formatArgs(parsedArgs),
                     result: tr.content,
+                    formattedResult,
                     startTimeMs,
                     durationMs,
                 });
@@ -216,9 +224,11 @@ async function doStandardResearchWithTools(
                     onToolCallProgress({
                         id: tc.id,
                         name: tc.function.name,
-                        displayName: TOOL_DISPLAY_NAMES[tc.function.name] || tc.function.name,
-                        args: JSON.parse(tc.function.arguments || '{}'),
+                        displayName: def?.displayName || tc.function.name,
+                        args: parsedArgs,
+                        formattedArgs: def?.formatArgs(parsedArgs),
                         status: tr.content.startsWith('Error:') ? 'error' : 'completed',
+                        formattedResult,
                         result: tr.content,
                         durationMs,
                     });

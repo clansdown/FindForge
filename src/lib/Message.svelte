@@ -229,14 +229,14 @@
                                         {/if}
                                     </span>
                                     <span class="tc-name">{tc.displayName}</span>
-                                    {#if tc.args && Object.keys(tc.args).length > 0}
-                                        <span class="tc-args">{JSON.stringify(tc.args)}</span>
+                                    {#if tc.formattedArgs}
+                                        <span class="tc-args">{tc.formattedArgs}</span>
+                                    {/if}
+                                    {#if tc.formattedResult}
+                                        <span class="tc-result-preview">{tc.formattedResult}</span>
                                     {/if}
                                     {#if tc.durationMs}
                                         <span class="tc-duration">({tc.durationMs}ms)</span>
-                                    {/if}
-                                    {#if tc.result && tc.result.length > 0}
-                                        <span class="tc-result-preview">{tc.result.slice(0, 80)}</span>
                                     {/if}
                                 </div>
                             {/each}
@@ -507,20 +507,26 @@
         background: #1a1a1a;
         border-radius: 8px;
         border: 1px solid #333;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
     }
     .tool-call-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.25rem 0;
-        font-size: 0.85rem;
+        display: inline-flex;
         flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.3em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        word-break: break-word;
     }
     .tc-icon { width: 1.2rem; text-align: center; flex-shrink: 0; }
     .tc-name { font-weight: bold; color: #ddd; }
     .tc-args { color: #999; font-size: 0.8rem; }
     .tc-duration { color: #666; font-size: 0.8rem; }
-    .tc-result-preview { color: #aaa; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
+    .tc-result-preview { color: #aaa; font-size: 0.8rem; }
 </style>
 
 
