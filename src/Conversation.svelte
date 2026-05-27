@@ -608,6 +608,7 @@
                 if (result.annotations) {
                     assistantMessage.annotations = result.annotations;
                 }
+                assistantMessage.toolCallProgress = undefined;
                 console.log('[resources] before spread:', {
                     assistantMsgResources: assistantMessage.resources?.length,
                     resources: assistantMessage.resources,
@@ -648,6 +649,7 @@
             generating = false;
             abortController = null;
             assistantMessage.isGenerating = false;
+            assistantMessage.toolCallProgress = undefined;
             currentConversation.messages = currentConversation.messages.map((msg) => (msg.id === assistantMessage.id ? assistantMessage : msg));
             if(localConfig.autoSave)
                 saveConversation(currentConversation);

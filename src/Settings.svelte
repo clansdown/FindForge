@@ -396,13 +396,13 @@
                 </div>
                 <div class="form-group" style="margin-left: 2rem;">
                     <label>
-                        <input type="checkbox" checked={localConfig.enabledTools.includes('arxiv_search')}
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('crossref_search')}
                             on:change={(e) => {
                                 const el = e.currentTarget as HTMLInputElement;
-                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'arxiv_search'];
-                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'arxiv_search');
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'crossref_search'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'crossref_search');
                             }} />
-                        arXiv Search
+                        Crossref Search
                     </label>
                 </div>
                 <div class="form-group" style="margin-left: 2rem;">

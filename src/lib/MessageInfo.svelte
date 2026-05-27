@@ -285,7 +285,7 @@
                     <div class="info-block">
                         <details>
                             <summary><h4>Thinking</h4></summary>
-                            <pre>{thinking}</pre>
+                            <div class="thinking-content">{thinking}</div>
                         </details>
                     </div>
                 {/if}
@@ -465,5 +465,15 @@
     }
     details summary h4, details summary h5 {
         display: inline;
+    }
+    .thinking-content {
+        white-space: pre-line;
+        word-break: break-word;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        background: #1a1a1a;
+        padding: 0.75rem;
+        border-radius: 4px;
+        margin-top: 0.25rem;
     }
 </style>

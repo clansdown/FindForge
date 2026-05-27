@@ -11,7 +11,7 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
     'catholic_encyclopedia_search': 'Catholic Encyclopedia Search',
     'web_fetch': 'Web Fetch',
     'pubmed_search': 'PubMed Search',
-    'arxiv_search': 'arXiv Search',
+    'crossref_search': 'Crossref Search',
     'pubmed_fetch': 'PubMed Full-Text Fetch',
 };
 
@@ -120,16 +120,16 @@ export const PUBMED_TOOL: ToolDefinition = {
     },
 };
 
-export const ARXIV_TOOL: ToolDefinition = {
+export const CROSSREF_TOOL: ToolDefinition = {
     type: 'function',
     function: {
-        name: 'arxiv_search',
+        name: 'crossref_search',
         description:
-            'Search arXiv for scientific preprints in physics, mathematics, computer science, and related fields. Returns formatted citations with titles, authors, abstracts, and direct PDF links.',
+            'Search Crossref for scientific preprints and papers across all disciplines. Returns titles, authors, posting dates, DOIs, and publication venues. Covers arXiv, bioRxiv, ChemRxiv, and other preprint platforms alongside peer-reviewed research.',
         parameters: {
             type: 'object',
             properties: {
-                query: { type: 'string', description: 'Search query. Prefix with field codes: ti: (title), au: (author), abs: (abstract), cat: (category), or all: (all fields). Example: "ti:transformer + attention".' },
+                query: { type: 'string', description: 'Search query across titles, abstracts, and authors.' },
                 max_results: { type: 'number', description: 'Number of results to return (1-10, default 5).' },
             },
             required: ['query'],
@@ -427,45 +427,39 @@ async function executePubMed(args: Record<string, unknown>): Promise<string> {
     }
 }
 
-async function executeArxiv(args: Record<string, unknown>): Promise<string> {
+async function executeCrossrefSearch(args: Record<string, unknown>): Promise<string> {
     const query = args.query as string;
     const maxResults = Math.min(Number(args.max_results) || 5, 10);
     if (!query) return 'Error: No query provided.';
 
-    const token = await getClerkToken();
-    if (!token) return 'Error: Sign in to enable arXiv search (CORS proxy requires authentication).';
-
     try {
-        const url = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&max_results=${maxResults}`;
-        const xmlText = await fetchViaProxy(url, token);
-
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-        const parserError = xmlDoc.querySelector('parsererror');
-        if (parserError) return 'Error: Failed to parse arXiv response.';
-
-        const entries = xmlDoc.querySelectorAll('entry');
-        if (!entries.length) return 'No arXiv results found.';
+        const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&filter=type:posted-content&sort=created&rows=${maxResults}&mailto=crossref@chrislansdown.com`;
+        const resp = await fetch(url);
+        if (!resp.ok) return `Crossref search failed: HTTP ${resp.status}`;
+        const data = await resp.json();
+        const items = data.message?.items || [];
+        if (!items.length) return 'No results found on Crossref.';
 
         let output = '';
-        for (const entry of entries) {
-            const title = entry.querySelector('title')?.textContent?.trim() || 'Untitled';
-            const authors = [...entry.querySelectorAll('author name')].map(n => n.textContent?.trim()).filter(Boolean).join(', ');
-            const summary = entry.querySelector('summary')?.textContent?.trim() || '';
-            const published = entry.querySelector('published')?.textContent?.trim() || '';
-            const idUrl = entry.querySelector('id')?.textContent?.trim() || '';
-            const arxivId = idUrl.replace(/^https?:\/\/arxiv\.org\/abs\//, '');
+        for (const item of items) {
+            const title = item.title?.[0] || 'Untitled';
+            const authors = (item.author || []).map((a: { given?: string; family?: string }) =>
+                [a.given, a.family].filter(Boolean).join(' ')
+            ).join(', ');
+            const posted = item.posted?.['date-parts']?.[0]?.join('-') || '';
+            const container = item['container-title']?.[0] || '';
+            const doi = item.DOI || '';
 
             output += `### ${title}\n`;
             if (authors) output += `**Authors:** ${authors}\n`;
-            if (published) output += `**Published:** ${published.substring(0, 10)}\n`;
-            if (summary) output += `**Abstract:** ${summary.substring(0, 500)}${summary.length > 500 ? '...' : ''}\n`;
-            if (arxivId) output += `**arXiv:** [${arxivId}](https://arxiv.org/abs/${arxivId})\n`;
+            if (posted) output += `**Posted:** ${posted}\n`;
+            if (container) output += `**Published in:** ${container}\n`;
+            if (doi) output += `**DOI:** [${doi}](https://doi.org/${doi})\n`;
             output += '\n';
         }
         return output || 'No results to display.';
     } catch (e) {
-        return `arXiv search failed: ${e instanceof Error ? e.message : String(e)}`;
+        return `Crossref search failed: ${e instanceof Error ? e.message : String(e)}`;
     }
 }
 
@@ -582,7 +576,7 @@ export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {
         { definition: CATHOLIC_TOOL, executor: executeCatholicEncyclopedia },
         { definition: WEB_FETCH_TOOL, executor: executeWebFetch },
         { definition: PUBMED_TOOL, executor: executePubMed },
-        { definition: ARXIV_TOOL, executor: executeArxiv },
+        { definition: CROSSREF_TOOL, executor: executeCrossrefSearch },
         { definition: PUBMED_FETCH_TOOL, executor: executePubMedFetch },
     ];
 

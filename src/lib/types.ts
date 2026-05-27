@@ -46,7 +46,7 @@ export class Config {
         'catholic_encyclopedia_search',
         'web_fetch',
         'pubmed_search',
-        'arxiv_search',
+        'crossref_search',
         'pubmed_fetch',
     ];
 

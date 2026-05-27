@@ -215,7 +215,7 @@
                     </div>
                 {:else} 
                     <!-- Assistant Message -->
-                    {#if message.thinking}
+                    {#if message.isGenerating && message.thinking}
                         <ThinkingBox thinking={message.thinking} lines={8} />
                     {/if}
                     {#if message.toolCallProgress && message.toolCallProgress.length > 0}
