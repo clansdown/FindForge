@@ -218,6 +218,30 @@
                     {#if message.thinking}
                         <ThinkingBox thinking={message.thinking} lines={8} />
                     {/if}
+                    {#if message.toolCallProgress && message.toolCallProgress.length > 0}
+                        <div class="tool-call-progress">
+                            {#each message.toolCallProgress as tc}
+                                <div class="tool-call-item {tc.status}">
+                                    <span class="tc-icon">
+                                        {#if tc.status === 'running'}🔄
+                                        {:else if tc.status === 'completed'}✅
+                                        {:else if tc.status === 'error'}❌
+                                        {/if}
+                                    </span>
+                                    <span class="tc-name">{tc.displayName}</span>
+                                    {#if tc.args && Object.keys(tc.args).length > 0}
+                                        <span class="tc-args">{JSON.stringify(tc.args)}</span>
+                                    {/if}
+                                    {#if tc.durationMs}
+                                        <span class="tc-duration">({tc.durationMs}ms)</span>
+                                    {/if}
+                                    {#if tc.result && tc.result.length > 0}
+                                        <span class="tc-result-preview">{tc.result.slice(0, 80)}</span>
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
                     {#if message.isGenerating}
                         {#if message.status}
                             <div class="status">{@html message.status}</div>
@@ -476,6 +500,27 @@
     .error-actions button:hover {
         background-color: #3a3a3a;
     }
+
+    .tool-call-progress {
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+        background: #1a1a1a;
+        border-radius: 8px;
+        border: 1px solid #333;
+    }
+    .tool-call-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0;
+        font-size: 0.85rem;
+        flex-wrap: wrap;
+    }
+    .tc-icon { width: 1.2rem; text-align: center; flex-shrink: 0; }
+    .tc-name { font-weight: bold; color: #ddd; }
+    .tc-args { color: #999; font-size: 0.8rem; }
+    .tc-duration { color: #666; font-size: 0.8rem; }
+    .tc-result-preview { color: #aaa; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
 </style>
 
 

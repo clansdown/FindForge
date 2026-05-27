@@ -1,8 +1,8 @@
 import { parse } from 'svelte/compiler';
 import { callOpenRouterChat, callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
-import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, CompletionResult, Annotation } from './types';
-import { ToolRegistry } from './tools';
+import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation } from './types';
+import { ToolRegistry, TOOL_DISPLAY_NAMES } from './tools';
 import { TOOL_LIMIT_INSTRUCTION } from './prompts';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
@@ -71,8 +71,9 @@ export async function doStandardResearch(
     abortController?: AbortController,
     toolRegistry?: ToolRegistry,
     onThinking?: (chunk: string) => void,
+    onToolCallProgress?: (update: ToolCallProgress) => void,
 ): Promise<ResearchResult> {
-    return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry ?? new ToolRegistry(), onThinking);
+    return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry ?? new ToolRegistry(), onThinking, onToolCallProgress);
 }
 
 
@@ -86,6 +87,7 @@ async function doStandardResearchWithTools(
     abortController: AbortController | undefined,
     toolRegistry: ToolRegistry,
     onThinking?: (chunk: string) => void,
+    onToolCallProgress?: (update: ToolCallProgress) => void,
 ): Promise<ResearchResult> {
     onStatus('Starting research with tools...');
     const resources: Resource[] = [];
@@ -172,15 +174,6 @@ async function doStandardResearchWithTools(
 
             // Record and execute tool calls
             console.log(`[Tools] [${iteration + 1}/${maxIterations}] LLM requested ${result.toolCalls.length} tools: ${result.toolCalls.map(t => t.function.name).join(', ')}`, result.toolCalls);
-            onStatus(`Using ${result.toolCalls.map(t => {
-                if (t.function.name === 'web_fetch') {
-                    try {
-                        const args = JSON.parse(t.function.arguments || '{}');
-                        return args.url ? `web_fetch:${args.url}` : 'web_fetch';
-                    } catch { return 'web_fetch'; }
-                }
-                return t.function.name;
-            }).join(', ')}...`);
             if (onThinking) onThinking('\n\n---\n');
 
             const assistantMsg: ApiCallMessage = {
@@ -192,6 +185,18 @@ async function doStandardResearchWithTools(
 
             const ctx = { config, signal: abortController?.signal };
             const startTimeMs = Date.now();
+
+            if (onToolCallProgress) {
+                for (const tc of result.toolCalls) {
+                    onToolCallProgress({
+                        id: tc.id,
+                        name: tc.function.name,
+                        displayName: TOOL_DISPLAY_NAMES[tc.function.name] || tc.function.name,
+                        args: JSON.parse(tc.function.arguments || '{}'),
+                        status: 'running',
+                    });
+                }
+            }
 
             const toolResults = await toolRegistry.executeAll(result.toolCalls, ctx);
 
@@ -207,6 +212,17 @@ async function doStandardResearchWithTools(
                     startTimeMs,
                     durationMs,
                 });
+                if (onToolCallProgress) {
+                    onToolCallProgress({
+                        id: tc.id,
+                        name: tc.function.name,
+                        displayName: TOOL_DISPLAY_NAMES[tc.function.name] || tc.function.name,
+                        args: JSON.parse(tc.function.arguments || '{}'),
+                        status: tr.content.startsWith('Error:') ? 'error' : 'completed',
+                        result: tr.content,
+                        durationMs,
+                    });
+                }
                 messagesForAPI.push({
                     role: 'tool',
                     tool_call_id: tr.tool_call_id,

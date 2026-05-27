@@ -5,6 +5,16 @@ import type { ToolDefinition, ToolCall, ToolExecutionContext, ToolExecutor } fro
 import { getClerkToken } from '../auth';
 import { pmidToPmcid, normalizePmcid, fetchPmcXml } from './pubmed';
 
+export const TOOL_DISPLAY_NAMES: Record<string, string> = {
+    'scientific_calculator': 'Scientific Calculator',
+    'wikipedia_search': 'Wikipedia Search',
+    'catholic_encyclopedia_search': 'Catholic Encyclopedia Search',
+    'web_fetch': 'Web Fetch',
+    'pubmed_search': 'PubMed Search',
+    'arxiv_search': 'arXiv Search',
+    'pubmed_fetch': 'PubMed Full-Text Fetch',
+};
+
 // ── Tool Definitions (OpenAI-compatible JSON Schema) ──
 
 export const CALCULATOR_TOOL: ToolDefinition = {

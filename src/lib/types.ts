@@ -266,6 +266,7 @@ export interface MessageData {
     annotations?: Annotation[];
     resources?: Resource[]; // List of resources used for research
     toolCalls?: ToolCallRecord[]; // Tool call records for inspection
+    toolCallProgress?: ToolCallProgress[]; // Live tool call progress during generation
     error?: {
         message: string;
         url?: string;
@@ -331,6 +332,16 @@ export interface ToolCallRecord {
     result: string;
     startTimeMs: number;
     durationMs: number;
+}
+
+export interface ToolCallProgress {
+    id: string;
+    name: string;
+    displayName: string;
+    args: Record<string, unknown>;
+    status: 'pending' | 'running' | 'completed' | 'error';
+    result?: string;
+    durationMs?: number;
 }
 
 export interface CompletionResult {

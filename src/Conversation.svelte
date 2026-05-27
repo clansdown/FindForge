@@ -506,6 +506,14 @@
                                 firstChunk = false;
                         }
                         assistantMessage.content += chunk;
+
+                        if (assistantMessage.isGenerating &&
+                            assistantMessage.toolCallProgress &&
+                            assistantMessage.toolCallProgress.length > 0 &&
+                            assistantMessage.toolCallProgress.every(tc => tc.status === 'completed' || tc.status === 'error')) {
+                            assistantMessage.isGenerating = false;
+                        }
+
                         currentConversation.messages = currentConversation.messages.map((msg) =>
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
@@ -555,7 +563,25 @@
                     abortController,
                     toolRegistry,
                     (thinkingChunk) => {
+                        if (!assistantMessage.thinking) {
+                            assistantMessage.status = '';
+                        }
                         assistantMessage.thinking = (assistantMessage.thinking || '') + thinkingChunk;
+                    },
+                    (progress) => {
+                        if (!assistantMessage.toolCallProgress) {
+                            assistantMessage.toolCallProgress = [];
+                        }
+                        const index = assistantMessage.toolCallProgress.findIndex(tc => tc.id === progress.id);
+                        if (index >= 0) {
+                            assistantMessage.toolCallProgress[index] = progress;
+                        } else {
+                            assistantMessage.toolCallProgress.push(progress);
+                            scrollToBottom();
+                        }
+                        currentConversation.messages = currentConversation.messages.map((msg) =>
+                            msg.id === assistantMessage.id ? assistantMessage : msg,
+                        );
                     },
                 );
                 assistantMessage.researchResult = result;
