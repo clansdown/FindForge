@@ -110,6 +110,7 @@ src/tools/
   pubmed_fetch.ts          — pubmed_fetch
   fetch_paper.ts           — fetch_paper (Crossref resolution, arXiv/bioRxiv/PDF pipelines, caching)
   stanford_encyclopedia_of_philosophy.ts — sep_search (DuckDuckGo site-search + DOM extraction via proxy)
+  fandom_wikis.ts            — fandom_search (MediaWiki API, direct CORS fetch, three modes)
   registry.ts              — ToolRegistry class + createToolRegistry factory
 ```
 

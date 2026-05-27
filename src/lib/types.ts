@@ -50,6 +50,7 @@ export class Config {
         'pubmed_fetch',
         'fetch_paper',
         'sep_search',
+        'fandom_search',
     ];
 
     constructor() {

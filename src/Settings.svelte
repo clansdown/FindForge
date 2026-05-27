@@ -460,6 +460,17 @@
                     </label>
                 </div>
                 <div class="form-group" style="margin-left: 2rem;">
+                    <label>
+                        <input type="checkbox" checked={localConfig.enabledTools.includes('fandom_search')}
+                            on:change={(e) => {
+                                const el = e.currentTarget as HTMLInputElement;
+                                if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'fandom_search'];
+                                else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'fandom_search');
+                            }} />
+                        Fandom Wiki Search
+                    </label>
+                </div>
+                <div class="form-group" style="margin-left: 2rem;">
                     <label for="max-tool-iterations">Max Tool Iterations:</label>
                     <input type="number" id="max-tool-iterations" bind:value={localConfig.maxToolIterations} min="1" max="20" style="width: 80px;" />
                 </div>
