@@ -21,6 +21,7 @@ export const CALCULATOR_TOOL: ToolDefinition = {
     displayName: 'Scientific Calculator',
     formatArgs(args) { return (args.expression as string) || ''; },
     formatResult(result) { return `= ${result.slice(0, 40)}`; },
+    isCacheable: true,
 };
 
 export async function executeCalculator(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {

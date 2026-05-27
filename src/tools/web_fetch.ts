@@ -34,6 +34,8 @@ export const WEB_FETCH_TOOL: ToolDefinition = {
         const sizeStr = size > 1000 ? `${(size / 1000).toFixed(1)}k` : `${size}b`;
         return title ? `${title} (${sizeStr})` : `Got page (${sizeStr})`;
     },
+    isCacheable: true,
+    cacheTTLMs: 60_000,
 };
 
 // ── Shared proxy URL (also used by pubmed_fetch.ts and fetch_paper.ts) ──

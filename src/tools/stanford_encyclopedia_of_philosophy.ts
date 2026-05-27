@@ -54,6 +54,8 @@ export const SEP_TOOL: ToolDefinition = {
         const count = (result.match(/^\* /gm) || []).length;
         return count > 0 ? `Found ${count} results` : 'No results';
     },
+    isCacheable: true,
+    cacheTTLMs: 600_000,
 };
 
 // ── Helpers ──

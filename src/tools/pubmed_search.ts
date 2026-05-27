@@ -22,6 +22,8 @@ export const PUBMED_TOOL: ToolDefinition = {
         const count = (result.match(/^### /gm) || []).length;
         return count > 0 ? `Got ${count} results` : 'No results';
     },
+    isCacheable: true,
+    cacheTTLMs: 600_000,
 };
 
 export async function executePubMed(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {

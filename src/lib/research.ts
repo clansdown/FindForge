@@ -1,7 +1,7 @@
 import { parse } from 'svelte/compiler';
 import { callOpenRouterChat, callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
-import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation } from './types';
+import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo } from './types';
 import { ToolRegistry } from './tools';
 import { TOOL_LIMIT_INSTRUCTION } from './prompts';
 
@@ -72,8 +72,9 @@ export async function doStandardResearch(
     toolRegistry?: ToolRegistry,
     onThinking?: (chunk: string) => void,
     onToolCallProgress?: (update: ToolCallProgress) => void,
+    previousToolCalls?: ToolCallRecord[],
 ): Promise<ResearchResult> {
-    return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry ?? new ToolRegistry(), onThinking, onToolCallProgress);
+    return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry ?? new ToolRegistry(), onThinking, onToolCallProgress, previousToolCalls);
 }
 
 
@@ -88,11 +89,13 @@ async function doStandardResearchWithTools(
     toolRegistry: ToolRegistry,
     onThinking?: (chunk: string) => void,
     onToolCallProgress?: (update: ToolCallProgress) => void,
+    previousToolCalls?: ToolCallRecord[],
 ): Promise<ResearchResult> {
     onStatus('Starting research with tools...');
     const resources: Resource[] = [];
     const systemPromptUsed = config.systemPrompt || undefined;
     const toolCallRecords: ToolCallRecord[] = [];
+    const toolRounds: ToolRoundInfo[] = [];
     console.log('[resources] doStandardResearchWithTools initialized:', {
         hasSystemPrompt: !!config.systemPrompt,
         configPromptSnippet: config.systemPrompt?.slice(0, 100),
@@ -163,6 +166,13 @@ async function doStandardResearchWithTools(
             const costStr = result.cost != null ? `$${result.cost.toFixed(6)}` : 'N/A';
             const tokStr = result.totalTokens != null ? `${result.totalTokens} (p${result.promptTokens ?? 0}+c${result.completionTokens ?? 0})` : 'N/A';
             console.log(`[Tools] [${iteration + 1}/${maxIterations}] response: finish=${result.finishReason}, model=${result.model}, cost=${costStr}, tokens=${tokStr}`);
+            toolRounds.push({
+                promptTokens: result.promptTokens,
+                completionTokens: result.completionTokens,
+                cost: result.cost,
+                model: result.model,
+                finishReason: result.finishReason,
+            });
             if (result.annotations) {
                 allAnnotations.push(...result.annotations);
             }
@@ -183,7 +193,7 @@ async function doStandardResearchWithTools(
             };
             messagesForAPI.push(assistantMsg);
 
-            const ctx = { config, signal: abortController?.signal, onStatus };
+            const ctx: ToolExecutionContext = { config, signal: abortController?.signal, onStatus, previousToolCalls };
             const startTimeMs = Date.now();
 
             if (onToolCallProgress) {
@@ -330,6 +340,7 @@ async function doStandardResearchWithTools(
             contextWasIncluded: config.includePreviousMessagesAsContext,
             toolCallRecords,
             toolIterations: iteration,
+            toolRounds,
         };
     } catch (error) {
         onStatus('Research failed');

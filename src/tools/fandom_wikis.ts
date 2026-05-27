@@ -60,6 +60,8 @@ export const FANDOM_TOOL: ToolDefinition = {
         const pageCount = (result.match(/^<\/?ul>/gm) || []).length;
         return 'Got results';
     },
+    isCacheable: true,
+    cacheTTLMs: 300_000,
 };
 
 // ── Helpers ──

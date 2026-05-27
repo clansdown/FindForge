@@ -33,6 +33,8 @@ export const PUBMED_FETCH_TOOL: ToolDefinition = {
         if (result.includes('Open Access article')) return 'Got OA link';
         return `Got result (${result.length}b)`;
     },
+    isCacheable: true,
+    cacheTTLMs: 600_000,
 };
 
 export async function executePubMedFetch(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {

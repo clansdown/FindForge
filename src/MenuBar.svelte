@@ -90,6 +90,8 @@
         <button on:click={() => { $applicationMode = 'brainstorming';  }}>
           {#if $applicationMode === 'brainstorming'}✓{:else}&nbsp;&nbsp;&nbsp;{/if} Brainstorming
         </button>
+        <div class="menu-separator"></div>
+        <button on:click={() => { window.location.href = '/translate/'; closeMenu(); }}>Translate</button>
       </div>
     {/if}
   </div>

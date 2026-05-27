@@ -1,4 +1,4 @@
-import type { ToolDefinition, ToolCall, ToolExecutionContext, ToolExecutor } from '../lib/types';
+import type { ToolDefinition, ToolCall, ToolExecutionContext, ToolExecutor, ToolCallRecord } from '../lib/types';
 import { CALCULATOR_TOOL, executeCalculator } from './calculator';
 import { WIKIPEDIA_TOOL, executeWikipedia } from './wikipedia';
 import { CATHOLIC_TOOL, executeCatholicEncyclopedia } from './catholic_encyclopedia';
@@ -43,11 +43,44 @@ export class ToolRegistry {
     async executeAll(toolCalls: ToolCall[], ctx: ToolExecutionContext): Promise<Array<{ tool_call_id: string; role: 'tool'; content: string }>> {
         return Promise.all(
             toolCalls.map(async (tc) => {
-                const content = await this.execute(tc.function.name, tc.function.arguments, ctx);
+                const content = await this.executeWithCache(tc, ctx);
                 return { tool_call_id: tc.id, role: 'tool' as const, content };
             }),
         );
     }
+
+    private async executeWithCache(tc: ToolCall, ctx: ToolExecutionContext): Promise<string> {
+        const def = this.definitions.get(tc.function.name);
+        const args = tc.function.arguments;
+
+        if (def?.isCacheable && ctx.previousToolCalls) {
+            const hit = findCacheHit(tc.function.name, args, def, ctx.previousToolCalls);
+            if (hit) {
+                console.log(`[ToolCache] hit for ${tc.function.name}: reusing cached result (${hit.result.length}b, age=${Date.now() - hit.startTimeMs}ms)`);
+                return hit.result;
+            }
+        }
+
+        return this.execute(tc.function.name, args, ctx);
+    }
+}
+
+function findCacheHit(
+    name: string,
+    argsJson: string,
+    def: ToolDefinition,
+    previous: ToolCallRecord[],
+): ToolCallRecord | undefined {
+    for (const prev of previous) {
+        if (prev.name !== name) continue;
+        if (JSON.stringify(prev.arguments) !== argsJson) continue;
+        if (def.cacheTTLMs && def.cacheTTLMs > 0) {
+            const age = Date.now() - prev.startTimeMs;
+            if (age > def.cacheTTLMs) continue;
+        }
+        return prev;
+    }
+    return undefined;
 }
 
 export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {

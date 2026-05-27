@@ -29,6 +29,8 @@ export const WIKIPEDIA_TOOL: ToolDefinition = {
         const count = (result.match(/^\*\*/gm) || []).length;
         return count > 0 ? `Got ${count} results` : 'No results';
     },
+    isCacheable: true,
+    cacheTTLMs: 300_000,
 };
 
 export async function executeWikipedia(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {

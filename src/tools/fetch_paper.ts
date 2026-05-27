@@ -76,6 +76,8 @@ export const FETCH_PAPER_TOOL: ToolDefinition = {
         }
         return `Got result (${result.length}b)`;
     },
+    isCacheable: true,
+    cacheTTLMs: 300_000,
 };
 
 // ── Identifier Extraction (maximum-flexibility parser) ──

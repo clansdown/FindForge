@@ -70,7 +70,7 @@
 
     function formatGenerationData(data: GenerationData | undefined): string {
         if (!data) return "N/A";
-        return `Cost: ${formatCost(data.total_cost)}, Tokens: ${data.tokens_prompt || 0} in, ${data.tokens_completion || 0} out. Generation time: ${((data.generation_time || 0)/1000).toFixed(1)}s.`;
+        return `Cost: ${formatCost(data.total_cost)}, Tokens: ${data.tokens_prompt?.toLocaleString() ?? '0'} in, ${data.tokens_completion?.toLocaleString() ?? '0'} out. Generation time: ${((data.generation_time || 0)/1000).toFixed(1)}s.`;
     }
 </script>
 
@@ -250,10 +250,29 @@
                 <p><strong>Model:</strong> {researchResult.streamingResult.model}</p>
                 {#if researchResult.generationData}
                     <p><strong>Total Cost:</strong> {formatCost(researchResult.generationData.total_cost)}</p>
+                    <p><strong>Total Tokens:</strong> {researchResult.generationData.tokens_prompt?.toLocaleString() ?? '?'} in / {researchResult.generationData.tokens_completion?.toLocaleString() ?? '?'} out</p>
                     <p><strong>Generation Time:</strong> {((researchResult.generationData.generation_time || 0)/1000).toFixed(1)}s</p>
                     <p><strong>Streamed:</strong> {researchResult.generationData.streamed ? 'Yes' : 'No'}</p>
                     <p><strong>Canceled:</strong> {researchResult.generationData.canceled ? 'Yes' : 'No'}</p>
                     <p><strong>Finish Reason:</strong> {researchResult.generationData.finish_reason}</p>
+                {/if}
+                {#if researchResult.toolRounds && researchResult.toolRounds.length > 0}
+                    <div class="info-block">
+                        <details>
+                            <summary><h4>Token Breakdown ({researchResult.toolRounds.length} rounds)</h4></summary>
+                            <div class="round-list">
+                                {#each researchResult.toolRounds as round, i}
+                                    <div class="round-entry">
+                                        <strong>Round {i + 1}</strong>
+                                        {round.finishReason === 'tool_calls' ? ' (tool call)' : round.finishReason === 'stop' ? ' (final)' : ''}
+                                        — {round.promptTokens?.toLocaleString() ?? '?'} in / {round.completionTokens?.toLocaleString() ?? '?'} out
+                                        {#if round.cost != null} — {formatCost(round.cost)}{/if}
+                                        {#if round.model} — <span class="round-model">{round.model}</span>{/if}
+                                    </div>
+                                {/each}
+                            </div>
+                        </details>
+                    </div>
                 {/if}
                 {#if researchResult.toolIterations != null}
                     <p><strong>Tool Rounds:</strong> {researchResult.toolIterations}</p>
@@ -472,6 +491,23 @@
     details summary h4, details summary h5 {
         display: inline;
     }
+    .round-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        margin-top: 0.5rem;
+    }
+    .round-entry {
+        padding: 0.25rem 0.5rem;
+        background: #222;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+    .round-model {
+        color: #999;
+        font-size: 0.8rem;
+    }
+
     .thinking-content {
         white-space: pre-line;
         word-break: break-word;

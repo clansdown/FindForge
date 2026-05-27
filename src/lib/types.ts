@@ -332,6 +332,10 @@ export interface ToolDefinition {
     displayName: string;
     formatArgs: (args: Record<string, unknown>) => string;
     formatResult: (result: string) => string;
+    /** If true, identical tool calls can reuse the cached result from a previous run */
+    isCacheable?: boolean;
+    /** Max age of a cached result in ms. 0 or undefined = never stale. */
+    cacheTTLMs?: number;
 }
 
 export interface ToolCall {
@@ -352,6 +356,14 @@ export interface ToolCallRecord {
     formattedResult?: string;
     startTimeMs: number;
     durationMs: number;
+}
+
+export interface ToolRoundInfo {
+    promptTokens?: number;
+    completionTokens?: number;
+    cost?: number;
+    model?: string;
+    finishReason?: string;
 }
 
 export interface ToolCallProgress {
@@ -383,6 +395,8 @@ export interface ToolExecutionContext {
     config: Config;
     signal?: AbortSignal;
     onStatus?: (status: string) => void;
+    /** Tool call records from the previous run of this message (for caching) */
+    previousToolCalls?: ToolCallRecord[];
 }
 
 export type ToolExecutor = (args: Record<string, unknown>, ctx: ToolExecutionContext) => Promise<string>;
@@ -442,6 +456,7 @@ export interface ResearchResult {
     contextWasIncluded?: boolean; // true if the previous messages were included in the context
     toolCallRecords?: ToolCallRecord[]; // tool calls executed during this research
     toolIterations?: number; // number of tool-calling rounds
+    toolRounds?: ToolRoundInfo[]; // per-API-call token/cost breakdown
 }
 
 

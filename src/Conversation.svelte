@@ -29,7 +29,7 @@
 
 
     } from "./lib/types";
-    import { APIError, Config, type ConversationData } from "./lib/types";
+    import { APIError, Config, type ConversationData, type ToolCallRecord } from "./lib/types";
     import SearchToolbar from "./SearchToolbar.svelte";
     import Resources from "./lib/Resources.svelte";
     import MessageInfo from "./lib/MessageInfo.svelte";
@@ -61,6 +61,7 @@
     let userInput = "";
     let generating = false;
     let abortController: AbortController | null = null;
+    let editingToolCalls: ToolCallRecord[] | null = null;
     let textarea: HTMLTextAreaElement;
     let models: Model[] = [];
     let showScrollToBottom = false;
@@ -292,26 +293,21 @@
     }
 
     function editUserMessage(message: MessageData) {
-        // Copy the message content to the input
         userInput = message.content;
 
-        // Set this user message and the next assistant message to hidden
-        message.hidden = true;
-
-        // Find the next message (which should be an assistant message) and set it to hidden
         const index = currentConversation.messages.findIndex((m) => m.id === message.id);
         if (index >= 0 && index < currentConversation.messages.length - 1) {
             const nextMessage = currentConversation.messages[index + 1];
-            if (nextMessage.role === "assistant") {
-                nextMessage.hidden = true;
+            if (nextMessage.role === "assistant" && nextMessage.toolCalls) {
+                editingToolCalls = nextMessage.toolCalls;
             }
+            currentConversation.messages.splice(index, 2);
+        } else {
+            currentConversation.messages = currentConversation.messages.filter((m) => m.id !== message.id);
         }
-
-        // Update the conversation array to trigger reactivity
         currentConversation.messages = currentConversation.messages;
 
-        // Save the conversation
-        if(localConfig.autoSave)
+        if (localConfig.autoSave)
             saveConversation(currentConversation);
     }
 
@@ -583,6 +579,7 @@
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
                     },
+                    editingToolCalls ?? undefined,
                 );
                 assistantMessage.researchResult = result;
                 if (result.toolCallRecords && result.toolCallRecords.length > 0) {
@@ -647,6 +644,7 @@
                 }
             }
         } finally {
+            editingToolCalls = null;
             generating = false;
             abortController = null;
             assistantMessage.isGenerating = false;
