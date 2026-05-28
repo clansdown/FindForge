@@ -265,6 +265,7 @@ export async function callOpenRouterWithTools(options: {
             completionTokens,
             cost,
             annotations,
+            requestBody: bodyString,
         };
     }
 
@@ -314,6 +315,7 @@ export async function callOpenRouterWithTools(options: {
                         completionTokens,
                         cost,
                         annotations,
+                        requestBody: bodyString,
                     };
                 }
 
@@ -407,6 +409,7 @@ export async function callOpenRouterWithTools(options: {
         completionTokens,
         cost,
         annotations,
+        requestBody: bodyString,
     };
 }
 

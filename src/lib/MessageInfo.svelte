@@ -58,6 +58,12 @@
         return md.render(content);
     }
 
+    function formatJson(json: string | undefined): string {
+        if (!json) return '';
+        try { return JSON.stringify(JSON.parse(json), null, 2); }
+        catch { return json; }
+    }
+
     async function copyToClipboard(text: string, label: string) {
         try {
             await navigator.clipboard.writeText(text);
@@ -249,12 +255,37 @@
                 <p><strong>Created:</strong> {new Date(researchResult.streamingResult.created * 1000).toLocaleString()}</p>
                 <p><strong>Model:</strong> {researchResult.streamingResult.model}</p>
                 {#if researchResult.generationData}
-                    <p><strong>Total Cost:</strong> {formatCost(researchResult.generationData.total_cost)}</p>
-                    <p><strong>Total Tokens:</strong> {researchResult.generationData.tokens_prompt?.toLocaleString() ?? '?'} in / {researchResult.generationData.tokens_completion?.toLocaleString() ?? '?'} out</p>
+                    {#if researchResult.toolRounds && researchResult.toolRounds.length > 0}
+                        {@const totalIn = researchResult.toolRounds.reduce((s, r) => s + (r.promptTokens ?? 0), 0)}
+                        {@const totalOut = researchResult.toolRounds.reduce((s, r) => s + (r.completionTokens ?? 0), 0)}
+                        {@const totalCost = researchResult.toolRounds.reduce((s, r) => s + (r.cost ?? 0), 0)}
+                        <p><strong>Total Cost:</strong> {formatCost(totalCost)}</p>
+                        <p><strong>Total Tokens:</strong> {totalIn.toLocaleString()} in / {totalOut.toLocaleString()} out</p>
+                    {:else}
+                        <p><strong>Total Cost:</strong> {formatCost(researchResult.generationData.total_cost)}</p>
+                        <p><strong>Total Tokens:</strong> {researchResult.generationData.tokens_prompt?.toLocaleString() ?? '?'} in / {researchResult.generationData.tokens_completion?.toLocaleString() ?? '?'} out</p>
+                    {/if}
                     <p><strong>Generation Time:</strong> {((researchResult.generationData.generation_time || 0)/1000).toFixed(1)}s</p>
                     <p><strong>Streamed:</strong> {researchResult.generationData.streamed ? 'Yes' : 'No'}</p>
                     <p><strong>Canceled:</strong> {researchResult.generationData.canceled ? 'Yes' : 'No'}</p>
+                    {#if researchResult.toolIterations != null}
+                        <p><strong>Tool Rounds:</strong> {researchResult.toolIterations}</p>
+                    {/if}
                     <p><strong>Finish Reason:</strong> {researchResult.generationData.finish_reason}</p>
+                {/if}
+                {#if researchResult.systemPrompt}
+                    <div class="info-block">
+                        {#if researchResult.systemPromptName}
+                            <p><strong>Prompt Name:</strong> {researchResult.systemPromptName}</p>
+                        {/if}
+                        <div class="chat-header">
+                            <h4>System Prompt</h4>
+                            <button on:click={() => copyToClipboard(researchResult.systemPrompt||'', 'system prompt')} class="copy-button">
+                                📋
+                            </button>
+                        </div>
+                        <pre>{researchResult.systemPrompt}</pre>
+                    </div>
                 {/if}
                 {#if researchResult.toolRounds && researchResult.toolRounds.length > 0}
                     <div class="info-block">
@@ -274,24 +305,6 @@
                         </details>
                     </div>
                 {/if}
-                {#if researchResult.toolIterations != null}
-                    <p><strong>Tool Rounds:</strong> {researchResult.toolIterations}</p>
-                {/if}
-                {#if researchResult.systemPrompt}
-                    <div class="info-block">
-                        {#if researchResult.systemPromptName}
-                            <p><strong>Prompt Name:</strong> {researchResult.systemPromptName}</p>
-                        {/if}
-                        <div class="chat-header">
-                            <h4>System Prompt</h4>
-                            <button on:click={() => copyToClipboard(researchResult.systemPrompt||'', 'system prompt')} class="copy-button">
-                                📋
-                            </button>
-                        </div>
-                        <pre>{researchResult.systemPrompt}</pre>
-                    </div>
-                {/if}
-
                 {#if researchResult.streamingResult.annotations && researchResult.streamingResult.annotations.length > 0}
                     <div class="info-block">
                         <h4>Annotations</h4>
@@ -339,6 +352,34 @@
                     </details>
                 </div>
 
+                {#if researchResult.toolRounds && researchResult.toolRounds.length > 0}
+                    <div class="info-block">
+                        <details>
+                            <summary><h4>API Calls ({researchResult.toolRounds.length} rounds)</h4></summary>
+                            <div class="api-call-list">
+                                {#each researchResult.toolRounds as round, i}
+                                    <details class="api-call-entry">
+                                        <summary>
+                                            <strong>Round {i + 1}</strong>
+                                            {round.finishReason === 'tool_calls' ? ' (tool call)' : round.finishReason === 'stop' ? ' (final)' : ''}
+                                            — {round.promptTokens?.toLocaleString() ?? '?'} in / {round.completionTokens?.toLocaleString() ?? '?'} out
+                                            {#if round.cost != null} — {formatCost(round.cost)}{/if}
+                                        </summary>
+                                        {#if round.requestBody}
+                                            <p><strong>Request:</strong></p>
+                                            <pre class="api-json">{formatJson(round.requestBody)}</pre>
+                                        {/if}
+                                        {#if round.responseBody}
+                                            <p><strong>Response:</strong></p>
+                                            <pre class="api-json">{formatJson(round.responseBody)}</pre>
+                                        {/if}
+                                    </details>
+                                {/each}
+                            </div>
+                        </details>
+                    </div>
+                {/if}
+
                 <div class="info-block">
                     <details>
                         <summary><h4>Debug</h4></summary>
@@ -358,13 +399,13 @@
         overflow-y: auto;
     }
     .info-section {
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.75rem;
     }
     .info-block {
-        margin-top: 1rem;
+        margin-top: 0.5rem;
     }
     .thread-block {
-        margin-bottom: 2rem;
+        margin-bottom: 0.75rem;
         padding: 1rem;
         background: #1a1a1a;
         border-radius: 8px;
@@ -491,7 +532,7 @@
     details summary h4, details summary h5 {
         display: inline;
     }
-    .round-list {
+    .round-list, .api-call-list {
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
@@ -506,6 +547,23 @@
     .round-model {
         color: #999;
         font-size: 0.8rem;
+    }
+    .api-call-entry {
+        padding: 0.25rem 0.5rem;
+        background: #222;
+        border-radius: 4px;
+    }
+    .api-call-entry summary {
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: #ddd;
+    }
+    .api-json {
+        font-size: 0.7rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
     }
 
     .thinking-content {

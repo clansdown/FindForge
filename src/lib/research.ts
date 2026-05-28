@@ -1,9 +1,9 @@
 import { parse } from 'svelte/compiler';
 import { callOpenRouterChat, callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
-import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo } from './types';
+import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo, ToolDefinition } from './types';
 import { ToolRegistry } from './tools';
-import { TOOL_LIMIT_INSTRUCTION } from './prompts';
+import { TOOL_LIMIT_INSTRUCTION, TOOL_ADDENDUM_TEMPLATE } from './prompts';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -78,6 +78,13 @@ export async function doStandardResearch(
 }
 
 
+function buildToolAddendum(tools: ToolDefinition[]): string {
+    const toolList = tools.map(t =>
+        `- ${t.function.name}: ${t.function.description}`
+    ).join('\n');
+    return '\n\n' + TOOL_ADDENDUM_TEMPLATE.replace('{tool_list}', toolList);
+}
+
 async function doStandardResearchWithTools(
     maxTokens: number,
     config: Config,
@@ -91,6 +98,7 @@ async function doStandardResearchWithTools(
     onToolCallProgress?: (update: ToolCallProgress) => void,
     previousToolCalls?: ToolCallRecord[],
 ): Promise<ResearchResult> {
+    const researchStartTime = Date.now();
     onStatus('Starting research with tools...');
     const resources: Resource[] = [];
     const systemPromptUsed = config.systemPrompt || undefined;
@@ -104,10 +112,15 @@ async function doStandardResearchWithTools(
 
     const messagesForAPI: ApiCallMessage[] = [];
 
+    const tools = toolRegistry.getDefinitions();
+    let exampleInjected = false;
+
     if (config.systemPrompt) {
+        const systemText = config.systemPrompt + '\n\n' + resourceInstructions;
+        const addendum = config.toolsEnabled && tools.length > 0 ? buildToolAddendum(tools) : '';
         messagesForAPI.push({
             role: 'system',
-            content: [{ type: 'text', text: config.systemPrompt + '\n\n' + resourceInstructions }],
+            content: [{ type: 'text', text: systemText + addendum }],
         });
     }
 
@@ -121,9 +134,28 @@ async function doStandardResearchWithTools(
             }
         }
     }
+    let exampleIdx = -1;
+    if (config.toolsEnabled && tools.some(t => t.function.name === 'scientific_calculator')) {
+        const exampleId = 'example-calc-1';
+        exampleIdx = messagesForAPI.length;
+        messagesForAPI.push({
+            role: 'assistant',
+            content: [{ type: 'text', text: '' }],
+            tool_calls: [{
+                id: exampleId,
+                type: 'function',
+                function: { name: 'scientific_calculator', arguments: JSON.stringify({ expression: '1+2' }) },
+            }],
+        });
+        messagesForAPI.push({
+            role: 'tool',
+            tool_call_id: exampleId,
+            content: [{ type: 'text', text: '3' }],
+        });
+        exampleInjected = true;
+    }
     messagesForAPI.push(convertMessageToApiCallMessage(userMessage));
 
-    const tools = toolRegistry.getDefinitions();
     let iteration = 0;
     let finalContent = '';
     let lastResult: CompletionResult | null = null;
@@ -138,6 +170,10 @@ async function doStandardResearchWithTools(
             console.log(`[Tools] [${iteration + 1}/${maxIterations}]${isLastAttempt ? ' <<< FINAL (tools disabled)' : ''} calling LLM with ${availableTools?.length ?? 0} tools`);
 
             if (isLastAttempt && toolCallRecords.length > 0) {
+                if (exampleInjected && exampleIdx >= 0) {
+                    messagesForAPI.splice(exampleIdx, 2);
+                    exampleInjected = false;
+                }
                 messagesForAPI.push({
                     role: 'user',
                     content: [{ type: 'text', text: TOOL_LIMIT_INSTRUCTION }],
@@ -172,6 +208,23 @@ async function doStandardResearchWithTools(
                 cost: result.cost,
                 model: result.model,
                 finishReason: result.finishReason,
+                requestBody: result.requestBody,
+                responseBody: JSON.stringify({
+                    id: result.requestID,
+                    model: result.model,
+                    choices: [{
+                        finish_reason: result.finishReason,
+                        message: {
+                            content: result.content,
+                            tool_calls: result.toolCalls,
+                        },
+                    }],
+                    usage: {
+                        prompt_tokens: result.promptTokens,
+                        completion_tokens: result.completionTokens,
+                        total_tokens: result.totalTokens,
+                    },
+                }),
             });
             if (result.annotations) {
                 allAnnotations.push(...result.annotations);
@@ -303,7 +356,7 @@ async function doStandardResearchWithTools(
             id: lastResult.requestID || '',
             total_cost: lastResult.cost ?? 0,
             model: lastResult.model || config.defaultModel,
-            generation_time: 0,
+            generation_time: Date.now() - researchStartTime,
             provider_name: '',
             created: Date.now(),
             streamed: true,

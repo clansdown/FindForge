@@ -5,6 +5,7 @@
   import type { ApplicationMode, Config, ConversationData } from './lib/types';
   import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation, initializeConversationStorage } from './lib/storage';
   import { generateID } from './lib/util';
+  import { availableModelsStore } from './lib/availableModelsStore';
   import { creditStore, refreshCredits } from './lib/creditStore';
   import Intro from './Intro.svelte';
   import { getLocalPreferenceStore } from './lib/storage';
@@ -64,6 +65,7 @@
     /* Load the config */
     loadConfig().then((loadedConfig) => {
       config = loadedConfig;
+      availableModelsStore.set(config.availableModels);
     });
 
     /* Initialize conversation storage and load existing conversations */

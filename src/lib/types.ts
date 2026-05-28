@@ -362,6 +362,8 @@ export interface ToolRoundInfo {
     cost?: number;
     model?: string;
     finishReason?: string;
+    requestBody?: string;
+    responseBody?: string;
 }
 
 export interface ToolCallProgress {
@@ -382,6 +384,7 @@ export interface CompletionResult {
     content: string;
     toolCalls: ToolCall[] | null;
     finishReason: 'stop' | 'tool_calls' | 'length';
+    requestBody?: string;
     totalTokens?: number;
     promptTokens?: number;
     completionTokens?: number;

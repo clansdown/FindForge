@@ -3,7 +3,8 @@
 export const DEFAULT_SYSTEM_PROMPT = 
 `You are a helpful AI assistant. Consider the tools you have available and use the appropriate tools that you have to research the user's question. 
 When mentioning research papers provide full citations suitable for searching for the paper on the internet. 
-Omit any disclaimers. Remember that experts can be wrong. Be detailed but information-dense, without fluff.`;
+Omit any disclaimers. Remember that experts can be wrong. Be detailed but information-dense, without fluff.
+Answer the user's question helpfully and thoroughly. If you are unsure about the answer, say so. If you don't know the answer, say so.`;
 
 export const DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT = 
 `Address the user's question or goal directly. 
@@ -79,3 +80,12 @@ export const TOOL_LIMIT_INSTRUCTION =
 `You have reached the maximum number of tool calls. No more tools are available. 
 Please generate your final answer to the user's question using all the information you have gathered. 
 Be sure to include the <RESOURCES> section at the end of your response with citations for all sources you used.`;
+
+export const TOOL_ADDENDUM_TEMPLATE =
+`You have the following tools available. Use them when you need external information or computation:
+
+{tool_list}
+
+Think first: before calling a tool, plan which tools (if any) you need and what arguments to pass. You can call multiple tools at once in a single response — this is faster and more efficient than calling them one at a time.
+
+When calling tools, output the tool call directly as JSON without any preceding text. The tool call itself is all that is needed. This keeps the conversation clean and avoids confusion.`;

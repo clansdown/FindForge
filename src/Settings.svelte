@@ -69,7 +69,7 @@
         return parseFloat(model.pricing.prompt) > 0 || parseFloat(model.pricing.completion) > 0;
     }).filter(m => m.supported_parameters?.includes('tools'));
 
-    $: availableModels = calculateAvailableModelsFromConfig(localConfig.availableModels, openrouterModels);
+    $: availableModels = openrouterModels.filter(m => m.allowed);
 
     $: if (openrouterModels.length > 0) {
         const enabledIds = openrouterModels.filter(m => m.allowed).map(m => m.id);
