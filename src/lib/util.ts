@@ -27,6 +27,13 @@ export function formatModelName(name: string): string {
     return name;
 }
 
+export function formatContextLength(tokens: number): string {
+    if (tokens >= 1_000_000) {
+        return (tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1) + 'M';
+    }
+    return Math.round(tokens / 1000) + 'K';
+}
+
 export function formatModelLabel(model: { name: string; pricing: { prompt: string; completion: string } }): string {
     const inCost = (parseFloat(model.pricing.prompt) * 1_000_000).toFixed(2);
     const outCost = (parseFloat(model.pricing.completion) * 1_000_000).toFixed(2);

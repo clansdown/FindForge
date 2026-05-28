@@ -376,21 +376,20 @@
     }
 
     .edit-button {
-        visibility: hidden;
-        color: #aaa;
+        color: #555;
         background: transparent;
         cursor: pointer;
-        padding: 0;
+        padding: 0.125rem 0.25rem;
         margin: 0 0.25rem;
-        font-size: 1.2rem;
-        border: none;
-    }
-    div.active .edit-button {
-        visibility: visible;
-        background: transparent;
+        font-size: 1rem;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        opacity: 0.4;
+        transition: opacity 0.15s, border-color 0.15s;
     }
     .edit-button:hover {
-        background: rgba(0, 0, 0, 0.3);
+        opacity: 1;
+        border-color: #666;
     }
 
     .research-selector {

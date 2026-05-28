@@ -32,7 +32,8 @@ export async function fetchModels(apiKey: string): Promise<Model[]> {
         pricing: {
             prompt: model.pricing.prompt,
             completion: model.pricing.completion
-        }
+        },
+        supported_parameters: model.supported_parameters,
     }));
 }
 
@@ -113,136 +114,18 @@ async function getOpenRouterEndpoint(config: Config): Promise<{ url: string; hea
     };
 }
 
-async function enforceModel(config: Config, modelId: string): Promise<string> {
-    if (config.apiKey) return modelId;
-    if (modelId.endsWith(':free')) return modelId;
-    if (config.freeModelsOnly) return modelId + ':free';
-    try {
-        const token = await getClerkToken();
-        if (token) {
-            const resp = await fetch(`${USERS_WORKER_URL}/credits`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (resp.ok) {
-                const data = await resp.json() as { credits: number };
-                if (data.credits <= 0) return modelId + ':free';
-            }
-        }
-    } catch (e) {
-        console.warn('[credits] Check failed:', e);
-    }
+async function enforceModel(_config: Config, modelId: string): Promise<string> {
     return modelId;
 }
 
-async function openRouterFetch(
-    config: Config,
-    body: Record<string, unknown>,
-    signal?: AbortSignal
-): Promise<Response> {
-    const endpoint = await getOpenRouterEndpoint(config);
-    return fetch(endpoint.url, {
+async function openRouterFetch(config: Config, body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
+    const { url, headers } = await getOpenRouterEndpoint(config);
+    return fetch(url, {
         method: 'POST',
-        headers: endpoint.headers,
+        headers,
         body: JSON.stringify(body),
         signal,
     });
-}
-
-export async function callOpenRouterStreaming(
-  config: Config,
-  modelId: string,
-  maxTokens: number,
-  maxWebRequests: number,
-  messages: ApiCallMessage[],
-  callback: (chunk: string) => void,
-  abortController?: AbortController
-): Promise<StreamingResult> {
-  const finalModel = await enforceModel(config, modelId);
-  const body = {
-    model: finalModel,
-    messages : messages,
-    max_tokens: maxTokens,
-    stream: true,
-    plugins: maxWebRequests > 0 ? [{ id: "web", max_results: maxWebRequests }] : [],
-  };
-  const body_string = JSON.stringify(body);
-
-  const response = await openRouterFetch(config, body, abortController?.signal);
-
-  if (!response.ok) {
-    throw new APIError(
-        `API request failed: ${response.status} ${response.statusText}`,
-        response.url,
-        'POST',
-        response.status,
-        body_string,
-        await response.clone().text()
-    );
-  }
-
-  const requestID = response.headers.get('X-Request-ID') || '';
-  const reader = response.body?.getReader();
-  const decoder = new TextDecoder();
-  let result: StreamingResult = {
-    requestID,
-    model: modelId,
-    created: Date.now(),
-    done: false,
-    annotations: []
-  };
-
-  if (!reader) {
-    throw new Error('Failed to get response reader');
-  }
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.replace('data: ', '');
-          if (data === '[DONE]') {
-            result.done = true;
-            return result;
-          }
-
-            try {
-            const json = JSON.parse(data);
-            if(json.id) {
-                result.requestID = json.id;
-            }
-            if (json.model) {
-                result.model = json.model;
-            }
-            if (json.choices?.[0]?.delta?.content) {
-              callback(json.choices[0].delta.content);
-            }
-            if (json.choices?.[0]?.delta?.annotations) {
-              result.annotations = [...(result.annotations||[]), ...json.choices[0].delta.annotations];
-            }
-            if (json.usage) {
-              result.totalTokens = json.usage.total_tokens;
-              result.promptTokens = json.usage.prompt_tokens;
-              result.completionTokens = json.usage.completion_tokens;
-              if (json.usage.cost != null) result.cost = json.usage.cost;
-            }
-          } catch (e) {
-            console.error('Error parsing JSON chunk', e);
-          }
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  result.done = true;
-  return result;
 }
 
 /**

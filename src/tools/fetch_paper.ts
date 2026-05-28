@@ -25,11 +25,10 @@ export const FETCH_PAPER_TOOL: ToolDefinition = {
     function: {
         name: 'fetch_paper',
         description:
-            'Fetch the full text of a scientific paper by DOI, arXiv ID, or URL. ' +
-            'Resolves identifiers via Crossref, then retrieves full text from the best available source: ' +
-            'arXiv HTML (converted to Markdown), bioRxiv/medRxiv full-text HTML, or PDF (parsed via extract2md). ' +
-            'Also accepts direct publisher URLs for unsupported sites (extracts via Readability). ' +
-            'Set mode="full" for math-heavy PDFs to use combined OCR+LLM extraction (slower, more accurate).',
+            'Use this to retrieve the full text of any academic or scientific paper for analysis. ' +
+            'Provide a DOI (e.g. 10.1038/s41586-023-...), arXiv ID (e.g. 2402.08954), or direct URL. ' +
+            'Best for: reading paper contents, extracting methods/results, checking citations, or ' +
+            'understanding a paper before citing it yourself.',
         parameters: {
             type: 'object',
             properties: {
@@ -38,12 +37,6 @@ export const FETCH_PAPER_TOOL: ToolDefinition = {
                     description:
                         'DOI (e.g. 10.1038/s41586-023-...), arXiv ID (e.g. 2402.08954), or URL to a paper ' +
                         '(arxiv.org, biorxiv.org, medrxiv.org, doi.org, or any publisher page).',
-                },
-                mode: {
-                    type: 'string',
-                    enum: ['quick', 'full'],
-                    description: '"quick" (default) uses PDF.js text extraction. "full" combines PDF.js + OCR + WebLLM for math-heavy or scanned PDFs (slower; downloads a model on first use). Ignored for arXiv/bioRxiv/medRxiv (always HTML).',
-                    default: 'quick',
                 },
                 force_refetch: {
                     type: 'boolean',
@@ -56,9 +49,7 @@ export const FETCH_PAPER_TOOL: ToolDefinition = {
     },
     displayName: 'Fetch Full Paper',
     formatArgs(args) {
-        const docId = (args.document_id as string) || '';
-        const mode = (args.mode as string) || 'quick';
-        return mode !== 'quick' ? `${docId} (${mode})` : docId;
+        return (args.document_id as string) || '';
     },
     formatResult(result) {
         if (result.startsWith('Error:')) return result;
@@ -251,7 +242,6 @@ async function fetchAndReadability(url: string, token: string): Promise<string> 
 
 export async function executeFetchPaper(args: Record<string, unknown>, ctx: ToolExecutionContext): Promise<string> {
     const rawInput = (args.document_id as string || '').trim();
-    const mode = (args.mode as string) || 'quick';
     const forceRefetch = args.force_refetch === true;
     if (!rawInput) return 'Error: No document_id provided.';
 
@@ -399,20 +389,21 @@ export async function executeFetchPaper(args: Record<string, unknown>, ctx: Tool
             ctx.onStatus?.('Converting PDF...');
             const pdfFile = new File([cachedPdf], 'paper.pdf', { type: 'application/pdf' });
             try {
-                const useFull = mode === 'full';
+                const quickResult = await Extract2MDConverter.quickConvertOnly(pdfFile);
+                const useFull = quickResult.length < pdfFile.size * 0.01;
                 const markdownText = useFull
                     ? await Extract2MDConverter.combinedConvertWithLLM(pdfFile)
-                    : await Extract2MDConverter.quickConvertOnly(pdfFile);
+                    : quickResult;
                 setCachedPaper(cacheKey, { format: 'markdown', content: markdownText });
                 addToCache(extractKey, markdownText, 'text/markdown').catch(() => {});
-                return `<!-- extracted from PDF via extract2md (${useFull ? 'combined+LLM' : 'quick'} mode, cached PDF) -->\n\n# ${title}\n\n${markdownText}`;
+                return `<!-- extracted from PDF via extract2md (${useFull ? 'combined+LLM' : 'quick'}) -->\n\n# ${title}\n\n${markdownText}`;
             } catch (e) {
                 return `Error: PDF-to-Markdown conversion failed: ${e instanceof Error ? e.message : String(e)}`;
             }
         }
 
         ctx.onStatus?.('Downloading paper...');
-        console.log('[fetch_paper] Fetching PDF:', { pdfUrl, resolvedDoi, mode });
+        console.log('[fetch_paper] Fetching PDF:', { pdfUrl, resolvedDoi });
         const pdfRes = await fetch(WEB_PROXY_BASE_URL + '/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -448,13 +439,14 @@ export async function executeFetchPaper(args: Record<string, unknown>, ctx: Tool
         const pdfFile = new File([pdfBlob], 'paper.pdf', { type: 'application/pdf' });
         try {
             ctx.onStatus?.('Converting PDF...');
-            const useFull = mode === 'full';
+            const quickResult = await Extract2MDConverter.quickConvertOnly(pdfFile);
+            const useFull = quickResult.length < pdfBlob.size * 0.01;
             const markdownText = useFull
                 ? await Extract2MDConverter.combinedConvertWithLLM(pdfFile)
-                : await Extract2MDConverter.quickConvertOnly(pdfFile);
+                : quickResult;
             setCachedPaper(cacheKey, { format: 'markdown', content: markdownText });
             addToCache(extractKey, markdownText, 'text/markdown').catch(() => {});
-            return `<!-- extracted from PDF via extract2md (${useFull ? 'combined+LLM' : 'quick'} mode) -->\n\n# ${title}\n\n${markdownText}`;
+            return `<!-- extracted from PDF via extract2md (${useFull ? 'combined+LLM' : 'quick'}) -->\n\n# ${title}\n\n${markdownText}`;
         } catch (e) {
             return `Error: PDF-to-Markdown conversion failed: ${e instanceof Error ? e.message : String(e)}`;
         }

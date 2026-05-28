@@ -4,6 +4,7 @@
     import { onMount } from "svelte";
     import PushButton from "./lib/PushButton.svelte";
     import { formatModelName, formatModelLabel } from "./lib/util";
+    import { availableModelsStore } from "./lib/availableModelsStore";
     import { estimateDeepResearchCost } from "./lib/deep_research";
     import Select from "svelte-select";
     import IconCheckedList from "./lib/IconCheckedList.svelte";
@@ -76,7 +77,7 @@
     }));
 
     $: filteredModels = allModels
-        .filter((model) => config.availableModels.includes(model.id))
+        .filter((model) => $availableModelsStore.includes(model.id))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
     onMount(async () => {

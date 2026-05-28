@@ -204,6 +204,22 @@ export async function loadConversations(): Promise<ConversationData[]> {
                     try {
                         const conv = JSON.parse(content) as ConversationData;
                         if (!seen.has(conv.id)) {
+                            // Skip conversations with invalid dates
+                            if (typeof conv.updated !== 'number' || isNaN(conv.updated) || conv.updated <= 0) {
+                                console.error(`Skipping conversation ${id}: invalid updated date (${conv.updated})`);
+                                continue;
+                            }
+                            if (typeof conv.created !== 'number' || isNaN(conv.created) || conv.created <= 0) {
+                                console.error(`Skipping conversation ${id}: invalid created date (${conv.created})`);
+                                continue;
+                            }
+                            const hasInvalidTimestamp = conv.messages?.some(m =>
+                                m.timestamp != null && (typeof m.timestamp !== 'number' || isNaN(m.timestamp))
+                            );
+                            if (hasInvalidTimestamp) {
+                                console.error(`Skipping conversation ${id}: one or more messages have invalid timestamps`);
+                                continue;
+                            }
                             seen.add(conv.id);
                             conversations.push(conv);
                         }
@@ -229,6 +245,22 @@ export async function loadConversations(): Promise<ConversationData[]> {
                         try {
                             const conv = JSON.parse(convData) as ConversationData;
                             if (!seen.has(conv.id)) {
+                                // Skip conversations with invalid dates
+                                if (typeof conv.updated !== 'number' || isNaN(conv.updated) || conv.updated <= 0) {
+                                    console.error(`Skipping conversation ${id}: invalid updated date (${conv.updated})`);
+                                    continue;
+                                }
+                                if (typeof conv.created !== 'number' || isNaN(conv.created) || conv.created <= 0) {
+                                    console.error(`Skipping conversation ${id}: invalid created date (${conv.created})`);
+                                    continue;
+                                }
+                                const hasInvalidTimestamp = conv.messages?.some(m =>
+                                    m.timestamp != null && (typeof m.timestamp !== 'number' || isNaN(m.timestamp))
+                                );
+                                if (hasInvalidTimestamp) {
+                                    console.error(`Skipping conversation ${id}: one or more messages have invalid timestamps`);
+                                    continue;
+                                }
                                 seen.add(conv.id);
                                 conversations.push(conv);
                             }

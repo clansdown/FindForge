@@ -4,7 +4,8 @@
     import { onDestroy, onMount } from "svelte";
     import { getModels } from "./lib/models";
     import ModalDialog from "./lib/ModalDialog.svelte";
-    import { generateID, formatModelLabel } from "./lib/util";
+    import { generateID, formatModelLabel, formatContextLength } from "./lib/util";
+    import { availableModelsStore } from "./lib/availableModelsStore";
     import { estimateDeepResearchCost } from "./lib/deep_research";
     import { creditStore } from "./lib/creditStore";
     import { cloudSyncStore,
@@ -18,15 +19,12 @@
     export let config: Config;
     export let isOpen: boolean = false;
 
-    import ToggleSwitch from "./lib/ToggleSwitch.svelte";
-
     let localConfig: Config = new Config();
     let openrouterModels: Model[] = [];
     let availableModels: Model[] = [];
     let modelFetchError: string | null = null;
     let currentTab: "general" | "model" | "deep-research" | "tools" | "cloud-sync" | "config" = config?.apiKey ? "general" : "model";
     let modelFilter = "";
-    let showFreeModels = false;
     let estimatedDeepResearchCost: number | string | null = null;
     let showPromptEditor: boolean = false;
     let showSynthesisPromptEditor: boolean = false;
@@ -68,14 +66,15 @@
               )
             : openrouterModels
     ).filter((model) => {
-        if (showFreeModels) {
-            return parseFloat(model.pricing.prompt) === 0 && parseFloat(model.pricing.completion) === 0;
-        } else {
-            return parseFloat(model.pricing.prompt) > 0 || parseFloat(model.pricing.completion) > 0;
-        }
-    });
+        return parseFloat(model.pricing.prompt) > 0 || parseFloat(model.pricing.completion) > 0;
+    }).filter(m => m.supported_parameters?.includes('tools'));
 
     $: availableModels = calculateAvailableModelsFromConfig(localConfig.availableModels, openrouterModels);
+
+    $: if (openrouterModels.length > 0) {
+        const enabledIds = openrouterModels.filter(m => m.allowed).map(m => m.id);
+        availableModelsStore.set(enabledIds);
+    }
 
     $: if (isOpen) {
         opened();
@@ -135,10 +134,12 @@
             getModels(config)
                 .then((models) => {
                     models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-                    openrouterModels = models.map((model) => ({
-                        ...model,
-                        allowed: localConfig.availableModels.length === 0 ? true : localConfig.availableModels.includes(model.id),
-                    }));
+                    openrouterModels = models
+                        .filter(m => m.supported_parameters?.includes('tools'))
+                        .map((model) => ({
+                            ...model,
+                            allowed: localConfig.availableModels.length === 0 ? true : localConfig.availableModels.includes(model.id),
+                        }));
                 })
                 .catch((error) => {
                     modelFetchError = error.message;
@@ -369,13 +370,6 @@
                     {/if}
                 </p>
             {/if}
-            <div class="form-group" style="margin-left: 2rem;">
-                <label>
-                    <input type="checkbox" bind:checked={localConfig.freeModelsOnly} />
-                    Free Models Only (auto-append :free suffix)
-                </label>
-                <p class="help-text">When enabled, any model selection will use the free tier. Auto-enforced when credit balance reaches 0.</p>
-            </div>
         </div>
 
 
@@ -666,12 +660,6 @@
         <div class="form-group">
             <h4>Available Models:</h4>
             <div class="filters">
-                <div class="price-filters">
-                    <ToggleSwitch bind:checked={showFreeModels}>
-                        Free
-                        <span slot="front">Paid</span>
-                    </ToggleSwitch>
-                </div>
                 <div class="filter-container">
                     <input type="text" placeholder="Filter by name..." bind:value={modelFilter} class="filter-input" />
                     {#if modelFilter}
@@ -684,8 +672,12 @@
                     <div class="row">
                         <div class="col">
                             <input type="checkbox" id={model.id} bind:checked={model.allowed} />
-                            <label for={model.id} style="margin-right: 1rem;"
-                                >{model.name}
+                            <label for={model.id} style="margin-right: 1rem;">
+                                {model.name}
+                                <span class="model-meta">
+                                    — {formatContextLength(model.context_length)} context —
+                                    ${(parseFloat(model.pricing.prompt) * 1_000_000).toFixed(2)}/${(parseFloat(model.pricing.completion) * 1_000_000).toFixed(2)}/M
+                                </span>
                             </label>
                         </div>
                     </div>
@@ -921,8 +913,13 @@
         font-size: 0.9rem;
     }
 
+    .model-meta {
+        color: #999;
+        font-size: 0.8rem;
+    }
+
     .model-list {
-        max-height: 300px;
+        max-height: 450px;
         overflow-y: auto;
         border: 1px solid #ddd;
         border-radius: 4px;

@@ -40,8 +40,6 @@ export class Config {
     toolsEnabled: boolean; // whether to enable tool calling
     enabledTools: string[]; // list of enabled tool names
     maxToolIterations: number; // max tool-calling loop iterations
-    freeModelsOnly: boolean; // if true, auto-appends :free suffix to all models
-
     static defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT;
     static defaultDeepResearchSynthesisPrompt = DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT;
     static readonly defaultEnabledTools = [
@@ -60,11 +58,11 @@ export class Config {
     constructor() {
         this.historyWidth = 400;
         this.apiKey = '';
-        this.defaultModel = 'deepseek/deepseek-chat-v4-flash:free';
-        this.defaultReasoningModel = 'deepseek/deepseek-chat-v4-flash:free';
+        this.defaultModel = 'deepseek/deepseek-chat-v4-flash';
+        this.defaultReasoningModel = 'deepseek/deepseek-chat-v4-flash';
         this.defaultReasoningEffort = 'high';
         this.availableModels = [
-            'deepseek/deepseek-chat-v4-flash:free',
+            
             'deepseek/deepseek-chat-v4-flash',
             'google/gemini-2.5-pro-preview',
             'google/gemini-2.5-flash-preview-05-20',
@@ -74,7 +72,7 @@ export class Config {
             'anthropic/claude-opus-4'
         ];
         this.systemPrompt = Config.defaultSystemPrompt;
-        this.allowWebSearch = true;
+        this.allowWebSearch = false;
         this.webSearchMaxResults = 5;
         this.includePreviousMessagesAsContext = true;
         this.searchEngine = 'duckduckgo';
@@ -98,7 +96,6 @@ export class Config {
         this.toolsEnabled = true;
         this.enabledTools = [...Config.defaultEnabledTools];
         this.maxToolIterations = 8;
-        this.freeModelsOnly = false;
         this.autoSave = true;
 
         this.systemPrompts = [
@@ -239,6 +236,7 @@ export interface Model {
         web_search?: string;
         internal_reasoning? : string;
     };
+    supported_parameters?: string[];
     allowed?: boolean;
 }
 
@@ -494,10 +492,10 @@ export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchRe
     // Ensure array fields are populated with their singleton counterparts if empty
     const sanitized = {
         ...result,
-        planningModel: result.planningModel || 'deepseek/deepseek-chat-v3-0324:free',
-        researchModel: result.researchModel || 'deepseek/deepseek-chat-v3-0324:free',
-        refiningModel: result.refiningModel || 'deepseek/deepseek-chat-v3-0324:free',
-        synthesisModel: result.synthesisModel || 'deepseek/deepseek-chat-v3-0324:free'
+        planningModel: result.planningModel || 'deepseek/deepseek-chat-v3-0324',
+        researchModel: result.researchModel || 'deepseek/deepseek-chat-v3-0324',
+        refiningModel: result.refiningModel || 'deepseek/deepseek-chat-v3-0324',
+        synthesisModel: result.synthesisModel || 'deepseek/deepseek-chat-v3-0324'
     };
     
     if ((!sanitized.plan_prompts || sanitized.plan_prompts.length === 0) && sanitized.plan_prompt) {

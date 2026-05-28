@@ -193,7 +193,7 @@ async function doStandardResearchWithTools(
             };
             messagesForAPI.push(assistantMsg);
 
-            const ctx: ToolExecutionContext = { config, signal: abortController?.signal, onStatus, previousToolCalls };
+            const ctx: ToolExecutionContext = { config, signal: abortController?.signal, onStatus, previousToolCalls: [...(previousToolCalls ?? []), ...toolCallRecords] };
             const startTimeMs = Date.now();
 
             if (onToolCallProgress) {
