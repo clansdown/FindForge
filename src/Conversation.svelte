@@ -6,6 +6,7 @@
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
     import { generateID, escapeHtml, formatModelName, extractConversationReferences, isBraveOrChromium } from "./lib/util";
+    import { availableModelsStore } from "./lib/availableModelsStore";
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
     import hljs from "highlight.js";
@@ -120,6 +121,14 @@
             }
             // Update last message count to the current conversation's message length
             lastMessageCount = currentConversation.messages.length;
+
+            // Override model to the last assistant message's model if available
+            const lastAssistant = [...currentConversation.messages]
+                .reverse()
+                .find(m => m.role === 'assistant' && m.model);
+            if (lastAssistant?.model && $availableModelsStore.includes(lastAssistant.model)) {
+                localConfig.defaultModel = lastAssistant.model;
+            }
         }
     }
     // Scroll to bottom when new messages are added

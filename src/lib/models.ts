@@ -12,6 +12,10 @@ const USERS_WORKER_URL = import.meta.env.DEV
 
 let cachedModels: Model[] | null = null;
 
+const MODEL_BLACKLIST: RegExp[] = [
+    /meta-llama\/llama-3\.1-8b-instruct/i,
+];
+
 export async function fetchModels(apiKey: string): Promise<Model[]> {
     const response = await fetch('https://openrouter.ai/api/v1/models', {
         headers: {
@@ -34,7 +38,7 @@ export async function fetchModels(apiKey: string): Promise<Model[]> {
             completion: model.pricing.completion
         },
         supported_parameters: model.supported_parameters,
-    }));
+    })).filter((m: { id: string }) => !MODEL_BLACKLIST.some(re => re.test(m.id)));
 }
 
 export function createSystemApiCallMessage(text: string): ApiCallMessage {
