@@ -37,6 +37,11 @@
         return `$${cost.toFixed(4)}`;
     }
 
+    function formatDuration(ms: number | undefined): string {
+        if (ms == null) return '';
+        return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+    }
+
     function formatTime(seconds: number): string {
         if (seconds < 60) {
             return `${seconds.toFixed(1)}s`;
@@ -269,7 +274,7 @@
                     <p><strong>Streamed:</strong> {researchResult.generationData.streamed ? 'Yes' : 'No'}</p>
                     <p><strong>Canceled:</strong> {researchResult.generationData.canceled ? 'Yes' : 'No'}</p>
                     {#if researchResult.toolIterations != null}
-                        <p><strong>Tool Rounds:</strong> {researchResult.toolIterations}</p>
+                        <p><strong>Tool Calls:</strong> {researchResult.toolIterations}</p>
                     {/if}
                     <p><strong>Finish Reason:</strong> {researchResult.generationData.finish_reason}</p>
                 {/if}
@@ -290,15 +295,16 @@
                 {#if researchResult.toolRounds && researchResult.toolRounds.length > 0}
                     <div class="info-block">
                         <details>
-                            <summary><h4>Token Breakdown ({researchResult.toolRounds.length} rounds)</h4></summary>
-                            <div class="round-list">
+                            <summary><h4>Token Breakdown ({researchResult.toolRounds.length} calls)</h4></summary>
+                            <div class="call-list">
                                 {#each researchResult.toolRounds as round, i}
-                                    <div class="round-entry">
-                                        <strong>Round {i + 1}</strong>
+                                    <div class="call-entry">
+                                        <strong>Call {i + 1}</strong>
                                         {round.finishReason === 'tool_calls' ? ' (tool call)' : round.finishReason === 'stop' ? ' (final)' : ''}
                                         — {round.promptTokens?.toLocaleString() ?? '?'} in / {round.completionTokens?.toLocaleString() ?? '?'} out
                                         {#if round.cost != null} — {formatCost(round.cost)}{/if}
-                                        {#if round.model} — <span class="round-model">{round.model}</span>{/if}
+                                        {#if round.durationMs != null} — {formatDuration(round.durationMs)}{/if}
+                                        {#if round.model} — <span class="call-model">{round.model}</span>{/if}
                                     </div>
                                 {/each}
                             </div>
@@ -355,15 +361,16 @@
                 {#if researchResult.toolRounds && researchResult.toolRounds.length > 0}
                     <div class="info-block">
                         <details>
-                            <summary><h4>API Calls ({researchResult.toolRounds.length} rounds)</h4></summary>
+                            <summary><h4>API Calls ({researchResult.toolRounds.length} calls)</h4></summary>
                             <div class="api-call-list">
                                 {#each researchResult.toolRounds as round, i}
                                     <details class="api-call-entry">
                                         <summary>
-                                            <strong>Round {i + 1}</strong>
+                                            <strong>Call {i + 1}</strong>
                                             {round.finishReason === 'tool_calls' ? ' (tool call)' : round.finishReason === 'stop' ? ' (final)' : ''}
                                             — {round.promptTokens?.toLocaleString() ?? '?'} in / {round.completionTokens?.toLocaleString() ?? '?'} out
                                             {#if round.cost != null} — {formatCost(round.cost)}{/if}
+                                            {#if round.durationMs != null} — {formatDuration(round.durationMs)}{/if}
                                         </summary>
                                         {#if round.requestBody}
                                             <p><strong>Request:</strong></p>
@@ -532,19 +539,19 @@
     details summary h4, details summary h5 {
         display: inline;
     }
-    .round-list, .api-call-list {
+    .call-list, .api-call-list {
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
         margin-top: 0.5rem;
     }
-    .round-entry {
+    .call-entry {
         padding: 0.25rem 0.5rem;
         background: #222;
         border-radius: 4px;
         font-size: 0.85rem;
     }
-    .round-model {
+    .call-model {
         color: #999;
         font-size: 0.8rem;
     }

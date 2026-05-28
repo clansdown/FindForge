@@ -85,6 +85,54 @@ function buildToolAddendum(tools: ToolDefinition[]): string {
     return '\n\n' + TOOL_ADDENDUM_TEMPLATE.replace('{tool_list}', toolList);
 }
 
+function parseStructuredContent(content: string): { answer: string; thinking: string } {
+    let working = content;
+
+    const tagRe = /(REASONING|thinking)/;
+    const closedRe = new RegExp(`<${tagRe.source}>([\\s\\S]*?)<\\/${tagRe.source}>`, 'g');
+    let reasoningMatch;
+    const reasoningChunks: string[] = [];
+    while ((reasoningMatch = closedRe.exec(working)) !== null) {
+        const text = reasoningMatch[2].trim();
+        if (text) reasoningChunks.push(text);
+    }
+    working = working.replace(closedRe, '').trim();
+
+    const openRe = new RegExp(`<${tagRe.source}>([\\s\\S]*)$`);
+    const openReasoningMatch = working.match(openRe);
+    if (openReasoningMatch) {
+        const text = openReasoningMatch[1].trim();
+        if (text) reasoningChunks.push(text);
+        working = working.replace(openRe, '').trim();
+    }
+
+    const closedAnswerMatch = working.match(/<ANSWER>([\s\S]*?)<\/ANSWER>/);
+    const openAnswerMatch = !closedAnswerMatch ? working.match(/<ANSWER>([\s\S]*)$/) : null;
+    let answer: string;
+
+    if (closedAnswerMatch) {
+        answer = closedAnswerMatch[1].trim();
+        const beforeAnswer = working.substring(0, closedAnswerMatch.index).trim();
+        if (beforeAnswer) reasoningChunks.push(beforeAnswer);
+    } else if (openAnswerMatch) {
+        answer = openAnswerMatch[1].trim();
+        const beforeAnswer = working.substring(0, openAnswerMatch.index).trim();
+        if (beforeAnswer) reasoningChunks.push(beforeAnswer);
+    } else {
+        const resourcesIdx = working.indexOf('<RESOURCES>');
+        answer = resourcesIdx !== -1
+            ? working.substring(0, resourcesIdx).trim()
+            : working;
+    }
+
+    const resourcesIdx = answer.indexOf('<RESOURCES>');
+    if (resourcesIdx !== -1) {
+        answer = answer.substring(0, resourcesIdx).trim();
+    }
+
+    return { answer, thinking: reasoningChunks.join('\n\n') };
+}
+
 async function doStandardResearchWithTools(
     maxTokens: number,
     config: Config,
@@ -113,7 +161,6 @@ async function doStandardResearchWithTools(
     const messagesForAPI: ApiCallMessage[] = [];
 
     const tools = toolRegistry.getDefinitions();
-    let exampleInjected = false;
 
     if (config.systemPrompt) {
         const systemText = config.systemPrompt + '\n\n' + resourceInstructions;
@@ -134,26 +181,6 @@ async function doStandardResearchWithTools(
             }
         }
     }
-    let exampleIdx = -1;
-    if (config.toolsEnabled && tools.some(t => t.function.name === 'scientific_calculator')) {
-        const exampleId = 'example-calc-1';
-        exampleIdx = messagesForAPI.length;
-        messagesForAPI.push({
-            role: 'assistant',
-            content: [{ type: 'text', text: '' }],
-            tool_calls: [{
-                id: exampleId,
-                type: 'function',
-                function: { name: 'scientific_calculator', arguments: JSON.stringify({ expression: '1+2' }) },
-            }],
-        });
-        messagesForAPI.push({
-            role: 'tool',
-            tool_call_id: exampleId,
-            content: [{ type: 'text', text: '3' }],
-        });
-        exampleInjected = true;
-    }
     messagesForAPI.push(convertMessageToApiCallMessage(userMessage));
 
     let iteration = 0;
@@ -170,10 +197,6 @@ async function doStandardResearchWithTools(
             console.log(`[Tools] [${iteration + 1}/${maxIterations}]${isLastAttempt ? ' <<< FINAL (tools disabled)' : ''} calling LLM with ${availableTools?.length ?? 0} tools`);
 
             if (isLastAttempt && toolCallRecords.length > 0) {
-                if (exampleInjected && exampleIdx >= 0) {
-                    messagesForAPI.splice(exampleIdx, 2);
-                    exampleInjected = false;
-                }
                 messagesForAPI.push({
                     role: 'user',
                     content: [{ type: 'text', text: TOOL_LIMIT_INSTRUCTION }],
@@ -181,6 +204,7 @@ async function doStandardResearchWithTools(
                 console.log(`[Tools] [${iteration + 1}/${maxIterations}] injected STOP instruction (${toolCallRecords.length} prior tool calls exhausted limit)`);
             }
 
+            const callStartTime = Date.now();
             const result: CompletionResult = await callOpenRouterWithTools({
                 config,
                 modelId: config.defaultModel,
@@ -189,10 +213,24 @@ async function doStandardResearchWithTools(
                 tools: availableTools,
                 toolChoice: isLastAttempt ? 'none' : 'auto',
                 stream: true,
-                onContent: (chunk) => {
+                onContent: ((buf, lastAns, lastThink) => (chunk: string) => {
+                    buf += chunk;
                     finalContent += chunk;
-                    onContent(chunk);
-                },
+
+                    const { answer, thinking } = parseStructuredContent(buf);
+
+                    const newAnswer = answer.slice(lastAns);
+                    if (newAnswer) {
+                        lastAns = answer.length;
+                        onContent(newAnswer);
+                    }
+
+                    const newThinking = thinking.slice(lastThink);
+                    if (newThinking && onThinking) {
+                        lastThink = thinking.length;
+                        onThinking(newThinking);
+                    }
+})('', 0, 0),
                 onToolCallDelta: () => {},
                 onReasoning: onThinking,
                 signal: abortController?.signal,
@@ -208,6 +246,7 @@ async function doStandardResearchWithTools(
                 cost: result.cost,
                 model: result.model,
                 finishReason: result.finishReason,
+                durationMs: Date.now() - callStartTime,
                 requestBody: result.requestBody,
                 responseBody: JSON.stringify({
                     id: result.requestID,
@@ -328,7 +367,7 @@ async function doStandardResearchWithTools(
                 }
             }
 
-            console.log(`[Tools] [${iteration + 1}/${maxIterations}] round complete: ${result.toolCalls.length} tool(s) executed`);
+            console.log(`[Tools] [${iteration + 1}/${maxIterations}] call complete: ${result.toolCalls.length} tool(s) executed`);
             onStatus('');
             iteration++;
 
@@ -337,7 +376,7 @@ async function doStandardResearchWithTools(
                 onStatus('Returning final answer...');
             }
         }
-        console.log(`[Tools] Loop ended: ${toolCallRecords.length} total tool calls across ${iteration} rounds, final finish_reason=${lastResult?.finishReason || 'N/A'}`);
+        console.log(`[Tools] Loop ended: ${toolCallRecords.length} total tool calls across ${iteration} calls, final finish_reason=${lastResult?.finishReason || 'N/A'}`);
 
         if (finalContent) {
             console.log('[resources] finalContent before parse:', {
@@ -350,6 +389,13 @@ async function doStandardResearchWithTools(
             console.log('[resources] parsed from finalContent:', { count: parsed.length, parsed });
             resources.push(...parsed);
         }
+
+        if (finalContent) {
+            const { answer, thinking: remainingThinking } = parseStructuredContent(finalContent);
+            if (remainingThinking && onThinking) onThinking(remainingThinking);
+            finalContent = answer;
+        }
+
         onStatus('Research completed');
 
         const generationData: GenerationData | undefined = lastResult ? {

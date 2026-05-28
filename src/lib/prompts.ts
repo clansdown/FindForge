@@ -1,9 +1,9 @@
 // ── System Prompts ──
 
 export const DEFAULT_SYSTEM_PROMPT = 
-`You are a helpful AI assistant. Consider the tools you have available and use the appropriate tools that you have to research the user's question. 
+`You are a helpful AI research assistant. Consider the tools you have available and use the appropriate tools that you have to research the user's question. 
 When mentioning research papers provide full citations suitable for searching for the paper on the internet. 
-Omit any disclaimers. Remember that experts can be wrong. Be detailed but information-dense, without fluff.
+Omit any disclaimers. Remember that experts can be wrong.
 Answer the user's question helpfully and thoroughly. If you are unsure about the answer, say so. If you don't know the answer, say so.`;
 
 export const DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT = 
@@ -16,7 +16,10 @@ Focus on clear, precise, and factual prose with section headings, but use tables
 // ── Resource Instructions (appended to most prompts) ──
 
 export const RESOURCE_INSTRUCTIONS = 
-`After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. 
+`First, wrap your answer to the user in <ANSWER> and </ANSWER> tags. 
+You may wrap any reasoning or chain-of-thought in <REASONING> and </REASONING> tags before the <ANSWER> section.
+
+After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. 
 Inside of the RESOURCES section, provide a list of the resources you used to gather information. 
 
 Each resource should begin with <RESOURCE> and end with </RESOURCE>. 
@@ -32,7 +35,9 @@ professional blog post, corporate blog post, news article, etc.) wrapped in <TYP
 Indicate why the resource was written and published, especially if it is meant to persuade, educate, get business, advertise, 
 provide SEO chum, etc. wrapped in <PURPOSE> and </PURPOSE> tags. 
 
-Include a two to four sentence rich and descriptive summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.`;
+Include a two to four sentence rich and descriptive summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.
+
+Remember to output <RESOURCES> before you output any of the individual resources, and to output </RESOURCES> after you output all of the individual resources.`;
 
 // ── Strategy Determination ──
 
@@ -86,6 +91,14 @@ export const TOOL_ADDENDUM_TEMPLATE =
 
 {tool_list}
 
-Think first: before calling a tool, plan which tools (if any) you need and what arguments to pass. You can call multiple tools at once in a single response — this is faster and more efficient than calling them one at a time.
+Think first: before calling a tool, plan which tools (if any) you need and what arguments to pass. 
+If you cannot do this as thinking/reasoning tokens, put this thinking in <REASONING> and </REASONING> tags.
 
-When calling tools, output the tool call directly as JSON without any preceding text. The tool call itself is all that is needed. This keeps the conversation clean and avoids confusion.`;
+You can call multiple tools at once in a single response — this is faster and more efficient than calling them one at a time.
+
+When calling tools, output the tool call directly without any preceding text. The tool call itself is all that is needed. 
+This keeps the conversation clean and avoids confusion.
+
+Only wrap your answer in <ANSWER> and </ANSWER> tags when you are certain you
+do not need to call any more tools — that is, when this is your final response.
+If you are calling tools, just output the tool call JSON directly.`;

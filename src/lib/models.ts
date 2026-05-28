@@ -216,7 +216,14 @@ export async function callOpenRouterWithTools(options: {
     };
 
     if (tools && tools.length > 0) {
-        body.tools = tools;
+        body.tools = tools.map(t => ({
+            type: 'function',
+            function: {
+                name: t.function.name,
+                description: t.function.description,
+                parameters: t.function.parameters,
+            },
+        }));
         body.tool_choice = toolChoice || 'auto';
     }
 

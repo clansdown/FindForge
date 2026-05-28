@@ -699,14 +699,14 @@
             </div>
             <div class="form-group" style="margin-left: 2rem;">
                 <label>
-                    <input type="checkbox" checked={localConfig.enabledTools.includes('wikipedia_search')}
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('wikipedia')}
                         on:change={(e) => {
                             const el = e.currentTarget as HTMLInputElement;
-                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'wikipedia_search'];
-                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'wikipedia_search');
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'wikipedia'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'wikipedia');
                         }} />
-                    <strong>Wikipedia Search</strong>
-                    <p class="help-text">Search general knowledge, history, science, and current events.</p>
+                    <strong>Wikipedia</strong>
+                    <p class="help-text">Search or fetch full articles from Wikipedia.</p>
                 </label>
             </div>
             <div class="form-group" style="margin-left: 2rem;">

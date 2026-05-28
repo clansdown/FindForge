@@ -7,6 +7,7 @@ import TurndownService from 'turndown';
 import { WEB_PROXY_BASE_URL } from './web_fetch';
 import { getFromCache, addToCache } from '../lib/docCache';
 import { CROSSREF_MAILTO } from '../lib/http';
+import { executeWikipedia } from './wikipedia';
 
 // ── Identifier Pattern Detection ──
 
@@ -17,6 +18,7 @@ const BIORXIV_URL_REGEX = /biorxiv\.org\/content\/(10\.\d{4,9}\/[^?#\s]+)/i;
 const MEDRXIV_URL_REGEX = /medrxiv\.org\/content\/(10\.\d{4,9}\/[^?#\s]+)/i;
 const DOI_URL_REGEX = /(?:doi\.org|dx\.doi\.org)\/(10\.\d{4,9}\/[^?#\s]+)/i;
 const URL_REGEX = /^https?:\/\//i;
+const WIKIPEDIA_URL_REGEX = /^https?:\/\/([a-z]{2,3})\.wikipedia\.org\/wiki\/([^#?/]+)/i;
 
 // ── Tool Definition ──
 
@@ -74,7 +76,7 @@ export const FETCH_PAPER_TOOL: ToolDefinition = {
 // ── Identifier Extraction (maximum-flexibility parser) ──
 
 interface ExtractedId {
-    type: 'doi' | 'arxiv' | 'url';
+    type: 'doi' | 'arxiv' | 'wikipedia' | 'url';
     value: string;
     cacheKey: string;
 }
@@ -94,6 +96,12 @@ function extractIdentifier(raw: string): ExtractedId {
 
         const doiUrlMatch = s.match(DOI_URL_REGEX);
         if (doiUrlMatch) return { type: 'doi', value: doiUrlMatch[1], cacheKey: s };
+
+        const wikiMatch = s.match(WIKIPEDIA_URL_REGEX);
+        if (wikiMatch) {
+            const title = decodeURIComponent(wikiMatch[2].replace(/_/g, ' '));
+            return { type: 'wikipedia', value: title, cacheKey: s };
+        }
 
         return { type: 'url', value: s, cacheKey: s };
     }
@@ -254,6 +262,11 @@ export async function executeFetchPaper(args: Record<string, unknown>, ctx: Tool
     }
 
     const token = await getClerkToken();
+
+    if (extracted.type === 'wikipedia') {
+        ctx.onStatus?.('Delegating to Wikipedia...');
+        return executeWikipedia({ mode: 'fetch', title: extracted.value }, ctx);
+    }
 
     if (extracted.type === 'url') {
         if (!token) return 'Error: Sign in to enable paper fetching (CORS proxy requires authentication).';

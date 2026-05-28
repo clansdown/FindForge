@@ -6,12 +6,15 @@ export const CROSSREF_TOOL: ToolDefinition = {
     function: {
         name: 'crossref_search',
         description:
-            'Search Crossref for scientific preprints and papers across all disciplines. Returns titles, authors, posting dates, DOIs, and publication venues. Covers arXiv, bioRxiv, ChemRxiv, and other preprint platforms alongside peer-reviewed research.',
+`Search Crossref for scientific preprints and papers across all disciplines.
+Works best for specific searches, not broad topics. 
+Returns titles, authors, posting dates, DOIs, and publication venues. 
+Covers arXiv, bioRxiv, ChemRxiv, and other preprint platforms alongside peer-reviewed research.`,
         parameters: {
             type: 'object',
             properties: {
                 query: { type: 'string', description: 'Search query across titles, abstracts, and authors.' },
-                max_results: { type: 'number', description: 'Number of results to return (1-10, default 5).' },
+                max_results: { type: 'number', description: 'Number of results to return (1-100, default 10).' },
             },
             required: ['query'],
         },
@@ -29,7 +32,7 @@ export const CROSSREF_TOOL: ToolDefinition = {
 
 export async function executeCrossrefSearch(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {
     const query = args.query as string;
-    const maxResults = Math.min(Number(args.max_results) || 5, 10);
+    const maxResults = Math.min(Number(args.max_results) || 10, 100);
     if (!query) return 'Error: No query provided.';
 
     try {

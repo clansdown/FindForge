@@ -44,7 +44,7 @@ export class Config {
     static defaultDeepResearchSynthesisPrompt = DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT;
     static readonly defaultEnabledTools = [
         'scientific_calculator',
-        'wikipedia_search',
+        'wikipedia',
         'catholic_encyclopedia_search',
         'web_fetch',
         'pubmed_search',
@@ -364,6 +364,7 @@ export interface ToolRoundInfo {
     finishReason?: string;
     requestBody?: string;
     responseBody?: string;
+    durationMs?: number;
 }
 
 export interface ToolCallProgress {

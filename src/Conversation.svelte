@@ -581,6 +581,7 @@
                     },
                     editingToolCalls ?? undefined,
                 );
+                assistantMessage.content = result.content || assistantMessage.content;
                 assistantMessage.researchResult = result;
                 if (result.toolCallRecords && result.toolCallRecords.length > 0) {
                     assistantMessage.toolCalls = result.toolCallRecords;
