@@ -1,9 +1,10 @@
 import { parse } from 'svelte/compiler';
 import { callOpenRouterChat, callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
-import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo, ToolDefinition } from './types';
+import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo } from './types';
 import { ToolRegistry } from './tools';
-import { TOOL_LIMIT_INSTRUCTION, TOOL_ADDENDUM_TEMPLATE } from './prompts';
+import { TOOL_LIMIT_INSTRUCTION, buildToolAddendum, TRUNCATION_NOTICE } from './prompts';
+import { addToCache } from './docCache';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -73,22 +74,16 @@ export async function doStandardResearch(
     onThinking?: (chunk: string) => void,
     onToolCallProgress?: (update: ToolCallProgress) => void,
     previousToolCalls?: ToolCallRecord[],
+    contextWindow?: number,
 ): Promise<ResearchResult> {
-    return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry ?? new ToolRegistry(), onThinking, onToolCallProgress, previousToolCalls);
+    return doStandardResearchWithTools(maxTokens, config, userMessage, history, callback, updateStatus, abortController, toolRegistry ?? new ToolRegistry(), onThinking, onToolCallProgress, previousToolCalls, contextWindow);
 }
 
-
-function buildToolAddendum(tools: ToolDefinition[]): string {
-    const toolList = tools.map(t =>
-        `- ${t.function.name}: ${t.function.description}`
-    ).join('\n');
-    return '\n\n' + TOOL_ADDENDUM_TEMPLATE.replace('{tool_list}', toolList);
-}
 
 function parseStructuredContent(content: string): { answer: string; thinking: string } {
     let working = content;
 
-    const tagRe = /(REASONING|thinking)/;
+    const tagRe = /(think|thinking)/;
     const closedRe = new RegExp(`<${tagRe.source}>([\\s\\S]*?)<\\/${tagRe.source}>`, 'g');
     let reasoningMatch;
     const reasoningChunks: string[] = [];
@@ -145,6 +140,7 @@ async function doStandardResearchWithTools(
     onThinking?: (chunk: string) => void,
     onToolCallProgress?: (update: ToolCallProgress) => void,
     previousToolCalls?: ToolCallRecord[],
+    contextWindow?: number,
 ): Promise<ResearchResult> {
     const researchStartTime = Date.now();
     onStatus('Starting research with tools...');
@@ -233,6 +229,7 @@ async function doStandardResearchWithTools(
 })('', 0, 0),
                 onToolCallDelta: () => {},
                 onReasoning: onThinking,
+                onStatus,
                 signal: abortController?.signal,
                 reasoningEffort: config.defaultReasoningEffort,
             });
@@ -311,6 +308,18 @@ async function doStandardResearchWithTools(
                 const durationMs = Date.now() - startTimeMs;
                 const def = toolRegistry.getDefinition(tc.function.name);
                 const parsedArgs = JSON.parse(tc.function.arguments || '{}');
+
+                // Truncate large tool results
+                const ctxThreshold = Math.floor((contextWindow || 128000) * 0.4);
+                const truncateThreshold = Math.min(60000, ctxThreshold);
+                if (tr.content.length > truncateThreshold) {
+                    const cacheKey = tc.function.name === 'web_fetch'
+                        ? (parsedArgs?.url || `tool://${tc.function.name}/${tc.id}`)
+                        : `tool://${tc.function.name}/${tc.id}`;
+                    addToCache(cacheKey, tr.content, 'text/plain').catch(() => {});
+                    tr.content = tr.content.slice(0, truncateThreshold) + '\n\n' + TRUNCATION_NOTICE(cacheKey);
+                }
+
                 const formattedResult = def?.formatResult(tr.content);
                 toolCallRecords.push({
                     id: tc.id,
@@ -443,7 +452,36 @@ async function doStandardResearchWithTools(
         };
     } catch (error) {
         onStatus('Research failed');
-        throw error;
+        const apiError = error as any;
+        const errorInfo = {
+            message: apiError.message || String(error),
+            url: apiError.url,
+            method: apiError.method,
+            statusCode: apiError.statusCode,
+            requestBody: apiError.requestBody,
+            responseBody: apiError.responseBody,
+        };
+        return {
+            content: finalContent || '',
+            streamingResult: {
+                requestID: lastResult?.requestID || '',
+                model: lastResult?.model || config.defaultModel,
+                created: Date.now(),
+                done: true,
+                totalTokens: lastResult?.totalTokens,
+                promptTokens: lastResult?.promptTokens,
+                completionTokens: lastResult?.completionTokens,
+                cost: lastResult?.cost,
+                annotations: allAnnotations,
+            },
+            resources,
+            annotations: allAnnotations,
+            contextWasIncluded: config.includePreviousMessagesAsContext,
+            toolCallRecords,
+            toolIterations: iteration,
+            toolRounds,
+            error: errorInfo,
+        };
     }
 }
 

@@ -217,7 +217,7 @@
                     id="web-reqs-per-subquery"
                     type="number"
                     bind:value={config.deepResearchWebRequestsPerSubrequest}
-                    min="1"
+                    min="0"
                     max="32"
                 />
             </div>

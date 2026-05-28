@@ -442,7 +442,7 @@
                 type="number"
                 id="deep-research-web-requests-per-subrequest"
                 bind:value={localConfig.deepResearchWebRequestsPerSubrequest}
-                min="1"
+                min="0"
             />
         </div>
 
@@ -803,6 +803,18 @@
                         }} />
                     <strong>Fandom Wiki Search</strong>
                     <p class="help-text">Search wikis for games, movies, TV shows, and entertainment.</p>
+                </label>
+            </div>
+            <div class="form-group" style="margin-left: 2rem;">
+                <label>
+                    <input type="checkbox" checked={localConfig.enabledTools.includes('document_search')}
+                        on:change={(e) => {
+                            const el = e.currentTarget as HTMLInputElement;
+                            if (el.checked) localConfig.enabledTools = [...localConfig.enabledTools, 'document_search'];
+                            else localConfig.enabledTools = localConfig.enabledTools.filter(t => t !== 'document_search');
+                        }} />
+                    <strong>Document Search</strong>
+                    <p class="help-text">Search within a fetched document for specific passages by query or regex.</p>
                 </label>
             </div>
     {:else if currentTab === "cloud-sync"}

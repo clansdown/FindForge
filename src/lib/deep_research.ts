@@ -6,6 +6,7 @@ import {
     broadPlanPrompt, broadPlanRefinementPrompt,
     SUBQUERY_PROMPT, REFINEMENT_PROMPT,
     SYNTHESIS_PROMPT_INITIAL, SYNTHESIS_PROMPT_REFINEMENT,
+    buildToolAddendum,
 } from "./prompts";
 import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource, ToolCallRecord } from "./types";
 import { generateID } from "./util";
@@ -92,7 +93,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.deepResearchPlanningEffort);
+                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.deepResearchPlanningEffort, statusCallback);
                 total_cost += planResult.cost ?? 0;
                 planResult.generationData = {
                     id: planResult.requestID || '',
@@ -130,7 +131,7 @@ export async function doDeepResearch(
                     ? [system_prompt, ...contextMessages, user_api_message]
                     : [system_prompt, ...contextMessages, user_api_message, createAssistantApiCallMessage(`Previous answer:\n${answer_content}`)];
 
-                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.deepResearchPlanningEffort);
+                planResult = await callOpenRouterChat(config, config.deepResearchPlanningModel, max_planning_tokens, max_planning_requests, messages_for_api, undefined, config.deepResearchPlanningEffort, statusCallback);
                 total_cost += planResult.cost ?? 0;
                 planResult.generationData = {
                     id: planResult.requestID || '',
@@ -249,7 +250,8 @@ export async function doDeepResearch(
                 0,   // web requests
                 messages_for_synthesis,
                 undefined,
-                config.deepResearchSynthesisEffort
+                config.deepResearchSynthesisEffort,
+                statusCallback
             );
             synthesisResults.push(synthesisResponse);
 
@@ -420,7 +422,11 @@ export async function execute_research_thread(
     /*********************/
     /* First pass: sub-query */
     /*********************/
-    const subquery_system_prompt = createSystemApiCallMessage(systemPromptForSubquery);
+    const toolsAvailable = config.toolsEnabled && toolRegistry && toolRegistry.getDefinitions().length > 0;
+    const promptText = toolsAvailable
+        ? systemPromptForSubquery + buildToolAddendum(toolRegistry!.getDefinitions())
+        : systemPromptForSubquery;
+    const subquery_system_prompt = createSystemApiCallMessage(promptText);
     const messages_for_subquery: ApiCallMessage[] = [
         subquery_system_prompt,
         {
@@ -431,13 +437,13 @@ export async function execute_research_thread(
 
     let firstPassContent: string;
     let firstPassResult: ChatResult;
-    if (toolRegistry && toolRegistry.getDefinitions().length > 0) {
+    if (toolsAvailable) {
         const result = await callOpenRouterWithTools({
             config,
             modelId: config.deepResearchResearchModel,
             messages: messages_for_subquery,
             maxTokens,
-            tools: toolRegistry.getDefinitions(),
+            tools: toolRegistry!.getDefinitions(),
             stream: false,
             signal: undefined,
             reasoningEffort: config.deepResearchResearchEffort,
@@ -523,44 +529,16 @@ export async function execute_research_thread(
     const messages: ApiCallMessage[] = [systemPrompt, userMessage, assistantMessage];
 
     let refinedResult: ChatResult;
-    if (toolRegistry && toolRegistry.getDefinitions().length > 0) {
-        const result = await callOpenRouterWithTools({
-            config,
-            modelId: config.deepResearchRefiningModel,
-            messages,
-            maxTokens,
-            tools: toolRegistry.getDefinitions(),
-            stream: false,
-            signal: undefined,
-            reasoningEffort: config.deepResearchRefiningEffort,
-        });
-        if (result.toolCalls && !thread.toolCallRecords) {
-            thread.toolCallRecords = captureToolCalls(result, config, toolRegistry);
-        } else if (result.toolCalls && thread.toolCallRecords) {
-            thread.toolCallRecords.push(...captureToolCalls(result, config, toolRegistry));
-        }
-        refinedResult = {
-            requestID: result.requestID,
-            model: result.model,
-            created: Date.now(),
-            done: true,
-            content: result.content,
-            annotations: result.annotations,
-            totalTokens: result.totalTokens,
-        };
-        thread.refined = refinedResult;
-    } else {
-        refinedResult = await callOpenRouterChat(
-            config,
-            config.deepResearchRefiningModel,
-            maxTokens,
-            0,   // no web requests for refinement
-            messages,
-            undefined,
-            config.deepResearchRefiningEffort
-        );
-        thread.refined = refinedResult;
-    }
+    refinedResult = await callOpenRouterChat(
+        config,
+        config.deepResearchRefiningModel,
+        maxTokens,
+        0,   // no web requests for refinement
+        messages,
+        undefined,
+        config.deepResearchRefiningEffort
+    );
+    thread.refined = refinedResult;
 
     if (refinedResult.requestID) {
         refinedResult.generationData = {

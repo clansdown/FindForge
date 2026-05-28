@@ -53,6 +53,7 @@ export class Config {
         'fetch_paper',
         'sep_search',
         'fandom_search',
+        'document_search',
     ];
 
     constructor() {
@@ -79,7 +80,7 @@ export class Config {
         this.deepResearchWebSearchMaxPlanningResults = 10;
         this.deepResearchSystemPrompt = Config.defaultDeepResearchSynthesisPrompt; // appended to the internal system prompt
         this.deepResearchMaxSubqrequests = 8;
-        this.deepResearchWebRequestsPerSubrequest = 6;
+        this.deepResearchWebRequestsPerSubrequest = 0;
         this.deepResearchMaxPlanningTokens = 16384;
         this.deepResearchMaxSynthesisTokens = 16384;
         this.deepResearchPlanningModel = this.defaultReasoningModel;
@@ -459,6 +460,7 @@ export interface ResearchResult {
     toolCallRecords?: ToolCallRecord[]; // tool calls executed during this research
     toolIterations?: number; // number of tool-calling rounds
     toolRounds?: ToolRoundInfo[]; // per-API-call token/cost breakdown
+    error?: { message: string; url?: string; method?: string; statusCode?: number; requestBody?: string; responseBody?: string };
 }
 
 

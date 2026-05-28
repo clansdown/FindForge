@@ -3,6 +3,7 @@ import TurndownService from 'turndown';
 import type { ToolDefinition, ToolExecutionContext } from '../lib/types';
 import { getClerkToken } from '../auth';
 import { USER_AGENT, CROSSREF_MAILTO } from '../lib/http';
+import { getFromCache, addToCache } from '../lib/docCache';
 
 export const WEB_FETCH_TOOL: ToolDefinition = {
     type: 'function',
@@ -17,6 +18,16 @@ export const WEB_FETCH_TOOL: ToolDefinition = {
                     type: 'string',
                     description: 'The URL of the web page to fetch',
                 },
+                offset: {
+                    type: 'integer',
+                    description: 'Character offset to start from (default 0). Use to retrieve portions of a large document.',
+                    default: 0,
+                },
+                limit: {
+                    type: 'integer',
+                    description: 'Maximum characters to return (default 100000, max 500000).',
+                    default: 100000,
+                },
             },
             required: ['url'],
         },
@@ -28,11 +39,11 @@ export const WEB_FETCH_TOOL: ToolDefinition = {
     },
     formatResult(result) {
         if (result.startsWith('Error:')) return result;
-        const titleMatch = result.match(/^# (.+)/m);
-        const title = titleMatch ? titleMatch[1].slice(0, 40) : '';
         const size = result.length;
         const sizeStr = size > 1000 ? `${(size / 1000).toFixed(1)}k` : `${size}b`;
-        return title ? `${title} (${sizeStr})` : `Got page (${sizeStr})`;
+        return result.includes('Document continues')
+            ? `Got page portion (${sizeStr}, more available)`
+            : `Got page (${sizeStr})`;
     },
     isCacheable: true,
     cacheTTLMs: 60_000,
@@ -94,7 +105,7 @@ interface FetchOptions {
     headers?: Record<string, string>;
 }
 
-async function fetchUrl(url: string, token: string, options?: FetchOptions): Promise<string> {
+export async function fetchUrl(url: string, token: string, options?: FetchOptions): Promise<string> {
     let candidateHeaders: Record<string, string> | undefined;
     for (const candidate of DIRECT_FETCH_CANDIDATES) {
         if (candidate.canHandle(url)) {
@@ -127,16 +138,35 @@ async function fetchUrl(url: string, token: string, options?: FetchOptions): Pro
 }
 
 export async function executeWebFetch(args: Record<string, unknown>, ctx: ToolExecutionContext): Promise<string> {
-    const url = args.url as string;
+    const url = (args.url as string || '').trim();
+    const offset = (args.offset as number) || 0;
+    const limit = Math.min((args.limit as number) || 100000, 500000);
     if (!url) return 'Error: No URL provided.';
 
-    const token = await getClerkToken();
-    if (!token) {
-        return 'Error: Sign in to enable web fetching (CORS proxy requires authentication).';
+    // Check OPFS cache first
+    const cached = await getFromCache(url);
+    let fullText: string;
+
+    if (cached) {
+        fullText = await cached.text();
+    } else {
+        const token = await getClerkToken();
+        if (!token) {
+            return 'Error: Sign in to enable web fetching (CORS proxy requires authentication).';
+        }
+        ctx.onStatus?.('Fetching page...');
+        fullText = await fetchUrl(url, token);
+        if (fullText.startsWith('Error:')) return fullText;
+        await addToCache(url, fullText, 'text/plain').catch(() => {});
     }
 
-    ctx.onStatus?.('Fetching page...');
-    return fetchUrl(url, token);
+    const end = offset + limit;
+    const slice = fullText.slice(offset, end);
+
+    if (end < fullText.length) {
+        return slice + `\n\n[Document continues at offset ${end}. Use offset=${end} to retrieve more.]`;
+    }
+    return slice;
 }
 
 async function fetchViaProxy(

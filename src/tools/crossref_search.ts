@@ -13,7 +13,8 @@ Covers arXiv, bioRxiv, ChemRxiv, and other preprint platforms alongside peer-rev
         parameters: {
             type: 'object',
             properties: {
-                query: { type: 'string', description: 'Search query across titles, abstracts, and authors.' },
+                query: { type: 'string', description: 'Search query across titles, abstracts, and authors. ' +
+                    'Works better when you include specific keywords and stack related domain keywords to force relevant papers to the top of the results.' },
                 max_results: { type: 'number', description: 'Number of results to return (1-100, default 10).' },
             },
             required: ['query'],

@@ -9,6 +9,7 @@ import { PUBMED_FETCH_TOOL, executePubMedFetch } from './pubmed_fetch';
 import { FETCH_PAPER_TOOL, executeFetchPaper } from './fetch_paper';
 import { SEP_TOOL, executeSepSearch } from './stanford_encyclopedia_of_philosophy';
 import { FANDOM_TOOL, executeFandomSearch } from './fandom_wikis';
+import { DOCUMENT_SEARCH_TOOL, executeDocumentSearch } from './document_search';
 
 export class ToolRegistry {
     private definitions: Map<string, ToolDefinition> = new Map();
@@ -97,6 +98,7 @@ export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {
         { definition: FETCH_PAPER_TOOL, executor: executeFetchPaper },
         { definition: SEP_TOOL, executor: executeSepSearch },
         { definition: FANDOM_TOOL, executor: executeFandomSearch },
+        { definition: DOCUMENT_SEARCH_TOOL, executor: executeDocumentSearch },
     ];
 
     for (const tool of tools) {

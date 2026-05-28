@@ -14,7 +14,14 @@ let cachedModels: Model[] | null = null;
 
 const MODEL_BLACKLIST: RegExp[] = [
     /meta-llama\/llama-3\.1-8b-instruct/i,
+    /google\/gemma-3-12b-it/i,
 ];
+
+const RATE_LIMIT_MAX_RETRIES = 10;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 export async function fetchModels(apiKey: string): Promise<Model[]> {
     const response = await fetch('https://openrouter.ai/api/v1/models', {
@@ -143,7 +150,8 @@ export async function callOpenRouterChat(
   maxWebRequests: number,
   messages: ApiCallMessage[],
   abortController?: AbortController,
-  reasoning_effort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh'
+  reasoning_effort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh',
+  onStatus?: (status: string) => void,
 ): Promise<ChatResult> {
   const finalModel = await enforceModel(config, modelId);
   const body: any = {
@@ -158,17 +166,34 @@ export async function callOpenRouterChat(
   }
   const body_string = JSON.stringify(body);
 
-  const response = await openRouterFetch(config, body, abortController?.signal);
+  let response: Response;
+  let attempt = 0;
+  while (true) {
+      attempt++;
+      response = await openRouterFetch(config, body, abortController?.signal);
+      if (response.ok) break;
 
-  if (!response.ok) {
-    throw new APIError(
-        `API request failed: ${response.status} ${response.statusText}`,
-        response.url,
-        'POST',
-        response.status,
-        body_string,
-        await response.clone().text()
-    );
+      if ((response.status === 429 || response.status === 503) && attempt <= RATE_LIMIT_MAX_RETRIES) {
+          const computed = Math.pow(2, attempt) * 1000;
+          const capped = Math.min(computed, 60000);
+          const retryAfterMs = parseInt(response.headers.get('Retry-After') || '0', 10) * 1000;
+          const delayMs = Math.max(capped, retryAfterMs);
+          onStatus?.(`Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s...`);
+          await sleep(delayMs);
+          continue;
+      }
+
+      const message = response.status === 429
+          ? 'The LLM provider is overloaded at this time.'
+          : `API request failed: ${response.status} ${response.statusText}`;
+      throw new APIError(
+          message,
+          response.url,
+          'POST',
+          response.status,
+          body_string,
+          await response.clone().text()
+      );
   }
 
   const data = await response.json();
@@ -195,6 +220,51 @@ export async function callOpenRouterChat(
   };
 }
 
+function extractToolCallsFromText(content: string): { toolCalls: ToolCall[]; preamble: string } | null {
+    const stripped = content
+        .replace(/<REASONING>[\s\S]*?<\/REASONING>/gi, '')
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+        .replace(/<ANSWER>[\s\S]*?<\/ANSWER>/gi, '');
+
+    if (!stripped.trim()) return null;
+
+    const trimmed = stripped.trim();
+    const lastBracket = trimmed.lastIndexOf(']');
+    if (lastBracket === -1) return null;
+
+    let searchFrom = lastBracket;
+    while (searchFrom >= 0) {
+        const openBracket = trimmed.lastIndexOf('[', searchFrom);
+        if (openBracket === -1) break;
+
+        const candidate = trimmed.slice(openBracket, lastBracket + 1);
+        try {
+            const parsed = JSON.parse(candidate);
+            if (Array.isArray(parsed) && parsed.length > 0 &&
+                parsed.every(tc => tc.id && tc.type === 'function' && tc.function?.name && tc.function?.arguments != null)) {
+                return {
+                    toolCalls: parsed.map(tc => ({
+                        id: tc.id,
+                        type: 'function' as const,
+                        function: {
+                            name: tc.function.name,
+                            arguments: typeof tc.function.arguments === 'string'
+                                ? tc.function.arguments
+                                : JSON.stringify(tc.function.arguments),
+                        },
+                    })),
+                    preamble: trimmed.slice(0, openBracket).trim(),
+                };
+            }
+        } catch {}
+
+        searchFrom = openBracket - 1;
+    }
+
+    return null;
+}
+
 export async function callOpenRouterWithTools(options: {
     config: Config;
     modelId: string;
@@ -206,10 +276,11 @@ export async function callOpenRouterWithTools(options: {
     onContent?: (chunk: string) => void;
     onToolCallDelta?: (delta: Partial<ToolCall>) => void;
     onReasoning?: (chunk: string) => void;
+    onStatus?: (status: string) => void;
     signal?: AbortSignal;
     reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh';
 }): Promise<CompletionResult> {
-    const { config, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, signal, reasoningEffort } = options;
+    const { config, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, onStatus, signal, reasoningEffort } = options;
 
     const finalModel = await enforceModel(config, modelId);
     const body: Record<string, unknown> = {
@@ -237,11 +308,28 @@ export async function callOpenRouterWithTools(options: {
 
     const bodyString = JSON.stringify(body);
 
-    const response = await openRouterFetch(config, body, signal);
+    let response: Response;
+    let attempt = 0;
+    while (true) {
+        attempt++;
+        response = await openRouterFetch(config, body, signal);
+        if (response.ok) break;
 
-    if (!response.ok) {
+        if ((response.status === 429 || response.status === 503) && attempt <= RATE_LIMIT_MAX_RETRIES) {
+            const computed = Math.pow(2, attempt) * 1000;
+            const capped = Math.min(computed, 60000);
+            const retryAfterMs = parseInt(response.headers.get('Retry-After') || '0', 10) * 1000;
+            const delayMs = Math.max(capped, retryAfterMs);
+            onStatus?.(`Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s...`);
+            await sleep(delayMs);
+            continue;
+        }
+
+        const message = response.status === 429
+            ? 'The LLM provider is overloaded at this time.'
+            : `API request failed: ${response.status} ${response.statusText}`;
         throw new APIError(
-            `API request failed: ${response.status} ${response.statusText}`,
+            message,
             response.url,
             'POST',
             response.status,
@@ -256,14 +344,23 @@ export async function callOpenRouterWithTools(options: {
     if (!stream) {
         const data = await response.json();
         const choice = data.choices?.[0];
-        const content = choice?.message?.content || '';
-        const toolCalls: ToolCall[] | null = choice?.message?.tool_calls || null;
-        const finishReason = choice?.finish_reason || 'stop';
+        let content = choice?.message?.content || '';
+        let toolCalls: ToolCall[] | null = choice?.message?.tool_calls || null;
+        let finishReason = choice?.finish_reason || 'stop';
         const totalTokens = data.usage?.total_tokens;
         const promptTokens = data.usage?.prompt_tokens;
         const completionTokens = data.usage?.completion_tokens;
         const cost = data.usage?.cost ?? undefined;
         const annotations = choice?.message?.annotations || [];
+
+        if (!toolCalls) {
+            const extracted = extractToolCallsFromText(content);
+            if (extracted) {
+                content = extracted.preamble;
+                toolCalls = extracted.toolCalls;
+                finishReason = 'tool_calls';
+            }
+        }
 
         return {
             requestID: data.id || requestID,
@@ -306,20 +403,31 @@ export async function callOpenRouterWithTools(options: {
                 if (!line.startsWith('data: ')) continue;
                 const data = line.replace('data: ', '');
                 if (data === '[DONE]') {
+                    let resultToolCalls: ToolCall[] | null = finishReason === 'tool_calls'
+                        ? [...toolCallAccum.entries()].map(([idx, acc]) => ({
+                            id: acc.id,
+                            type: 'function' as const,
+                            function: {
+                                name: acc.name,
+                                arguments: acc.argumentsChunks.join(''),
+                            },
+                        }))
+                        : null;
+
+                    if (!resultToolCalls) {
+                        const extracted = extractToolCallsFromText(content);
+                        if (extracted) {
+                            content = extracted.preamble;
+                            resultToolCalls = extracted.toolCalls;
+                            finishReason = 'tool_calls';
+                        }
+                    }
+
                     return {
                         requestID,
                         model: modelId,
                         content,
-                        toolCalls: finishReason === 'tool_calls'
-                            ? [...toolCallAccum.entries()].map(([idx, acc]) => ({
-                                id: acc.id,
-                                type: 'function' as const,
-                                function: {
-                                    name: acc.name,
-                                    arguments: acc.argumentsChunks.join(''),
-                                },
-                            }))
-                            : null,
+                        toolCalls: resultToolCalls,
                         finishReason,
                         totalTokens,
                         promptTokens,
@@ -400,20 +508,31 @@ export async function callOpenRouterWithTools(options: {
         reader.releaseLock();
     }
 
+    let resultToolCalls: ToolCall[] | null = finishReason === 'tool_calls'
+        ? [...toolCallAccum.entries()].map(([idx, acc]) => ({
+            id: acc.id,
+            type: 'function' as const,
+            function: {
+                name: acc.name,
+                arguments: acc.argumentsChunks.join(''),
+            },
+        }))
+        : null;
+
+    if (!resultToolCalls) {
+        const extracted = extractToolCallsFromText(content);
+        if (extracted) {
+            content = extracted.preamble;
+            resultToolCalls = extracted.toolCalls;
+            finishReason = 'tool_calls';
+        }
+    }
+
     return {
         requestID,
         model: modelId,
         content,
-        toolCalls: finishReason === 'tool_calls'
-            ? [...toolCallAccum.entries()].map(([idx, acc]) => ({
-                id: acc.id,
-                type: 'function' as const,
-                function: {
-                    name: acc.name,
-                    arguments: acc.argumentsChunks.join(''),
-                },
-            }))
-            : null,
+        toolCalls: resultToolCalls,
         finishReason,
         totalTokens,
         promptTokens,

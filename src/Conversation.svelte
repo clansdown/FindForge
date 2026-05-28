@@ -499,6 +499,8 @@
             } else {
                 let firstChunk = true;
                 let speechText = '';
+                const currentModel = models.find(m => m.id === localConfig.defaultModel);
+                const contextWindow = currentModel?.context_length || 128000;
                 const result = await doStandardResearch(
                     16384, // maxTokens
                     localConfig,
@@ -589,9 +591,19 @@
                         );
                     },
                     editingToolCalls ?? undefined,
+                    contextWindow,
                 );
                 assistantMessage.content = result.content || assistantMessage.content;
                 assistantMessage.researchResult = result;
+
+                if (result.error) {
+                    if (result.error.statusCode === 429) {
+                        assistantMessage.content += '\n\nThe LLM provider is overloaded at this time.';
+                    } else {
+                        assistantMessage.error = result.error as { message: string; url?: string; method?: string; statusCode?: number; requestBody?: string; responseBody?: string };
+                    }
+                }
+
                 if (result.toolCallRecords && result.toolCallRecords.length > 0) {
                     assistantMessage.toolCalls = result.toolCallRecords;
                     scrollToBottom();
@@ -637,15 +649,19 @@
             console.error("Generation error:", error);
             if (error.name !== "AbortError") {
                 if (error instanceof APIError) {
-                    assistantMessage.error = {
-                        message: error.message,
-                        url: error.url,
-                        method: error.method,
-                        statusCode: error.statusCode,
-                        requestBody: error.requestBody,
-                        responseBody: error.responseBody
-                    };
-                    assistantMessage.content += "\n\n[API Error occurred. Check error details for more information.]";
+                    if (error.statusCode === 429) {
+                        assistantMessage.content += '\n\nThe LLM provider is overloaded at this time.';
+                    } else {
+                        assistantMessage.error = {
+                            message: error.message,
+                            url: error.url,
+                            method: error.method,
+                            statusCode: error.statusCode,
+                            requestBody: error.requestBody,
+                            responseBody: error.responseBody
+                        };
+                        assistantMessage.content += "\n\n[API Error occurred. Check error details for more information.]";
+                    }
                 } else {
                     assistantMessage.error = {
                         message: error.message || "Unknown error"
