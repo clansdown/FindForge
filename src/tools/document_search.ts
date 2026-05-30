@@ -86,12 +86,18 @@ export async function executeDocumentSearch(args: Record<string, unknown>, ctx: 
     const limit = (args.limit as number) || 10;
     const offset = (args.offset as number) || 0;
 
-    if (!url) return 'Error: No URL or cache key provided.';
+    if (!url && !next) {
+        console.error('[document_search] No URL or cache key provided', { url, query, next, regex: regexStr });
+        return 'Error: No URL or cache key provided.';
+    }
 
     // Handle "next" cursor — read content around a previous match
     if (next) {
         const nextMatch = next.match(/^doc:\/\/(.+?)\/(\d+)$/);
-        if (!nextMatch) return `Error: Invalid next cursor: "${next}". Expected format: doc://url/offset.`;
+        if (!nextMatch) {
+            console.error('[document_search] Invalid next cursor', { next });
+            return `Error: Invalid next cursor: "${next}". Expected format: doc://url/offset.`;
+        }
 
         const docUrl = decodeURIComponent(nextMatch[1]);
         const startOffset = parseInt(nextMatch[2], 10);
@@ -103,13 +109,19 @@ export async function executeDocumentSearch(args: Record<string, unknown>, ctx: 
         if (!fullText && /^https?:\/\//i.test(docUrl)) {
             ctx.onStatus?.('Fetching document...');
             const token = await getClerkToken();
-            if (!token) return 'Error: Sign in to enable document fetching (CORS proxy requires authentication).';
+            if (!token) {
+                console.error('[document_search] No auth token for document fetch', { docUrl });
+                return 'Error: Sign in to enable document fetching (CORS proxy requires authentication).';
+            }
             const fetched = await fetchUrl(docUrl, token);
             if (fetched.startsWith('Error:')) return fetched;
             await addToCache(docUrl, fetched, 'text/plain').catch(() => {});
             fullText = fetched;
         }
-        if (!fullText) return `Error: Document not found in cache: "${docUrl}".`;
+        if (!fullText) {
+            console.error('[document_search] Document not found in cache', { docUrl, next });
+            return `Error: Document not found in cache: "${docUrl}".`;
+        }
 
         const end = startOffset + charsToRead;
         const slice = fullText.slice(startOffset, end);
@@ -119,7 +131,10 @@ export async function executeDocumentSearch(args: Record<string, unknown>, ctx: 
         return slice;
     }
 
-    if (!query && !regexStr) return 'Error: Provide either a query string or a regular expression.';
+    if (!query && !regexStr) {
+        console.error('[document_search] No query or regex provided', { url });
+        return 'Error: Provide either a query string or a regular expression.';
+    }
 
     let fullText: string | null = null;
 
@@ -131,7 +146,10 @@ export async function executeDocumentSearch(args: Record<string, unknown>, ctx: 
     if (!fullText && /^https?:\/\//i.test(url)) {
         ctx.onStatus?.('Fetching document...');
         const token = await getClerkToken();
-        if (!token) return 'Error: Sign in to enable document fetching (CORS proxy requires authentication).';
+        if (!token) {
+            console.error('[document_search] No auth token for document fetch', { url });
+            return 'Error: Sign in to enable document fetching (CORS proxy requires authentication).';
+        }
         const fetched = await fetchUrl(url, token);
         if (fetched.startsWith('Error:')) return fetched;
         await addToCache(url, fetched, 'text/plain').catch(() => {});
@@ -139,6 +157,7 @@ export async function executeDocumentSearch(args: Record<string, unknown>, ctx: 
     }
 
     if (!fullText) {
+        console.error('[document_search] Document not found in cache and not fetchable', { url });
         return `Error: Document not found in cache and could not be fetched: "${url}". If this is an internal cache key, fetch the document first using web_fetch.`;
     }
 
@@ -146,6 +165,7 @@ export async function executeDocumentSearch(args: Record<string, unknown>, ctx: 
     try {
         re = regexStr ? new RegExp(regexStr, 'gi') : new RegExp(escapeRegExp(query), 'gi');
     } catch (e) {
+        console.error('[document_search] Invalid regular expression', { regex: regexStr, error: e instanceof Error ? e.message : String(e) });
         return `Error: Invalid regular expression: ${e instanceof Error ? e.message : String(e)}`;
     }
 

@@ -27,12 +27,14 @@ export const CALCULATOR_TOOL: ToolDefinition = {
 export async function executeCalculator(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {
     const expression = args.expression as string;
     if (!expression || typeof expression !== 'string') {
+        console.error('[calculator] No expression provided');
         return 'Error: No expression provided.';
     }
     try {
         const result = evaluate(expression);
         return String(result);
     } catch (e) {
+        console.error('[calculator] Evaluation failed', { expression, error: e instanceof Error ? e.message : String(e) });
         return `Error evaluating expression: ${e instanceof Error ? e.message : String(e)}`;
     }
 }

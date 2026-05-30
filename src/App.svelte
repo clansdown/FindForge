@@ -87,7 +87,8 @@
   function handleDrag(e: MouseEvent) {
     if (isDragging) {
       let x = e.clientX - splitContainer.getBoundingClientRect().x;
-      config.historyWidth = Math.max(100, x);
+      const maxWidth = splitContainer.clientWidth * 0.8;
+      config.historyWidth = Math.max(100, Math.min(x, maxWidth));
       saveConfig(config);
     }
   }
@@ -174,6 +175,7 @@
   .history-container {
     height: 100%;
     overflow: hidden;
+    max-width: 80%;
   }
 
   .resize-handle {
@@ -192,6 +194,7 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
+    min-width: 0;
   }
 
 </style>

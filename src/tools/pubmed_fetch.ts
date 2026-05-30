@@ -42,32 +42,48 @@ export async function executePubMedFetch(args: Record<string, unknown>, _ctx: To
     const pmid = args.pmid as string | undefined;
     const doi = args.doi as string | undefined;
 
+    console.log('[pubmed_fetch] called with:', { pmcid, pmid, doi });
+
     if (!pmcid && !pmid && !doi) {
+        console.warn('[pubmed_fetch] no identifier provided');
         return 'Error: Provide at least one of pmcid, pmid, or doi.';
     }
 
     const token = await getClerkToken();
     if (!token) {
+        console.error('[pubmed_fetch] no auth token available');
         return 'Error: Sign in to enable PubMed full-text fetching (CORS proxy requires authentication).';
     }
 
     let resolvedPmcid: string | null = null;
     if (pmcid) {
         resolvedPmcid = normalizePmcid(pmcid);
+        console.log('[pubmed_fetch] normalized pmcid:', resolvedPmcid);
     } else if (pmid) {
-        try { resolvedPmcid = await pmidToPmcid(pmid); }
-        catch { /* fall through to DOI path */ }
+        console.log('[pubmed_fetch] resolving pmid to pmcid:', pmid);
+        try {
+            resolvedPmcid = await pmidToPmcid(pmid, token);
+            console.log('[pubmed_fetch] pmid resolved to pmcid:', resolvedPmcid);
+        } catch (e) {
+            console.error('[pubmed_fetch] pmidToPmcid failed:', e);
+        }
     }
 
     if (resolvedPmcid) {
+        console.log('[pubmed_fetch] fetching PMC XML for pmcid:', resolvedPmcid);
         const xml = await fetchPmcXml(resolvedPmcid, token);
         if (!xml.startsWith('Error')) {
+            console.log('[pubmed_fetch] PMC XML fetched successfully, length:', xml.length);
             return `<PMCID>PMC${resolvedPmcid}</PMCID>\n\n` + xml;
         }
+        console.error('[pubmed_fetch] fetchPmcXml returned error:', xml);
         if (!doi) return xml;
+    } else {
+        console.log('[pubmed_fetch] no pmcid resolved, falling through');
     }
 
     if (doi) {
+        console.log('[pubmed_fetch] trying Unpaywall DOI lookup:', doi);
         try {
             const unpaywallUrl = `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${UNPAYWALL_EMAIL}`;
             const proxyRes = await fetch(WEB_PROXY_BASE_URL + '/', {
@@ -76,8 +92,12 @@ export async function executePubMedFetch(args: Record<string, unknown>, _ctx: To
                 body: JSON.stringify({ url: unpaywallUrl }),
                 signal: AbortSignal.timeout(15000),
             });
-            if (!proxyRes.ok) return `Error: Unpaywall proxy returned HTTP ${proxyRes.status}.`;
+            if (!proxyRes.ok) {
+                console.error('[pubmed_fetch] Unpaywall proxy returned HTTP', proxyRes.status);
+                return `Error: Unpaywall proxy returned HTTP ${proxyRes.status}.`;
+            }
             const data = await proxyRes.json();
+            console.log('[pubmed_fetch] Unpaywall response:', { is_oa: data.is_oa, has_location: !!data.best_oa_location });
             if (data.is_oa && data.best_oa_location) {
                 const loc = data.best_oa_location;
                 const parts: string[] = [];
@@ -87,11 +107,14 @@ export async function executePubMedFetch(args: Record<string, unknown>, _ctx: To
                 parts.push(`Host: ${loc.host_type || 'unknown'}`);
                 return `Open Access article found for DOI ${doi}:\n\n${parts.join('\n')}\n\nUse web_fetch on the URL to retrieve the full text.`;
             }
+            console.log('[pubmed_fetch] DOI not open access:', data.is_oa);
             return `DOI ${doi} is not open access (is_oa: ${data.is_oa}).`;
         } catch (e) {
+            console.error('[pubmed_fetch] Unpaywall lookup failed:', e);
             return `Error: Unpaywall lookup failed for DOI ${doi}: ${e instanceof Error ? e.message : String(e)}`;
         }
     }
 
+    console.error('[pubmed_fetch] all paths exhausted:', { pmcid, pmid, doi, resolvedPmcid });
     return 'Error: Could not fetch the article.';
 }

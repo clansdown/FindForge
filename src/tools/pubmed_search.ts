@@ -1,4 +1,6 @@
 import type { ToolDefinition, ToolExecutionContext } from '../lib/types';
+import { fetchUrl } from './web_fetch';
+import { getClerkToken } from '../auth';
 
 export const PUBMED_TOOL: ToolDefinition = {
     type: 'function',
@@ -29,20 +31,30 @@ export const PUBMED_TOOL: ToolDefinition = {
 export async function executePubMed(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {
     const query = args.query as string;
     const maxResults = Math.min(Number(args.max_results) || 5, 10);
-    if (!query) return 'Error: No query provided.';
+    if (!query) {
+        console.error('[pubmed_search] No query provided');
+        return 'Error: No query provided.';
+    }
+
+    const token = await getClerkToken();
+    if (!token) {
+        console.error('[pubmed_search] No auth token');
+        return 'Error: Sign in to enable PubMed search (CORS proxy requires authentication).';
+    }
 
     try {
         const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax=${maxResults}&term=${encodeURIComponent(query)}`;
-        const searchResp = await fetch(searchUrl);
-        if (!searchResp.ok) return `PubMed search failed: HTTP ${searchResp.status}`;
-        const searchData = await searchResp.json();
+        const searchBody = await fetchUrl(searchUrl, token);
+        const searchData = JSON.parse(searchBody);
         const pmids = searchData.esearchresult?.idlist || [];
-        if (!pmids.length) return 'No PubMed results found.';
+        if (!pmids.length) {
+            console.log('[pubmed_search] No results found', { query, maxResults });
+            return 'No PubMed results found.';
+        }
 
         const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json`;
-        const summaryResp = await fetch(summaryUrl);
-        if (!summaryResp.ok) return `PubMed summary fetch failed: HTTP ${summaryResp.status}`;
-        const summaryData = await summaryResp.json();
+        const summaryBody = await fetchUrl(summaryUrl, token);
+        const summaryData = JSON.parse(summaryBody);
 
         const uids: string[] = summaryData.result?.uids || [];
         let output = '';
@@ -66,6 +78,7 @@ export async function executePubMed(args: Record<string, unknown>, _ctx: ToolExe
         }
         return output || 'No results to display.';
     } catch (e) {
+        console.error('[pubmed_search] Search failed', { query, error: e instanceof Error ? e.message : String(e) });
         return `PubMed search failed: ${e instanceof Error ? e.message : String(e)}`;
     }
 }

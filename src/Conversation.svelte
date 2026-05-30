@@ -5,7 +5,7 @@
     import { createToolRegistry } from "./lib/tools";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
-    import { generateID, escapeHtml, formatModelName, extractConversationReferences, isBraveOrChromium } from "./lib/util";
+    import { generateID, formatModelName, extractConversationReferences, isBraveOrChromium } from "./lib/util";
     import { availableModelsStore } from "./lib/availableModelsStore";
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
@@ -297,8 +297,32 @@
     function toggleMessageHidden(message: MessageData) {
         message.hidden = !message.hidden;
         currentConversation.messages = currentConversation.messages;
-        if(localConfig.autoSave)
+        if (localConfig.autoSave)
             saveConversation(currentConversation);
+    }
+
+    async function regenerateMessage(message: MessageData) {
+        if (generating) return;
+
+        const index = currentConversation.messages.findIndex((m) => m.id === message.id);
+        if (index < 0) return;
+
+        const userMsg = index > 0 ? currentConversation.messages[index - 1] : null;
+        if (!userMsg || userMsg.role !== 'user') return;
+
+        currentConversation.messages.splice(index - 1, 2);
+        currentConversation.messages = currentConversation.messages;
+
+        userInput = userMsg.content;
+        if (message.toolCalls) {
+            editingToolCalls = message.toolCalls;
+        }
+
+        if (localConfig.autoSave)
+            saveConversation(currentConversation);
+
+        await tick();
+        sendMessage();
     }
 
     function editUserMessage(message: MessageData) {
@@ -426,7 +450,7 @@
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
                 const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
                     const msgs = [convertMessageToApiCallMessage(msg)];
-                    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+                    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && !msg.deepResearchResult) {
                         msgs.push(...convertToolCallsToToolMessages(msg.toolCalls));
                     }
                     return msgs;
@@ -436,6 +460,8 @@
                     editor: localConfig.defaultModel,
                     researcher: localConfig.defaultModel,
                 };
+                assistantMessage.toolCallProgress = [];
+
                 const deepResult = await doDeepResearch(
                     localConfig,
                     localConfig.apiKey,
@@ -446,29 +472,47 @@
                     apiCallMessages.slice(0, -1), // exclude the current user message
                     (status) => {
                         console.log(status);
-                        const escapedStatus = escapeHtml(status);
-                        const newStatusDiv = `<div class="status-message">${escapedStatus}</div>`;
-                        assistantMessage.status = (assistantMessage.status || '') + newStatusDiv;
+                        assistantMessage.status = status;
                         currentConversation.messages = currentConversation.messages.map((msg) =>
                             msg.id === assistantMessage.id ? assistantMessage : msg,
                         );
                     }, // statusCallback
                     toolRegistry,
+                    (progress) => {
+                        const index = assistantMessage.toolCallProgress!.findIndex(tc => tc.id === progress.id);
+                        if (index >= 0) {
+                            assistantMessage.toolCallProgress![index] = progress;
+                        } else {
+                            assistantMessage.toolCallProgress!.push(progress);
+                        }
+                        scrollToBottom();
+                        currentConversation.messages = currentConversation.messages.map((msg) =>
+                            msg.id === assistantMessage.id ? assistantMessage : msg,
+                        );
+                    },
                 );
                 assistantMessage.isGenerating = false;
                 assistantMessage.content = deepResult.content;
                 assistantMessage.totalCost = deepResult.total_cost;
-                assistantMessage.status = undefined; // clear status when done
-                assistantMessage.deepResearchResult = deepResult; // Store the full result
-                assistantMessage.resources = deepResult.resources; // Store resources separately for UI
+                assistantMessage.status = undefined;
+                assistantMessage.deepResearchResult = deepResult;
+                assistantMessage.resources = deepResult.resources;
                 if (deepResult.annotations) {
                     assistantMessage.annotations = deepResult.annotations;
                 }
+                const allToolCalls: ToolCallRecord[] = [];
+                for (const thread of deepResult.research_threads) {
+                    if (thread.toolCallRecords) allToolCalls.push(...thread.toolCallRecords);
+                }
+                if (allToolCalls.length > 0) {
+                    assistantMessage.toolCalls = allToolCalls;
+                }
+                assistantMessage.toolCallProgress = undefined;
             } else if (experimentationOptions.parallelResearch) {
                 // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
                 const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
                     const msgs = [convertMessageToApiCallMessage(msg)];
-                    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+                    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && !msg.deepResearchResult) {
                         msgs.push(...convertToolCallsToToolMessages(msg.toolCalls));
                     }
                     return msgs;
@@ -787,6 +831,7 @@
                     conversationTitle={currentConversation.title}
                     onEdit={editUserMessage}
                     onToggleHidden={toggleMessageHidden}
+                    onRegenerate={regenerateMessage}
                 />
                 
             {:else}

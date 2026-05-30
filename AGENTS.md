@@ -111,6 +111,7 @@ src/tools/
   fetch_paper.ts           — fetch_paper (Crossref resolution, arXiv/bioRxiv/PDF pipelines, caching)
   stanford_encyclopedia_of_philosophy.ts — sep_search (DuckDuckGo site-search + DOM extraction via proxy)
   fandom_wikis.ts            — fandom_search (MediaWiki API, direct CORS fetch, three modes)
+  toolCallDeduplicator.ts  — ToolCallDeduplicator (in-flight dedup across calls/threads)
   registry.ts              — ToolRegistry class + createToolRegistry factory
 ```
 
@@ -200,6 +201,30 @@ Fast first-level cache keyed by **document ID** (DOI, arXiv ID, etc.). Persists 
 ### Document cache (OPFS-backed, `src/lib/docCache.ts`)
 
 Persistent LRU cache stored under `/research/doc-cache/`. **Never synced.** Keyed by **URL** (raw content) and `extracted:{docId}` (post-parse markdown). Evicts least-recently-accessed entries when over the size limit. Limit configurable in Settings, stored at `/cloud/preferences/docCacheSizeLimit` (default 1 GB). Warns via console when usage exceeds 90% on non-PWA installs.
+
+### In-flight deduplication (`ToolCallDeduplicator`)
+
+When the registry receives two identical `(name, args)` tool calls while
+the first is still executing, the second waits on the first's promise
+instead of invoking the executor again.  This prevents duplicate work:
+
+- **Same batch** — the LLM requests the same tool twice in one response.
+- **Across deep-research threads** — two threads fetch the same URL.
+
+The deduplicator lives on the `ToolRegistry` instance (shared across all
+threads in a research session).  See `src/tools/toolCallDeduplicator.ts`.
+
+Key properties:
+- A single Promise can be `await`ed by any number of callers; all resolve
+  with the same value.  The executor is called at most once per unique
+  `(name, args)` pair while in-flight.
+- If a *waiter's* `AbortSignal` fires, only that waiter gets `AbortError`;
+  the underlying execution continues for other waiters.
+- Entries are cleaned up on settle, so a later independent call with the
+  same args starts fresh.
+- No flag on `ToolDefinition` — all current tools are idempotent.
+- Checked *after* the cross-round cache (`isCacheable`), so a prior-round
+  hit still short-circuits before reaching the deduplicator.
 
 ### Web Fetch — unified fetch with fallback
 

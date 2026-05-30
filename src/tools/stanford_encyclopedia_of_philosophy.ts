@@ -98,25 +98,32 @@ async function fetchViaProxy(url: string, token: string): Promise<string> {
                     signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
                 });
                 if (retryRes.ok) return await retryRes.text();
+                console.error('[sep] Proxy returned HTTP after token refresh', { url, status: retryRes.status, code });
                 return `Error: Proxy returned HTTP ${retryRes.status} (${code || 'unknown'}) for ${url}`;
             }
+            console.error('[sep] Session expired', { url });
             return 'Error: Session expired — please sign in again.';
         }
 
         if (res.status === 429) {
             const retryAfter = res.headers.get('Retry-After') || '60';
+            console.error('[sep] Rate limited', { url, retryAfter });
             return `Error: Rate limited. Retry after ${retryAfter} seconds.`;
         }
 
         if (res.status === 502) {
+            console.error('[sep] Could not reach', { url });
             return `Error: Could not reach ${url}`;
         }
 
+        console.error('[sep] Proxy error', { url, status: res.status, code });
         return `Error: Proxy returned HTTP ${res.status} (${code || 'unknown'}) for ${url}`;
     } catch (e) {
         if (e instanceof DOMException && e.name === 'TimeoutError') {
+            console.error('[sep] Request timed out', { url });
             return `Error: Request timed out for ${url}`;
         }
+        console.error('[sep] Proxy request failed', { url, error: e instanceof Error ? e.message : String(e) });
         return `Error: Proxy request failed for ${url}: ${e instanceof Error ? e.message : String(e)}`;
     }
 }
@@ -190,7 +197,10 @@ async function searchEntries(query: string, token: string): Promise<string> {
         }
     }
 
-    if (results.length === 0) return `No SEP entries found for "${query}".`;
+    if (results.length === 0) {
+        console.log('[sep] No search results found', { query });
+        return `No SEP entries found for "${query}".`;
+    }
 
     return `Search results for "${query}" on the Stanford Encyclopedia of Philosophy:\n\n${results.join('\n\n')}`;
 }
@@ -204,7 +214,10 @@ async function fetchEntry(rawTopicId: string, token: string): Promise<string> {
         slug = urlSlug;
     } else {
         slug = normalizeSlug(rawTopicId);
-        if (!slug) return 'Error: Invalid topic_id.';
+        if (!slug) {
+            console.error('[sep] Invalid topic_id', { rawTopicId });
+            return 'Error: Invalid topic_id.';
+        }
     }
 
     const targetUrl = `https://plato.stanford.edu/entries/${slug}/`;
@@ -213,7 +226,10 @@ async function fetchEntry(rawTopicId: string, token: string): Promise<string> {
 
     const { title, markdown } = stripHtmlToMarkdown(html);
 
-    if (!markdown) return `Error: Could not extract content from entry "${slug}".`;
+    if (!markdown) {
+        console.error('[sep] Could not extract content', { slug });
+        return `Error: Could not extract content from entry "${slug}".`;
+    }
 
     return `<!-- fetched from SEP: ${slug} -->\n\n# ${title}\n\n${markdown}`;
 }
@@ -223,26 +239,40 @@ async function fetchEntry(rawTopicId: string, token: string): Promise<string> {
 export async function executeSepSearch(args: Record<string, unknown>, ctx: ToolExecutionContext): Promise<string> {
     const mode = (args.mode as string) || '';
     if (!mode || (mode !== 'search' && mode !== 'fetch')) {
+        console.error('[sep] Unknown mode', { mode });
         return 'Error: Mode must be "search" or "fetch".';
     }
 
     if (mode === 'search') {
         const query = (args.query as string || '').trim();
-        if (!query) return 'Error: No search query provided.';
+        if (!query) {
+            console.error('[sep] No query for search mode');
+            return 'Error: No search query provided.';
+        }
         const token = await getClerkToken();
-        if (!token) return 'Error: Sign in to enable SEP search (CORS proxy requires authentication).';
+        if (!token) {
+            console.error('[sep] No auth token for search');
+            return 'Error: Sign in to enable SEP search (CORS proxy requires authentication).';
+        }
         ctx.onStatus?.('Searching Stanford Encyclopedia...');
         return searchEntries(query, token);
     }
 
     if (mode === 'fetch') {
         const topicId = (args.topic_id as string || '').trim();
-        if (!topicId) return 'Error: No topic_id provided.';
+        if (!topicId) {
+            console.error('[sep] No topic_id for fetch mode');
+            return 'Error: No topic_id provided.';
+        }
         const token = await getClerkToken();
-        if (!token) return 'Error: Sign in to enable SEP search (CORS proxy requires authentication).';
+        if (!token) {
+            console.error('[sep] No auth token for fetch');
+            return 'Error: Sign in to enable SEP search (CORS proxy requires authentication).';
+        }
         ctx.onStatus?.('Fetching article...');
         return fetchEntry(topicId, token);
     }
 
+    console.error('[sep] Reached unreachable code');
     return 'Error: Unknown mode.';
 }

@@ -1,4 +1,5 @@
 import type { ToolDefinition, ToolCall, ToolExecutionContext, ToolExecutor, ToolCallRecord } from '../lib/types';
+import { ToolCallDeduplicator } from './toolCallDeduplicator';
 import { CALCULATOR_TOOL, executeCalculator } from './calculator';
 import { WIKIPEDIA_TOOL, executeWikipedia } from './wikipedia';
 import { CATHOLIC_TOOL, executeCatholicEncyclopedia } from './catholic_encyclopedia';
@@ -14,6 +15,8 @@ import { DOCUMENT_SEARCH_TOOL, executeDocumentSearch } from './document_search';
 export class ToolRegistry {
     private definitions: Map<string, ToolDefinition> = new Map();
     private executors: Map<string, ToolExecutor> = new Map();
+    /** Deduplicates identical in-flight tool calls (shared across threads). */
+    private deduplicator = new ToolCallDeduplicator();
 
     register(definition: ToolDefinition, executor: ToolExecutor): void {
         const name = definition.function.name;
@@ -62,7 +65,18 @@ export class ToolRegistry {
             }
         }
 
-        return this.execute(tc.function.name, args, ctx);
+        try {
+            return await this.deduplicator.deduplicate(
+                tc.function.name,
+                tc.function.arguments,
+                (signal) => this.execute(tc.function.name, tc.function.arguments, { ...ctx, signal }),
+                ctx.signal,
+            );
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error(`[${tc.function.name}] Execution threw:`, { args: tc.function.arguments, error: msg });
+            return `Error: ${tc.function.name} failed: ${msg}`;
+        }
     }
 }
 

@@ -3,7 +3,7 @@ import { callOpenRouterChat, callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
 import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo } from './types';
 import { ToolRegistry } from './tools';
-import { TOOL_LIMIT_INSTRUCTION, buildToolAddendum, TRUNCATION_NOTICE } from './prompts';
+import { DEFAULT_SYSTEM_PROMPT, TOOL_LIMIT_INSTRUCTION, buildToolAddendum, TRUNCATION_NOTICE } from './prompts';
 import { addToCache } from './docCache';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
@@ -80,7 +80,7 @@ export async function doStandardResearch(
 }
 
 
-function parseStructuredContent(content: string): { answer: string; thinking: string } {
+export function parseStructuredContent(content: string): { answer: string; thinking: string } {
     let working = content;
 
     const tagRe = /(think|thinking)/;
@@ -100,6 +100,9 @@ function parseStructuredContent(content: string): { answer: string; thinking: st
         if (text) reasoningChunks.push(text);
         working = working.replace(openRe, '').trim();
     }
+
+    // Strip any trailing partial tags that may be split across chunks (e.g. <think, </think, <ANSWER)
+    working = working.replace(/(?:<[a-zA-Z\/]+)+$/, '').trim();
 
     const closedAnswerMatch = working.match(/<ANSWER>([\s\S]*?)<\/ANSWER>/);
     const openAnswerMatch = !closedAnswerMatch ? working.match(/<ANSWER>([\s\S]*)$/) : null;
@@ -158,20 +161,18 @@ async function doStandardResearchWithTools(
 
     const tools = toolRegistry.getDefinitions();
 
-    if (config.systemPrompt) {
-        const systemText = config.systemPrompt + '\n\n' + resourceInstructions;
-        const addendum = config.toolsEnabled && tools.length > 0 ? buildToolAddendum(tools) : '';
-        messagesForAPI.push({
-            role: 'system',
-            content: [{ type: 'text', text: systemText + addendum }],
-        });
-    }
+    const systemText = (config.systemPrompt || DEFAULT_SYSTEM_PROMPT) + '\n\n' + resourceInstructions;
+    const addendum = config.toolsEnabled && tools.length > 0 ? buildToolAddendum(tools) : '';
+    messagesForAPI.push({
+        role: 'system',
+        content: [{ type: 'text', text: systemText + addendum }],
+    });
 
     if (config.includePreviousMessagesAsContext) {
         for (const m of history) {
             if (!m.hidden) {
                 messagesForAPI.push(convertMessageToApiCallMessage(m));
-                if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+                if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0 && !m.deepResearchResult) {
                     messagesForAPI.push(...convertToolCallsToToolMessages(m.toolCalls));
                 }
             }
@@ -288,7 +289,8 @@ async function doStandardResearchWithTools(
             if (onToolCallProgress) {
                 for (const tc of result.toolCalls) {
                     const def = toolRegistry.getDefinition(tc.function.name);
-                    const parsedArgs = JSON.parse(tc.function.arguments || '{}');
+                    let parsedArgs: Record<string, unknown>;
+                    try { parsedArgs = JSON.parse(tc.function.arguments || '{}'); } catch { parsedArgs = {}; }
                     onToolCallProgress({
                         id: tc.id,
                         name: tc.function.name,
@@ -307,14 +309,15 @@ async function doStandardResearchWithTools(
                 const tr = toolResults[i];
                 const durationMs = Date.now() - startTimeMs;
                 const def = toolRegistry.getDefinition(tc.function.name);
-                const parsedArgs = JSON.parse(tc.function.arguments || '{}');
+                let parsedArgs: Record<string, unknown>;
+                try { parsedArgs = JSON.parse(tc.function.arguments || '{}'); } catch { parsedArgs = {}; }
 
                 // Truncate large tool results
                 const ctxThreshold = Math.floor((contextWindow || 128000) * 0.4);
                 const truncateThreshold = Math.min(60000, ctxThreshold);
                 if (tr.content.length > truncateThreshold) {
                     const cacheKey = tc.function.name === 'web_fetch'
-                        ? (parsedArgs?.url || `tool://${tc.function.name}/${tc.id}`)
+                        ? (typeof parsedArgs?.url === 'string' ? parsedArgs.url : `tool://${tc.function.name}/${tc.id}`)
                         : `tool://${tc.function.name}/${tc.id}`;
                     addToCache(cacheKey, tr.content, 'text/plain').catch(() => {});
                     tr.content = tr.content.slice(0, truncateThreshold) + '\n\n' + TRUNCATION_NOTICE(cacheKey);
@@ -504,7 +507,7 @@ export async function doParallelResearch(
         for (const m of history) {
             if (!m.hidden) {
                 baseMessages.push(convertMessageToApiCallMessage(m));
-                if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+                if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0 && !m.deepResearchResult) {
                     baseMessages.push(...convertToolCallsToToolMessages(m.toolCalls));
                 }
             }

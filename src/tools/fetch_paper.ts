@@ -2,12 +2,16 @@ import type { ToolDefinition, ToolExecutionContext } from '../lib/types';
 import { getClerkToken } from '../auth';
 import { getCachedPaper, setCachedPaper, getCachedCrossrefMeta, setCachedCrossrefMeta } from '../lib/paperCache';
 import Extract2MDConverter from 'extract2md';
+import * as pdfjsLib from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 import { WEB_PROXY_BASE_URL } from './web_fetch';
 import { getFromCache, addToCache } from '../lib/docCache';
 import { CROSSREF_MAILTO } from '../lib/http';
 import { executeWikipedia } from './wikipedia';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 // ── Identifier Pattern Detection ──
 

@@ -36,7 +36,10 @@ export const CATHOLIC_TOOL: ToolDefinition = {
 export async function executeCatholicEncyclopedia(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {
     const query = args.query as string;
     const limit = Math.min((args.limit as number) || 3, 5);
-    if (!query) return 'Error: No search query provided.';
+    if (!query) {
+        console.error('[catholic_encyclopedia] No search query provided');
+        return 'Error: No search query provided.';
+    }
 
     try {
         const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' site:newadvent.org/cathen')}&format=json&origin=*&srlimit=${limit}`;
@@ -44,7 +47,10 @@ export async function executeCatholicEncyclopedia(args: Record<string, unknown>,
         const searchData = await searchRes.json();
         const results = searchData.query?.search || [];
 
-        if (results.length === 0) return `No Catholic Encyclopedia results for "${query}".`;
+        if (results.length === 0) {
+            console.log('[catholic_encyclopedia] No results found', { query, limit });
+            return `No Catholic Encyclopedia results for "${query}".`;
+        }
 
         const entries: string[] = [];
         for (const r of results) {

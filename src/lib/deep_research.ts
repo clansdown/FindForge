@@ -7,10 +7,18 @@ import {
     SUBQUERY_PROMPT, REFINEMENT_PROMPT,
     SYNTHESIS_PROMPT_INITIAL, SYNTHESIS_PROMPT_REFINEMENT,
     buildToolAddendum,
+    TOOL_LIMIT_INSTRUCTION, TRUNCATION_NOTICE,
 } from "./prompts";
-import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource, ToolCallRecord } from "./types";
+import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource, ToolCallRecord, ToolCallProgress, ToolExecutionContext } from "./types";
 import { generateID } from "./util";
 import type { ToolRegistry } from "./tools";
+import { addToCache } from "./docCache";
+import { parseStructuredContent } from "./research";
+
+function phaseStatus(phaseIndex: number, totalPhases: number, strategy: string, msg: string): string {
+    const label = strategy === 'deep' ? 'Deep' : 'Broad';
+    return `${label} research phase ${phaseIndex + 1} of ${totalPhases}: ${msg}`;
+}
 
 export async function doDeepResearch(
     config: Config,
@@ -21,7 +29,8 @@ export async function doDeepResearch(
     userMessage: string,
     contextMessages : ApiCallMessage[], 
     statusCallback : (status: string) => void,
-    toolRegistry?: ToolRegistry): Promise<DeepResearchResult> {
+    toolRegistry?: ToolRegistry,
+    onToolCallProgress?: (update: ToolCallProgress) => void): Promise<DeepResearchResult> {
         const startTime = Date.now(); // Record start time for elapsed_time calculation
         let total_cost = 0;
         let total_web_requests = 0;
@@ -46,13 +55,13 @@ export async function doDeepResearch(
         const max_planning_tokens = config.deepResearchMaxPlanningTokens;
         const user_api_message = createUserApiCallMessage(userMessage);
 
-        statusCallback("Starting deep research.");
+        statusCallback("Starting deep research...");
 
         /**********************************/
         /* Ensure that we have a strategy */
         /**********************************/
         if (strategy === 'auto') {
-            statusCallback("Determining research strategy.");
+            statusCallback("Determining research strategy...");
             try {
                 const user_api_message = createUserApiCallMessage(userMessage);
                 const { strategy: determinedStrategy, chatResult } = await determineStrategy(config, models, contextMessages, user_api_message);
@@ -64,23 +73,21 @@ export async function doDeepResearch(
                 if (chatResult.generationData?.generation_time) {
                     total_generation_time_ms += chatResult.generationData.generation_time;
                 }
-                statusCallback(`Research strategy determined: ${actualStrategy}`);
             } catch (error) {
                 console.error('Error determining strategy:', error);
-                statusCallback('Error determining strategy, using deep research');
+                statusCallback('Error determining strategy, using deep research.');
                 actualStrategy = 'deep';
             }
-            statusCallback(`Using research strategy: ${actualStrategy}`);
         } else {
             actualStrategy = strategy;
         }
 
+        try {
         for(let phase_index = 0; phase_index < config.deepResearchPhases; phase_index++) {
-            statusCallback(`Research phase ${phase_index + 1} of ${config.deepResearchPhases}.`);
             /*******************/
             /* Create the plan */
             /*******************/
-            statusCallback("Creating research plan.");
+            statusCallback(phaseStatus(phase_index, config.deepResearchPhases, actualStrategy, "Creating research plan..."));
             if(actualStrategy === 'deep') {
                 let plan_prompt_text: string;
                 if (phase_index === 0) {
@@ -108,7 +115,7 @@ export async function doDeepResearch(
                     tokens_prompt: planResult.promptTokens,
                     tokens_completion: planResult.completionTokens,
                 };
-                research_plan = planResult.content.trim();
+                research_plan = planResult.content?.trim() ?? '';
                 plan_prompts.push(plan_prompt);
                 plan_results.push(planResult);
                 research_plans.push(research_plan);
@@ -146,7 +153,7 @@ export async function doDeepResearch(
                     tokens_prompt: planResult.promptTokens,
                     tokens_completion: planResult.completionTokens,
                 };
-                research_plan = planResult.content.trim();
+                research_plan = planResult.content?.trim() ?? '';
                 plan_prompts.push(plan_prompt);
                 plan_results.push(planResult);
                 research_plans.push(research_plan);
@@ -170,7 +177,7 @@ export async function doDeepResearch(
                 prompts.push(match[1].trim());
             }
 
-            statusCallback(`Executing research plan with ${prompts.length} research threads.`);
+            statusCallback(phaseStatus(phase_index, config.deepResearchPhases, actualStrategy, `Executing plan with ${prompts.length} threads...`));
 
             // Use the provided userMessage string directly for refinement
             const userQuery = userMessage;
@@ -195,11 +202,42 @@ export async function doDeepResearch(
                             total_generation_time_ms += data.generation_time;
                         }
                     },
-                    toolRegistry
+                    toolRegistry,
+                    statusCallback,
+                    onToolCallProgress
                 )
             );
 
-            const phaseThreads = await Promise.all(threadPromises);
+            const settled = await Promise.allSettled(threadPromises);
+            const phaseThreads: ResearchThread[] = [];
+            let threadFailures = 0;
+            for (const r of settled) {
+                if (r.status === 'fulfilled') {
+                    phaseThreads.push(r.value);
+                    if (r.value.error) threadFailures++;
+                } else {
+                    threadFailures++;
+                    const err = r.reason instanceof Error ? r.reason.message : String(r.reason);
+                    console.error(`[deep-research] Thread rejected:`, { error: err, reason: r.reason });
+                    phaseThreads.push({
+                        prompt: 'Unknown (thread rejected)',
+                        generationPromises: [],
+                        handleGenerationData: () => {},
+                        error: `Thread rejected: ${err}`,
+                    });
+                }
+            }
+            if (threadFailures > 0) {
+                console.warn(`[deep-research] Phase ${phase_index + 1}: ${threadFailures}/${prompts.length} threads failed`, {
+                    totalThreads: prompts.length,
+                    failed: threadFailures,
+                    successful: prompts.length - threadFailures,
+                    phaseIndex: phase_index,
+                });
+                const completedCount = prompts.length - threadFailures;
+                statusCallback(phaseStatus(phase_index, config.deepResearchPhases, actualStrategy,
+                    `${completedCount} of ${prompts.length} threads completed (${threadFailures} failed)`));
+            }
             research_threads.push(...phaseThreads);
             research_threads_per_phase.push(phaseThreads.length);
 
@@ -213,15 +251,13 @@ export async function doDeepResearch(
                 }
             }
 
-            statusCallback(`Research plan executed.`);
-
             /******************************************************/
             /* Wait for all generation data and update totals      */
             /******************************************************/
             /*********************/
             /* Do the synthesis */
             /*********************/
-            statusCallback("Synthesizing research results.");
+            statusCallback(phaseStatus(phase_index, config.deepResearchPhases, actualStrategy, "Synthesizing research results..."));
             let synthesis_prompt_string: string;
             if (phase_index === 0) {
                 synthesis_prompt_string = SYNTHESIS_PROMPT_INITIAL + config.deepResearchSystemPrompt;
@@ -231,12 +267,13 @@ export async function doDeepResearch(
             synthesisPromptStrings.push(synthesis_prompt_string);
             const synthesis_system_prompt = createSystemApiCallMessage(synthesis_prompt_string);
 
-            // Construct the messages for synthesis
+            // Construct the messages for synthesis — only include completed threads
+            const validThreads = research_threads.filter(t => !t.error && t.refined?.content);
             const messages_for_synthesis: ApiCallMessage[] = [
                 synthesis_system_prompt,
                 ...contextMessages,
                 user_api_message,
-                ...research_threads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined?.content}`))
+                ...validThreads.map((thread, index) => createAssistantApiCallMessage(`Research Result ${index+1} (Refined):\n${thread.refined!.content}`))
             ];
             
             if (phase_index > 0) {
@@ -254,8 +291,6 @@ export async function doDeepResearch(
                 statusCallback
             );
             synthesisResults.push(synthesisResponse);
-
-            statusCallback("Research synthesis complete.");
             
 
             total_cost += synthesisResponse.cost ?? 0;
@@ -274,7 +309,7 @@ export async function doDeepResearch(
             };
 
             // Parse the answer content from the synthesis response and handle annotations
-            let synthesisContent = synthesisResponse.content;
+            let synthesisContent = synthesisResponse.content ?? '';
             const answerTagRegex = /<ANSWER>(.*?)<\/ANSWER>/s;
             const answerMatch = synthesisContent.match(answerTagRegex);
             if (answerMatch && answerMatch[1]) {
@@ -282,6 +317,10 @@ export async function doDeepResearch(
             } else {
                 answer_content = synthesisContent;
             }
+            // Strip any <think> tags from the synthesis answer
+            answer_content = answer_content
+                .replace(/<(think|thinking)>[\s\S]*?<\/(think|thinking)>/gi, '')
+                .trim();
             if (synthesisResponse.annotations) {
                 allAnnotations.push(...synthesisResponse.annotations);
             }
@@ -323,8 +362,54 @@ export async function doDeepResearch(
             contextWasIncluded: true,
             total_research_threads: research_threads.length,
             web_queries_per_thread: config.deepResearchWebRequestsPerSubrequest,
-            research_threads_per_phase
+            research_threads_per_phase,
+            failedResearchThreads: research_threads.filter(t => t.error).length,
+            researchThreadErrors: research_threads.filter(t => t.error).map(t => ({ prompt: t.prompt, error: t.error! })),
         };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[deep-research] Research failed:`, {
+            error: errorMsg,
+            phaseCount: config.deepResearchPhases,
+            threadsCollected: research_threads.length,
+            resourcesCollected: allResources.length,
+            hasPartialAnswer: !!answer_content,
+        });
+        const elapsed_time = (Date.now() - startTime) / 1000;
+        const failedCount = research_threads.filter(t => t.error).length;
+        return {
+            id: generateID(),
+            total_cost,
+            models,
+            planningModel: config.deepResearchPlanningModel,
+            researchModel: config.deepResearchResearchModel,
+            refiningModel: config.deepResearchRefiningModel,
+            synthesisModel: config.deepResearchSynthesisModel,
+            plan_prompt,
+            plan_result: planResult ?? { requestID: '', model: '', created: Date.now(), done: true, content: '', annotations: [], totalTokens: 0 },
+            research_plan,
+            plan_prompts,
+            plan_results,
+            research_plans,
+            research_threads,
+            synthesis_prompt: synthesisPromptStrings[0] || '',
+            synthesis_result: synthesisResults[0] ?? { requestID: '', model: '', created: Date.now(), done: true, content: '', annotations: [], totalTokens: 0 },
+            synthesisPromptStrings,
+            synthesisResults,
+            content: answer_content || `Research failed before completion: ${errorMsg}`,
+            annotations: allAnnotations,
+            resources: allResources,
+            total_generation_time: total_generation_time_ms / 1000,
+            elapsed_time,
+            contextWasIncluded: true,
+            total_research_threads: research_threads.length,
+            web_queries_per_thread: config.deepResearchWebRequestsPerSubrequest,
+            research_threads_per_phase,
+            failedResearchThreads: failedCount,
+            researchThreadErrors: research_threads.filter(t => t.error).map(t => ({ prompt: t.prompt, error: t.error! })),
+            error: { message: errorMsg },
+        };
+    }
 }
 
 
@@ -368,7 +453,7 @@ async function determineStrategy(
         };
     }
 
-    const strategyResponse = response.content.trim().toLowerCase();
+    const strategyResponse = (response.content ?? '').trim().toLowerCase();
     console.log('Strategy response:', strategyResponse);
     let strategy: 'deep' | 'broad';
     if (strategyResponse === 'deep' || strategyResponse === 'broad') {
@@ -390,18 +475,6 @@ async function determineStrategy(
     return { strategy, chatResult: response };
 }
 
-function captureToolCalls(result: import("./types").CompletionResult, config: Config, toolRegistry: ToolRegistry): import("./types").ToolCallRecord[] {
-    if (!result.toolCalls) return [];
-    return result.toolCalls.map(tc => ({
-        id: tc.id,
-        name: tc.function.name,
-        arguments: JSON.parse(tc.function.arguments || '{}'),
-        result: '',
-        startTimeMs: Date.now(),
-        durationMs: 0,
-    }));
-}
-
 export async function execute_research_thread(
     config: Config,
     prompt: string,
@@ -410,9 +483,10 @@ export async function execute_research_thread(
     systemPromptForSubquery: string,
     systemPromptForRefinement: string,
     handleGenerationData: (data: GenerationData) => void = () => {},
-    toolRegistry?: ToolRegistry
+    toolRegistry?: ToolRegistry,
+    onStatus?: (status: string) => void,
+    onToolCallProgress?: (update: ToolCallProgress) => void,
 ): Promise<ResearchThread> {
-    // Create the thread object
     const thread: ResearchThread = {
         prompt,
         generationPromises: [],
@@ -438,27 +512,161 @@ export async function execute_research_thread(
     let firstPassContent: string;
     let firstPassResult: ChatResult;
     if (toolsAvailable) {
-        const result = await callOpenRouterWithTools({
-            config,
-            modelId: config.deepResearchResearchModel,
-            messages: messages_for_subquery,
-            maxTokens,
-            tools: toolRegistry!.getDefinitions(),
-            stream: false,
-            signal: undefined,
-            reasoningEffort: config.deepResearchResearchEffort,
-        });
-        thread.toolCallRecords = captureToolCalls(result, config, toolRegistry);
-        firstPassContent = result.content;
-        firstPassResult = {
-            requestID: result.requestID,
-            model: result.model,
-            created: Date.now(),
-            done: true,
-            content: result.content,
-            annotations: result.annotations,
-            totalTokens: result.totalTokens,
-        };
+        const messages: ApiCallMessage[] = [...messages_for_subquery];
+        const toolCallRecords: ToolCallRecord[] = [];
+        firstPassContent = '';
+        firstPassResult = null as unknown as ChatResult;
+        const maxIterations = config.maxToolIterations || 8;
+
+        for (let iteration = 0; iteration < maxIterations; iteration++) {
+            const isLastAttempt = iteration >= maxIterations - 1;
+            const availableTools = isLastAttempt ? undefined : toolRegistry!.getDefinitions();
+
+            if (isLastAttempt && toolCallRecords.length > 0) {
+                messages.push({
+                    role: 'user',
+                    content: [{ type: 'text', text: TOOL_LIMIT_INSTRUCTION }],
+                });
+            }
+
+            const result = await callOpenRouterWithTools({
+                config,
+                modelId: config.deepResearchResearchModel,
+                messages,
+                maxTokens,
+                tools: availableTools,
+                stream: false,
+                signal: undefined,
+                reasoningEffort: config.deepResearchResearchEffort,
+            });
+
+            if (!firstPassResult) {
+                firstPassResult = {
+                    requestID: result.requestID,
+                    model: result.model,
+                    created: Date.now(),
+                    done: true,
+                    content: result.content,
+                    annotations: result.annotations,
+                    totalTokens: result.totalTokens,
+                };
+            }
+
+            firstPassContent += result.content;
+
+            if (result.finishReason !== 'tool_calls' || !result.toolCalls || result.toolCalls.length === 0) {
+                break;
+            }
+
+            messages.push({
+                role: 'assistant',
+                content: [{ type: 'text', text: '' }],
+                tool_calls: result.toolCalls,
+            });
+
+            const startTimeMs = Date.now();
+
+            if (onToolCallProgress) {
+                for (const tc of result.toolCalls) {
+                    const def = toolRegistry!.getDefinition(tc.function.name);
+                    let parsedArgs: Record<string, unknown>;
+                    try { parsedArgs = JSON.parse(tc.function.arguments || '{}'); } catch { parsedArgs = {}; }
+                    onToolCallProgress({
+                        id: tc.id,
+                        name: tc.function.name,
+                        displayName: def?.displayName || tc.function.name,
+                        args: parsedArgs,
+                        formattedArgs: def?.formatArgs(parsedArgs),
+                        status: 'running',
+                    });
+                }
+            }
+
+            const ctx: ToolExecutionContext = {
+                config,
+                signal: undefined,
+                previousToolCalls: [...toolCallRecords],
+            };
+            let toolResults: Array<{ tool_call_id: string; role: 'tool'; content: string }>;
+            try {
+                toolResults = await toolRegistry!.executeAll(result.toolCalls, ctx);
+            } catch (e) {
+                const errorMsg = e instanceof Error ? e.message : String(e);
+                console.error(`[deep-research] Tool execution failed in thread:`, {
+                    prompt: prompt.slice(0, 200),
+                    error: errorMsg,
+                    toolCalls: result.toolCalls.map(tc => ({ name: tc.function.name, args: tc.function.arguments })),
+                });
+                thread.error = `Tool execution error: ${errorMsg}`;
+                toolResults = result.toolCalls.map(tc => ({
+                    tool_call_id: tc.id,
+                    role: 'tool' as const,
+                    content: `Error: Tool execution failed: ${errorMsg}`,
+                }));
+            }
+
+            for (let i = 0; i < result.toolCalls.length; i++) {
+                const tc = result.toolCalls[i];
+                const tr = toolResults[i];
+                const durationMs = Date.now() - startTimeMs;
+                const def = toolRegistry!.getDefinition(tc.function.name);
+                let parsedArgs: Record<string, unknown>;
+                try { parsedArgs = JSON.parse(tc.function.arguments || '{}'); } catch { parsedArgs = {}; }
+
+                const TRUNCATE_THRESHOLD = 60000;
+                if (tr.content.length > TRUNCATE_THRESHOLD) {
+                    const cacheKey = tc.function.name === 'web_fetch'
+                        ? (typeof parsedArgs?.url === 'string' ? parsedArgs.url : `tool://${tc.function.name}/${tc.id}`)
+                        : `tool://${tc.function.name}/${tc.id}`;
+                    addToCache(cacheKey, tr.content, 'text/plain').catch(() => {});
+                    tr.content = tr.content.slice(0, TRUNCATE_THRESHOLD) + '\n\n' + TRUNCATION_NOTICE(cacheKey);
+                }
+
+                const formattedResult = def?.formatResult(tr.content);
+                toolCallRecords.push({
+                    id: tc.id,
+                    name: tc.function.name,
+                    arguments: parsedArgs,
+                    formattedArgs: def?.formatArgs(parsedArgs),
+                    result: tr.content,
+                    formattedResult,
+                    startTimeMs,
+                    durationMs,
+                });
+
+                messages.push({
+                    role: 'tool',
+                    tool_call_id: tr.tool_call_id,
+                    content: [{ type: 'text', text: tr.content }],
+                });
+
+                if (onToolCallProgress) {
+                    onToolCallProgress({
+                        id: tc.id,
+                        name: tc.function.name,
+                        displayName: def?.displayName || tc.function.name,
+                        args: parsedArgs,
+                        formattedArgs: def?.formatArgs(parsedArgs),
+                        status: tr.content.startsWith('Error:') ? 'error' : 'completed',
+                        formattedResult,
+                        result: tr.content,
+                        durationMs,
+                    });
+                }
+            }
+        }
+
+        // Extract thinking and strip think tags
+        if (firstPassContent) {
+            const { thinking: threadThinking } = parseStructuredContent(firstPassContent);
+            thread.thinking = threadThinking;
+            firstPassContent = firstPassContent
+                .replace(/<(think|thinking)>[\s\S]*?<\/(think|thinking)>/gi, '')
+                .trim();
+            firstPassResult.content = firstPassContent;
+        }
+
+        thread.toolCallRecords = toolCallRecords;
         thread.firstPass = firstPassResult;
     } else {
         firstPassResult = await callOpenRouterChat(
@@ -472,6 +680,14 @@ export async function execute_research_thread(
         );
         thread.firstPass = firstPassResult;
         firstPassContent = firstPassResult.content;
+        if (firstPassContent) {
+            const { thinking: threadThinking } = parseStructuredContent(firstPassContent);
+            thread.thinking = threadThinking;
+            firstPassContent = firstPassContent
+                .replace(/<(think|thinking)>[\s\S]*?<\/(think|thinking)>/gi, '')
+                .trim();
+            firstPassResult.content = firstPassContent;
+        }
     }
     // Extract resources from first pass content
     thread.resources = parseResourcesFromContent(firstPassContent);
@@ -499,9 +715,7 @@ export async function execute_research_thread(
     thread.refiningPrompt = systemPromptForRefinement;
     const systemPrompt = createSystemApiCallMessage(systemPromptForRefinement);
 
-    // Use content without resources for refinement
     let contentToRefine = thread.firstPass?.content || '';
-    // Remove RESOURCES section if present
     const resourcesStart = contentToRefine.indexOf('<RESOURCES>');
     if (resourcesStart !== -1) {
         const resourcesEnd = contentToRefine.indexOf('</RESOURCES>', resourcesStart);
@@ -512,18 +726,12 @@ export async function execute_research_thread(
 
     const userMessage: ApiCallMessage = {
         role: 'user',
-        content: [{
-            type: 'text',
-            text: userQuery
-        }]
+        content: [{ type: 'text', text: userQuery }]
     };
 
     const assistantMessage: ApiCallMessage = {
         role: 'assistant',
-        content: [{
-            type: 'text',
-            text: `Research result to refine:\n${contentToRefine}`
-        }]
+        content: [{ type: 'text', text: `Research result to refine:\n${contentToRefine}` }]
     };
 
     const messages: ApiCallMessage[] = [systemPrompt, userMessage, assistantMessage];
@@ -533,7 +741,7 @@ export async function execute_research_thread(
         config,
         config.deepResearchRefiningModel,
         maxTokens,
-        0,   // no web requests for refinement
+        0,
         messages,
         undefined,
         config.deepResearchRefiningEffort

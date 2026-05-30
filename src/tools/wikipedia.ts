@@ -79,7 +79,10 @@ async function searchArticles(query: string, limit: number): Promise<string> {
     const searchData = await searchRes.json();
     const results = searchData.query?.search || [];
 
-    if (results.length === 0) return `No Wikipedia results for "${query}".`;
+    if (results.length === 0) {
+        console.log('[wikipedia] No search results', { query, limit });
+        return `No Wikipedia results for "${query}".`;
+    }
 
     const summaries: string[] = [];
     for (const r of results) {
@@ -95,7 +98,11 @@ async function searchArticles(query: string, limit: number): Promise<string> {
             summaries.push(`**${r.title}** — https://en.wikipedia.org/wiki/${encodeURIComponent(r.title.replace(/ /g, '_'))}`);
         }
     }
-    return summaries.join('\n\n') || `No detailed results for "${query}".`;
+    if (!summaries.length) {
+        console.log('[wikipedia] No detailed results from summaries', { query });
+        return `No detailed results for "${query}".`;
+    }
+    return summaries.join('\n\n');
 }
 
 // ── Fetch mode ──
@@ -107,13 +114,20 @@ async function fetchArticle(rawTitle: string): Promise<string> {
         title = urlTitle;
     } else {
         title = rawTitle.trim();
-        if (!title) return 'Error: No article title provided.';
+        if (!title) {
+            console.error('[wikipedia] No article title provided');
+            return 'Error: No article title provided.';
+        }
     }
 
     const htmlUrl = `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
     const res = await fetch(htmlUrl);
     if (!res.ok) {
-        if (res.status === 404) return `Error: Wikipedia page "${title}" not found.`;
+        if (res.status === 404) {
+            console.log('[wikipedia] Page not found', { title });
+            return `Error: Wikipedia page "${title}" not found.`;
+        }
+        console.error('[wikipedia] Failed to fetch page', { title, status: res.status });
         return `Error: Failed to fetch Wikipedia page "${title}" (HTTP ${res.status}).`;
     }
 
@@ -134,7 +148,10 @@ async function fetchArticle(rawTitle: string): Promise<string> {
 
     const cleanedHtml = content.innerHTML.trim();
 
-    if (!cleanedHtml) return `Error: No content available for "${title}".`;
+    if (!cleanedHtml) {
+        console.log('[wikipedia] No content in page', { title });
+        return `Error: No content available for "${title}".`;
+    }
 
     return `<!-- fetched from Wikipedia: ${encodeURIComponent(pageTitle)} -->\n\n${cleanedHtml}`;
 }
@@ -146,16 +163,23 @@ export async function executeWikipedia(args: Record<string, unknown>, _ctx: Tool
 
     if (mode === 'search') {
         const query = (args.query as string || '').trim();
-        if (!query) return 'Error: No search query provided.';
+        if (!query) {
+            console.error('[wikipedia] No query for search mode');
+            return 'Error: No search query provided.';
+        }
         const limit = (args.limit as number) || 10;
         return searchArticles(query, limit);
     }
 
     if (mode === 'fetch') {
         const title = (args.title as string || '').trim();
-        if (!title) return 'Error: No article title provided.';
+        if (!title) {
+            console.error('[wikipedia] No title for fetch mode');
+            return 'Error: No article title provided.';
+        }
         return fetchArticle(title);
     }
 
+    console.error('[wikipedia] Unknown mode', { mode });
     return 'Error: Mode must be "search" or "fetch".';
 }

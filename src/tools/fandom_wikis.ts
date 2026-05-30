@@ -97,10 +97,16 @@ async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
 async function findWiki(query: string): Promise<string> {
     const url = `${COMMUNITY_API}?action=query&list=search&srsearch=${encodeURIComponent(query + ' wiki')}&format=json&origin=*&srlimit=5`;
     const data = await fetchJson(url);
-    if (!data) return 'Error: Could not reach Fandom community hub.';
+    if (!data) {
+        console.error('[fandom] Could not reach community hub', { query });
+        return 'Error: Could not reach Fandom community hub.';
+    }
 
     const search = (data.query as Record<string, unknown> | undefined)?.search as Array<Record<string, unknown>> | undefined;
-    if (!search || search.length === 0) return `No wikis found for "${query}".`;
+    if (!search || search.length === 0) {
+        console.log('[fandom] No wikis found', { query });
+        return `No wikis found for "${query}".`;
+    }
 
     const results: string[] = [];
     for (const r of search) {
@@ -116,16 +122,25 @@ async function findWiki(query: string): Promise<string> {
 
 async function searchWiki(wikiName: string, query: string): Promise<string> {
     const cleanName = cleanWikiName(wikiName);
-    if (!cleanName) return `Error: Invalid wiki_name "${wikiName}".`;
+    if (!cleanName) {
+        console.error('[fandom] Invalid wiki_name for searchWiki', { wikiName });
+        return `Error: Invalid wiki_name "${wikiName}".`;
+    }
 
     const url = `https://${cleanName}.fandom.com/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&format=json&origin=*`;
     const data = await fetchJson(url);
-    if (!data) return `Error: Could not reach wiki "${wikiName}". Verify the wiki name is correct.`;
+    if (!data) {
+        console.error('[fandom] Could not reach wiki for searchWiki', { wikiName, cleanName });
+        return `Error: Could not reach wiki "${wikiName}". Verify the wiki name is correct.`;
+    }
 
     const titles = (data as unknown as Array<unknown>)[1] as string[] | undefined;
     const links = (data as unknown as Array<unknown>)[3] as string[] | undefined;
 
-    if (!titles || titles.length === 0) return `No pages found for "${query}" on ${cleanName}.fandom.com.`;
+    if (!titles || titles.length === 0) {
+        console.log('[fandom] No pages found on wiki', { wikiName, cleanName, query });
+        return `No pages found for "${query}" on ${cleanName}.fandom.com.`;
+    }
 
     const results = titles.map((t, i) => `**${t}**\n${links?.[i] || ''}`);
     return `Pages found on ${cleanName}.fandom.com for "${query}":\n\n${results.join('\n\n')}`;
@@ -133,17 +148,27 @@ async function searchWiki(wikiName: string, query: string): Promise<string> {
 
 async function fetchPage(wikiName: string, pageTitle: string): Promise<string> {
     const cleanName = cleanWikiName(wikiName);
-    if (!cleanName) return `Error: Invalid wiki_name "${wikiName}".`;
+    if (!cleanName) {
+        console.error('[fandom] Invalid wiki_name for fetchPage', { wikiName });
+        return `Error: Invalid wiki_name "${wikiName}".`;
+    }
 
     const url = `https://${cleanName}.fandom.com/api.php?action=query&prop=extracts&explaintext=true&titles=${encodeURIComponent(pageTitle)}&format=json&origin=*`;
     const data = await fetchJson(url);
-    if (!data) return `Error: Could not reach wiki "${wikiName}". Verify the wiki name is correct.`;
+    if (!data) {
+        console.error('[fandom] Could not reach wiki for fetchPage', { wikiName, cleanName });
+        return `Error: Could not reach wiki "${wikiName}". Verify the wiki name is correct.`;
+    }
 
     const pages = (data.query as Record<string, unknown> | undefined)?.pages as Record<string, unknown> | undefined;
-    if (!pages) return `Error: Could not find page "${pageTitle}" on ${cleanName}.fandom.com.`;
+    if (!pages) {
+        console.error('[fandom] No pages data in response', { wikiName, cleanName, pageTitle });
+        return `Error: Could not find page "${pageTitle}" on ${cleanName}.fandom.com.`;
+    }
 
     const pageIds = Object.keys(pages);
     if (pageIds.length === 0 || pageIds[0] === '-1') {
+        console.log('[fandom] Page not found', { wikiName, cleanName, pageTitle });
         return `Error: Page "${pageTitle}" not found on ${cleanName}.fandom.com.`;
     }
 
@@ -151,7 +176,10 @@ async function fetchPage(wikiName: string, pageTitle: string): Promise<string> {
     const title = (page.title as string) || pageTitle;
     const extract = (page.extract as string) || '';
 
-    if (!extract) return `Error: Page "${pageTitle}" exists but has no extractable content.`;
+    if (!extract) {
+        console.log('[fandom] Page has no extractable content', { wikiName, pageTitle });
+        return `Error: Page "${pageTitle}" exists but has no extractable content.`;
+    }
 
     return `<!-- fetched from ${cleanName}.fandom.com: ${title} -->\n\n# ${title}\n\n${extract}`;
 }
@@ -163,7 +191,10 @@ export async function executeFandomSearch(args: Record<string, unknown>, ctx: To
     const query = (args.query as string || '').trim();
     const wikiName = (args.wiki_name as string || '').trim();
 
-    if (!query) return 'Error: No search query provided.';
+    if (!query) {
+        console.error('[fandom] No search query provided');
+        return 'Error: No search query provided.';
+    }
 
     if (mode === 'findWiki') {
         ctx.onStatus?.('Searching Fandom wikis...');
@@ -171,16 +202,23 @@ export async function executeFandomSearch(args: Record<string, unknown>, ctx: To
     }
 
     if (mode === 'searchWiki') {
-        if (!wikiName) return 'Error: wiki_name is required for searchWiki mode.';
+        if (!wikiName) {
+            console.error('[fandom] No wiki_name for searchWiki');
+            return 'Error: wiki_name is required for searchWiki mode.';
+        }
         ctx.onStatus?.('Searching wiki...');
         return searchWiki(wikiName, query);
     }
 
     if (mode === 'fetchPage') {
-        if (!wikiName) return 'Error: wiki_name is required for fetchPage mode.';
+        if (!wikiName) {
+            console.error('[fandom] No wiki_name for fetchPage');
+            return 'Error: wiki_name is required for fetchPage mode.';
+        }
         ctx.onStatus?.('Fetching article...');
         return fetchPage(wikiName, query);
     }
 
+    console.error('[fandom] Unknown mode', { mode });
     return 'Error: Mode must be "findWiki", "searchWiki", or "fetchPage".';
 }

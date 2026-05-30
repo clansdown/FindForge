@@ -4,6 +4,7 @@ import type { ToolDefinition, ToolExecutionContext } from '../lib/types';
 import { getClerkToken } from '../auth';
 import { USER_AGENT, CROSSREF_MAILTO } from '../lib/http';
 import { getFromCache, addToCache } from '../lib/docCache';
+import { toolErrorCache } from '../lib/toolErrorCache';
 
 export const WEB_FETCH_TOOL: ToolDefinition = {
     type: 'function',
@@ -106,6 +107,9 @@ interface FetchOptions {
 }
 
 export async function fetchUrl(url: string, token: string, options?: FetchOptions): Promise<string> {
+    const cachedError = toolErrorCache.get(url);
+    if (cachedError) return cachedError;
+
     let candidateHeaders: Record<string, string> | undefined;
     for (const candidate of DIRECT_FETCH_CANDIDATES) {
         if (candidate.canHandle(url)) {
@@ -177,68 +181,100 @@ async function fetchViaProxy(
     const body: Record<string, unknown> = { url };
     if (extraHeaders && Object.keys(extraHeaders).length > 0) body.headers = extraHeaders;
 
-    try {
-        const res = await fetch(WEB_PROXY_BASE_URL + '/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token,
-            },
-            body: JSON.stringify(body),
-            signal: AbortSignal.timeout(15000),
-        });
+    const MAX_RETRIES = 4;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            const res = await fetch(WEB_PROXY_BASE_URL + '/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token,
+                },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(15000),
+            });
 
-        if (res.ok) {
-            const html = await res.text();
-            console.log('[resources] fetchViaProxy success:', { url, htmlLength: html.length });
-            return extractContentFromHtml(html, url);
-        }
-
-        const respBody = await res.json().catch(() => ({}));
-        const code = respBody?.code as string | undefined;
-
-        if (res.status === 401) {
-            console.log('[resources] fetchViaProxy 401:', { url, code });
-            const freshToken = await getClerkToken({ skipCache: true });
-            if (freshToken) {
-                const retryRes = await fetch(WEB_PROXY_BASE_URL + '/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + freshToken,
-                    },
-                    body: JSON.stringify(body),
-                    signal: AbortSignal.timeout(15000),
-                });
-                if (retryRes.ok) {
-                    const html = await retryRes.text();
-                    return extractContentFromHtml(html, url);
-                }
-                return `Error: Proxy returned HTTP ${retryRes.status} (${code || 'unknown'}) for ${url}`;
+            if (res.ok) {
+                const html = await res.text();
+                console.log('[resources] fetchViaProxy success:', { url, htmlLength: html.length });
+                return extractContentFromHtml(html, url);
             }
-            return 'Error: Session expired — please sign in again.';
-        }
 
-        if (res.status === 429) {
-            const retryAfter = res.headers.get('Retry-After') || '60';
-            return `Error: Rate limited. Retry after ${retryAfter} seconds.`;
-        }
+            const respBody = await res.json().catch(() => ({}));
+            const code = respBody?.code as string | undefined;
 
-        if (res.status === 502) {
-            console.log('[resources] fetchViaProxy 502:', { url });
-            return `Error: Could not reach ${url}`;
-        }
+            if (res.status === 429 && attempt < MAX_RETRIES - 1) {
+                const retryAfterMs = parseInt(res.headers.get('Retry-After') || '0', 10) * 1000;
+                const delay = Math.max(retryAfterMs, Math.min(Math.pow(2, attempt) * 1000, 30000));
+                console.log(`[resources] fetchViaProxy 429 (attempt ${attempt + 1}/${MAX_RETRIES}) for ${url}, retrying in ${delay}ms`);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
 
-        console.log('[resources] fetchViaProxy unexpected status:', { url, status: res.status, code });
-        return `Error: Proxy returned HTTP ${res.status} (${code || 'unknown'}) for ${url}`;
-    } catch (e) {
-        if (e instanceof DOMException && e.name === 'TimeoutError') {
-            console.log('[resources] fetchViaProxy timeout:', { url });
-            return `Error: Request timed out for ${url}`;
+            if (res.status === 429) {
+                const err = `Error: Rate limited. Max retries reached for ${url}`;
+                toolErrorCache.set(url, err, 'transient');
+                return err;
+            }
+
+            if (res.status === 401) {
+                console.log('[resources] fetchViaProxy 401:', { url, code });
+                const freshToken = await getClerkToken({ skipCache: true });
+                if (freshToken) {
+                    const retryRes = await fetch(WEB_PROXY_BASE_URL + '/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + freshToken,
+                        },
+                        body: JSON.stringify(body),
+                        signal: AbortSignal.timeout(15000),
+                    });
+                    if (retryRes.ok) {
+                        const html = await retryRes.text();
+                        return extractContentFromHtml(html, url);
+                    }
+                    const err = `Error: Proxy returned HTTP ${retryRes.status} (${code || 'unknown'}) for ${url}`;
+                    toolErrorCache.set(url, err, 'permanent');
+                    return err;
+                }
+                const err = 'Error: Session expired — please sign in again.';
+                toolErrorCache.set(url, err, 'permanent');
+                return err;
+            }
+
+            if (res.status === 502) {
+                console.log('[resources] fetchViaProxy 502:', { url });
+                const err = `Error: Could not reach ${url}`;
+                toolErrorCache.set(url, err, 'permanent');
+                return err;
+            }
+
+            console.log('[resources] fetchViaProxy unexpected status:', { url, status: res.status, code });
+            const err = `Error: Proxy returned HTTP ${res.status} (${code || 'unknown'}) for ${url}`;
+            const category = res.status === 429 ? 'transient' : 'permanent';
+            toolErrorCache.set(url, err, category);
+            return err;
+        } catch (e) {
+            if (e instanceof DOMException && e.name === 'TimeoutError') {
+                if (attempt < MAX_RETRIES - 1) {
+                    console.log(`[resources] fetchViaProxy timeout (attempt ${attempt + 1}/${MAX_RETRIES}) for ${url}, retrying`);
+                    continue;
+                }
+                console.log('[resources] fetchViaProxy timeout exhausted:', { url });
+                const err = `Error: Request timed out for ${url}`;
+                toolErrorCache.set(url, err, 'transient');
+                return err;
+            }
+            console.log('[resources] fetchViaProxy network error:', { url, error: e instanceof Error ? e.message : String(e) });
+            const err = `Error: Proxy request failed for ${url}: ${e instanceof Error ? e.message : String(e)}`;
+            toolErrorCache.set(url, err, 'transient');
+            return err;
         }
-        console.log('[resources] fetchViaProxy network error:', { url, error: e instanceof Error ? e.message : String(e) });
-        return `Error: Proxy request failed for ${url}: ${e instanceof Error ? e.message : String(e)}`;
     }
+    const err = `Error: Rate limited. Max retries reached for ${url}`;
+    toolErrorCache.set(url, err, 'transient');
+    return err;
 }
 
 async function extractContentFromHtml(html: string, url: string): Promise<string> {

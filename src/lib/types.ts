@@ -421,6 +421,8 @@ export interface ResearchThread {
     handleGenerationData: (data: GenerationData) => void;
     resources?: Resource[];   // resources extracted from first pass
     toolCallRecords?: ToolCallRecord[]; // tool calls made during this thread
+    thinking?: string; // thinking extracted from <think> tags during research
+    error?: string; // if the thread failed, the error message
 }
 
 export interface Resource {
@@ -492,6 +494,9 @@ export interface DeepResearchResult {
     total_research_threads: number; // total number of research threads executed
     web_queries_per_thread: number; // number of web queries allowed per research thread
     research_threads_per_phase: number[]; // number of research threads in each phase
+    failedResearchThreads?: number; // number of threads that failed
+    researchThreadErrors?: Array<{ prompt: string; error: string }>; // details of failed threads
+    error?: { message: string }; // top-level research error
 }
 
 export function sanitizeDeepResearch(result: DeepResearchResult): DeepResearchResult {

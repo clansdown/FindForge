@@ -105,6 +105,11 @@
                         <p><strong>LLM Time Consumed:</strong> {formatTime(sanitizedDeepResearch!.total_generation_time)}</p>
                         <p><strong>Total Cost:</strong> {formatCost(sanitizedDeepResearch!.total_cost)}</p>
                         <p><strong>Research Phases:</strong> {sanitizedDeepResearch!.synthesisResults.length}</p>
+                        <p><strong>Research Threads:</strong> {sanitizedDeepResearch!.total_research_threads} total
+                            {#if sanitizedDeepResearch.failedResearchThreads}
+                                ({sanitizedDeepResearch.total_research_threads - sanitizedDeepResearch.failedResearchThreads} completed, {sanitizedDeepResearch.failedResearchThreads} failed)
+                            {/if}
+                        </p>
                         <p><strong>Reasoning Model:</strong> {sanitizedDeepResearch!.models.reasoning}</p>
                         <p><strong>Editor Model:</strong> {sanitizedDeepResearch!.models.editor}</p>
                         <p><strong>Researcher Model:</strong> {sanitizedDeepResearch!.models.researcher}</p>
@@ -112,6 +117,23 @@
                         <p><strong>Research Model:</strong> {sanitizedDeepResearch!.researchModel}</p>
                         <p><strong>Refining Model:</strong> {sanitizedDeepResearch!.refiningModel}</p>
                         <p><strong>Synthesis Model:</strong> {sanitizedDeepResearch!.synthesisModel}</p>
+
+                        {#if sanitizedDeepResearch.researchThreadErrors?.length}
+                            <details>
+                                <summary><strong>Thread Failures</strong> ({sanitizedDeepResearch.researchThreadErrors.length})</summary>
+                                {#each sanitizedDeepResearch.researchThreadErrors as err, i}
+                                    <p><strong>Thread {i+1}:</strong> {err.prompt}</p>
+                                    <pre>{err.error}</pre>
+                                {/each}
+                            </details>
+                        {/if}
+
+                        {#if sanitizedDeepResearch.error}
+                            <details>
+                                <summary><strong>Research Error</strong></summary>
+                                <pre>{sanitizedDeepResearch.error.message}</pre>
+                            </details>
+                        {/if}
                     </div>
                 {:else if activeTab === 'plan'}
                     <div class="tab-content">
@@ -154,7 +176,14 @@
                                         </button>
                                     </div>
                                     <pre>{selectedThread.prompt}</pre>
-                                    
+
+                                    {#if selectedThread.error}
+                                        <div class="thread-error">
+                                            <p><strong>Thread failed:</strong></p>
+                                            <pre>{selectedThread.error}</pre>
+                                        </div>
+                                    {/if}
+
                                     {#if selectedThread.firstPass}
                                         <div class="chat-result">
                                             <div class="chat-header">
@@ -211,6 +240,13 @@
                                     <p>No tools were called.</p>
                                 {/if}
                             </details>
+
+                            {#if selectedThread?.thinking}
+                                <details>
+                                    <summary><h5>Thinking</h5></summary>
+                                    <div class="thinking-content">{selectedThread.thinking}</div>
+                                </details>
+                            {/if}
                         </div>
                     </div>
                 {:else if activeTab === 'synthesis'}
@@ -567,10 +603,14 @@
     }
     .api-json {
         font-size: 0.7rem;
-        max-height: 300px;
+        max-height: 500px;
         overflow-y: auto;
         white-space: pre-wrap;
-        word-break: break-all;
+        word-break: break-word;
+        border: 1px solid #444;
+        border-radius: 4px;
+        padding: 0.5rem;
+        background: #1a1a1a;
     }
 
     .thinking-content {
@@ -582,5 +622,16 @@
         padding: 0.75rem;
         border-radius: 4px;
         margin-top: 0.25rem;
+    }
+
+    .thread-error {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: #2a1a1a;
+        border-radius: 4px;
+        border-left: 3px solid #c44;
+    }
+    .thread-error pre {
+        background: #1a0a0a;
     }
 </style>
