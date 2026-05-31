@@ -8,6 +8,12 @@ Answer the user's question helpfully and thoroughly.
 Mention information that is relevant to the user's question even if they didn't explicitly ask for it.
 If you are unsure about the answer, say so. If you don't know the answer, say so.`;
 
+export const QUICK_QUESTION_PROMPT =
+`You are a helpful assistant. Answer the user's question.
+Use the provided context when available to inform your answer.
+If you have a native chain-of-thought or reasoning mechanism, use it.
+Otherwise, wrap any reasoning in <think> and </think> tags before your answer.`;
+
 export const DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT = 
 `Address the user's question or goal directly. 
 The answer should be detailed, accurate, informative, clear, and dense, without omitting key details. 

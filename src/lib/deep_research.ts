@@ -509,14 +509,15 @@ export async function execute_research_thread(
         }
     ];
 
-    let firstPassContent: string;
-    let firstPassResult: ChatResult;
-    if (toolsAvailable) {
-        const messages: ApiCallMessage[] = [...messages_for_subquery];
-        const toolCallRecords: ToolCallRecord[] = [];
-        firstPassContent = '';
-        firstPassResult = null as unknown as ChatResult;
-        const maxIterations = config.maxToolIterations || 8;
+        let firstPassContent: string;
+        let firstPassResult: ChatResult;
+        if (toolsAvailable) {
+            const messages: ApiCallMessage[] = [...messages_for_subquery];
+            const toolCallRecords: ToolCallRecord[] = [];
+            firstPassContent = '';
+            firstPassResult = null as unknown as ChatResult;
+            const maxIterations = config.maxToolIterations || 8;
+            let threadCost = 0;
 
         for (let iteration = 0; iteration < maxIterations; iteration++) {
             const isLastAttempt = iteration >= maxIterations - 1;
@@ -540,6 +541,8 @@ export async function execute_research_thread(
                 reasoningEffort: config.deepResearchResearchEffort,
             });
 
+            threadCost += result.cost ?? 0;
+
             if (!firstPassResult) {
                 firstPassResult = {
                     requestID: result.requestID,
@@ -549,7 +552,10 @@ export async function execute_research_thread(
                     content: result.content,
                     annotations: result.annotations,
                     totalTokens: result.totalTokens,
+                    cost: result.cost,
                 };
+            } else {
+                firstPassResult.cost = (firstPassResult.cost ?? 0) + (result.cost ?? 0);
             }
 
             firstPassContent += result.content;

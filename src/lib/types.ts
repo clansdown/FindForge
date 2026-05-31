@@ -40,6 +40,8 @@ export class Config {
     toolsEnabled: boolean; // whether to enable tool calling
     enabledTools: string[]; // list of enabled tool names
     maxToolIterations: number; // max tool-calling loop iterations
+    quickQuestionModel: string; // model for Quick Question
+    quickQuestionReasoningEffort: 'none' | 'low' | 'medium' | 'high' | 'xhigh'; // thinking effort for Quick Question
     static defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT;
     static defaultDeepResearchSynthesisPrompt = DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT;
     static readonly defaultEnabledTools = [
@@ -65,8 +67,11 @@ export class Config {
         this.availableModels = [
             
             'deepseek/deepseek-chat-v4-flash',
+            'deepseek/deepseek-v4-pro',
             'google/gemini-2.5-pro-preview',
             'google/gemini-2.5-flash-preview-05-20',
+            'google/gemini-3.1-flash-lite',
+            'google/gemma-4-26b-a4b-it',
             'openai/gpt-4.1',
             'openai/o3',
             'anthropic/claude-sonnet-4',
@@ -98,6 +103,8 @@ export class Config {
         this.enabledTools = [...Config.defaultEnabledTools];
         this.maxToolIterations = 8;
         this.autoSave = true;
+        this.quickQuestionModel = 'google/gemma-4-26b-a4b-it';
+        this.quickQuestionReasoningEffort = this.defaultReasoningEffort;
 
         this.systemPrompts = [
             {
@@ -172,6 +179,10 @@ export class Config {
         if (!this.deepResearchResearchEffort) this.deepResearchResearchEffort = 'high';
         if (!this.deepResearchRefiningEffort) this.deepResearchRefiningEffort = 'high';
         if (!this.deepResearchSynthesisEffort) this.deepResearchSynthesisEffort = 'high';
+
+        // Ensure Quick Question fields (handles upgrades from older configs)
+        if (!this.quickQuestionModel) this.quickQuestionModel = this.defaultModel;
+        if (!this.quickQuestionReasoningEffort) this.quickQuestionReasoningEffort = this.defaultReasoningEffort;
     }
 }
 

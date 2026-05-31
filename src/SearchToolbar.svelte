@@ -1,7 +1,9 @@
 <script lang="ts">
   export let position: { top: number, left: number, bottom: number };
   export let selectedText: string;
+  export let context: string = '';
   export let onInternalSearch: (text: string) => void;
+  export let onQuickQuestion: (text: string, context: string) => void;
   export let searchEngine: string;
 
   function searchWikipedia() {
@@ -38,6 +40,7 @@
   <button on:click={() => onInternalSearch("what is " + selectedText)} title="Internal Search">🔍</button>
   <button on:click={searchWikipedia} title="Search Wikipedia">W</button>
   <button on:click={searchWeb} title="Web Search">🌐</button>
+  <button on:click={() => onQuickQuestion(selectedText, context)} title="Quick Question">Ⓠ</button>
 </div>
 
 <style>

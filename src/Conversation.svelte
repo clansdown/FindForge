@@ -5,6 +5,7 @@
     import { createToolRegistry } from "./lib/tools";
     import { doDeepResearch } from "./lib/deep_research";
     import ConversationToolbar from "./ConversationToolbar.svelte";
+    import QuickQuestion from "./lib/QuickQuestion.svelte";
     import { generateID, formatModelName, extractConversationReferences, isBraveOrChromium } from "./lib/util";
     import { availableModelsStore } from "./lib/availableModelsStore";
     import MarkdownIt from "markdown-it";
@@ -68,6 +69,7 @@
     let showScrollToBottom = false;
     let selectionRect: { top: number; left: number; bottom: number } | null = null;
     let selectedText = "";
+    let selectedContext = "";
     let hoveredMessageId: string | null = null;
     let currentMessageContext: Attachment[] = []; // stores attached files
     let deepSearch = false; // controls deep search mode
@@ -85,6 +87,8 @@
     let allConversationResources: Resource[] = [];
     let allConversationAnnotations: Annotation[] = [];
     let showAllResources = false;
+    let showQuickQuestion = false;
+    let quickQuestionInit: { text: string; context: string; allowTools: boolean } = { text: '', context: '', allowTools: true };
 
     isBraveOrChromium().then(result => { console.log(result); supportsWebSpeechTranscription = !result});
     
@@ -279,6 +283,7 @@
             bottom: rect.bottom - parentRect.top,
         };
         selectedText = selection.toString();
+        selectedContext = getContextFromSelection();
     }
 
     function doInternalSearch(text: string) {
@@ -299,6 +304,26 @@
         currentConversation.messages = currentConversation.messages;
         if (localConfig.autoSave)
             saveConversation(currentConversation);
+    }
+
+    function getContextFromSelection(): string {
+        const sel = window.getSelection();
+        if (!sel?.anchorNode) return '';
+        let el = sel.anchorNode instanceof Element
+            ? sel.anchorNode
+            : sel.anchorNode.parentElement;
+        while (el && !el.hasAttribute('data-message-id')) {
+            el = el.parentElement;
+        }
+        if (!el) return '';
+        const msg = currentConversation.messages.find(m => m.id === el.getAttribute('data-message-id'));
+        return msg?.role === 'assistant' ? msg.content : '';
+    }
+
+    function openQuickQuestion(text: string, context = '', allowTools = true) {
+        quickQuestionInit = { text, context, allowTools };
+        showQuickQuestion = true;
+        clearSelection();
     }
 
     async function regenerateMessage(message: MessageData) {
@@ -819,20 +844,22 @@
         {/if}
     </div>
     <!-- Toolbar goes here -->
-    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions applicationMode={applicationMode} />
+    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions applicationMode={applicationMode} onQuickQuestion={() => openQuickQuestion('')} />
 
     <!-- Conversation content will go here -->
     <div class="conversation-window">
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <div bind:this={conversationDiv} class="conversation-content" role="region" on:scroll={handleScroll} on:mouseup={handleTextSelection}>
             {#each currentConversation.messages as message (message.id)}
-                <Message
-                    message={message}
-                    conversationTitle={currentConversation.title}
-                    onEdit={editUserMessage}
-                    onToggleHidden={toggleMessageHidden}
-                    onRegenerate={regenerateMessage}
-                />
+                <div data-message-id={message.id}>
+                    <Message
+                        message={message}
+                        conversationTitle={currentConversation.title}
+                        onEdit={editUserMessage}
+                        onToggleHidden={toggleMessageHidden}
+                        onRegenerate={regenerateMessage}
+                    />
+                </div>
                 
             {:else}
                 <center>(Type your message below and hit send to get started.)</center>
@@ -843,7 +870,7 @@
             <button class="scroll-to-bottom" on:click={scrollToBottom}> ↓ </button>
         {/if}
         {#if selectionRect}
-            <SearchToolbar position={selectionRect} {selectedText} onInternalSearch={doInternalSearch} searchEngine={localConfig.searchEngine} />
+            <SearchToolbar position={selectionRect} {selectedText} context={selectedContext} onInternalSearch={doInternalSearch} onQuickQuestion={(text, ctx) => openQuickQuestion('what is/are ' + text, ctx)} searchEngine={localConfig.searchEngine} />
         {/if}
     </div>
 
@@ -912,6 +939,18 @@
         onClose={() => showAllResources = false}
     />
 {/if}
+
+{#key showQuickQuestion}
+<QuickQuestion
+    show={showQuickQuestion}
+    initialText={quickQuestionInit.text}
+    context={quickQuestionInit.context}
+    allowTools={quickQuestionInit.allowTools}
+    config={localConfig}
+    models={models}
+    onClose={() => showQuickQuestion = false}
+/>
+{/key}
 
 <!------------------------------------------------------------------------------------------------------------------------------------------------->
 

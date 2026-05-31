@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [
     svelte(),
   ],
+  optimizeDeps: {
+    exclude: ['pdfjs-dist'],
+  },
   server: {
     proxy: {
       '/storage': {

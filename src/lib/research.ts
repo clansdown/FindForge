@@ -412,7 +412,7 @@ async function doStandardResearchWithTools(
 
         const generationData: GenerationData | undefined = lastResult ? {
             id: lastResult.requestID || '',
-            total_cost: lastResult.cost ?? 0,
+            total_cost: toolRounds.reduce((sum, r) => sum + (r.cost ?? 0), 0),
             model: lastResult.model || config.defaultModel,
             generation_time: Date.now() - researchStartTime,
             provider_name: '',

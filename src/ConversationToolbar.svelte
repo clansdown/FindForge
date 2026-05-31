@@ -15,6 +15,7 @@
     export let deepSearchStrategy: "auto" | "deep" | "broad" = "auto"; // bound from parent
     export let experimentationOptions: ExperimentationOptions; // bound from parent
     export let applicationMode: Writable<ApplicationMode>; // bound from parent
+    export let onQuickQuestion: () => void = () => {};
 
     let allModels: Model[] = [];
     let modelFilter = "";
@@ -168,6 +169,9 @@
             <PushButton title="Auto-save topics" bind:pushed={config.autoSave} on:toggle={() => config.autoSave = !config.autoSave}>💾</PushButton>
         </label>
 
+    </div>
+    <div class="toolbar-group">
+        <button class="toolbar-button" on:click={onQuickQuestion} title="Quick Question">Ⓠ</button>
     </div>
 </div>
 

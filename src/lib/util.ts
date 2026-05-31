@@ -1,4 +1,4 @@
-import type { Annotation, ConversationData, Resource } from "./types";
+import type { Annotation, Config, ConversationData, Model, Resource } from "./types";
 
 export async function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -72,5 +72,23 @@ export async function isBraveOrChromium(): Promise<boolean> {
     console.log("User Agent:", navigator.userAgent);
     return (nav.brave?.isBrave?.() ?? Promise.resolve(false)) ||
            /Chromium/.test(navigator.userAgent);
+}
+
+export function resolveQuickQuestionModel(config: Config, models: Model[]): string {
+    const enabledModels = models.filter(m => m.allowed);
+    if (enabledModels.length === 0) return config.defaultModel;
+
+    if (config.quickQuestionModel && enabledModels.some(m => m.id === config.quickQuestionModel)) {
+        return config.quickQuestionModel;
+    }
+
+    if (config.defaultModel && enabledModels.some(m => m.id === config.defaultModel)) {
+        return config.defaultModel;
+    }
+
+    const sorted = [...enabledModels].sort((a, b) => {
+        return parseFloat(a.pricing.prompt) - parseFloat(b.pricing.prompt);
+    });
+    return sorted[0].id;
 }
 

@@ -657,6 +657,29 @@
             </select>
         </div>
 
+        <hr />
+        <h4>Quick Question</h4>
+        <div class="form-group">
+            <label for="quick-question-model">Model:</label>
+            <select id="quick-question-model" bind:value={localConfig.quickQuestionModel}>
+                {#each availableModels as model}
+                    <option value={model.id}>
+                        {formatModelLabel(model)}
+                    </option>
+                {/each}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="quick-question-effort">Reasoning Effort:</label>
+            <select id="quick-question-effort" bind:value={localConfig.quickQuestionReasoningEffort}>
+                <option value="none">None</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">Max</option>
+            </select>
+        </div>
+
         <div class="form-group">
             <h4>Available Models:</h4>
             <div class="filters">
