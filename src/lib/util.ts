@@ -76,11 +76,12 @@ export async function isBraveOrChromium(): Promise<boolean> {
 
 export function extractRatings(content: string): Map<string, number> {
     const ratings = new Map<string, number>();
-    const regex = /<RATING\s+(?:tool_call_id|tool|tool_name)="([^"]+)"\s+score="(\d+)"\s*\/>/gi;
+    const tagRe = /<RATING\s[^>]*\/?>/gi;
     let match;
-    while ((match = regex.exec(content)) !== null) {
-        const val = parseInt(match[2], 10);
-        if (val >= 1 && val <= 10) ratings.set(match[1], val);
+    while ((match = tagRe.exec(content)) !== null) {
+        const id = match[0].match(/(?:tool_call_id|tool|tool_name)="([^"]+)"/i)?.[1];
+        const score = parseInt(match[0].match(/score="(\d+)"/i)?.[1] || '0', 10);
+        if (id && score >= 1 && score <= 10) ratings.set(id, score);
     }
     return ratings;
 }
@@ -96,7 +97,7 @@ export function lookupRating(
 export function stripRatings(content: string): string {
     return content
         .replace(/<ratings>[\s\S]*?<\/ratings>/gi, '')
-        .replace(/<RATING\s+(?:tool_call_id|tool|tool_name)="[^"]*"\s+score="\d+"\s*\/>/gi, '');
+        .replace(/<RATING\s[^>]*\/?>/gi, '');
 }
 
 export function resolveQuickQuestionModel(config: Config, models: Model[]): string {

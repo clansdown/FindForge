@@ -16,7 +16,7 @@
     export let show: boolean;
     export let initialText: string = '';
     export let context: string = '';
-    export let allowTools: boolean = true;
+    export let allowTools: boolean = false;
     export let config: Config;
     export let onClose: () => void;
 
@@ -189,6 +189,22 @@
                                     };
                                 }
                             }
+                        }
+                    }
+                }
+
+                // Select top 8 tool results to include in context
+                const progress = qaPairs[currentIndex].toolCallProgress;
+                const hasRatings = progress.some(p => p.rating != null);
+                const selected = hasRatings
+                    ? [...progress].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 8)
+                    : progress.slice(-8);
+                const selectedIds = new Set(selected.map(p => p.id));
+                for (let i = 0; i < apiMessages.length; i++) {
+                    const msg = apiMessages[i];
+                    if (msg.role === 'tool' && msg.tool_call_id && !selectedIds.has(msg.tool_call_id)) {
+                        if (!msg.content?.[0]?.text?.startsWith('[RATED')) {
+                            apiMessages[i] = { ...msg, content: [{ type: 'text', text: '[NOT INCLUDED — context limit]' }] };
                         }
                     }
                 }

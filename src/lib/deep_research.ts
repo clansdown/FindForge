@@ -585,6 +585,21 @@ export async function execute_research_thread(
                 }
             }
 
+            // Select top 8 tool results to include in context
+            const hasRatings = toolCallRecords.some(r => r.rating != null);
+            const selected = hasRatings
+                ? [...toolCallRecords].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 8)
+                : toolCallRecords.slice(-8);
+            const selectedIds = new Set(selected.map(r => r.id));
+            for (let i = 0; i < messages.length; i++) {
+                const msg = messages[i];
+                if (msg.role === 'tool' && msg.tool_call_id && !selectedIds.has(msg.tool_call_id)) {
+                    if (!msg.content?.[0]?.text?.startsWith('[RATED')) {
+                        messages[i] = { ...msg, content: [{ type: 'text', text: '[NOT INCLUDED — context limit]' }] };
+                    }
+                }
+            }
+
             if (result.finishReason !== 'tool_calls' || !result.toolCalls || result.toolCalls.length === 0) {
                 break;
             }

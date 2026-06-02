@@ -13,22 +13,25 @@ export const WIKIPEDIA_TOOL: ToolDefinition = {
         parameters: {
             type: 'object',
             properties: {
+                query: {
+                    type: 'string',
+                    description:
+                        'Search keywords or topic name. If provided without "mode" it implies search mode.',
+                },
+                title: {
+                    type: 'string',
+                    description:
+                        'The exact article title (e.g. "Quantum mechanics", "Turing machine"). ' +
+                        'If provided without "mode" it implies fetch mode. ' +
+                        'Also accepts a full Wikipedia URL (e.g. "https://en.wikipedia.org/wiki/Quantum_mechanics").',
+                },
                 mode: {
                     type: 'string',
                     enum: ['search', 'fetch'],
                     description:
                         '"search" — find articles matching your query and return summaries. ' +
-                        '"fetch" — retrieve the full text of a specific article by title.',
-                },
-                query: {
-                    type: 'string',
-                    description: 'Required when mode="search". Search keywords or topic name.',
-                },
-                title: {
-                    type: 'string',
-                    description:
-                        'Required when mode="fetch". The exact article title (e.g. "Quantum mechanics", "Turing machine"). ' +
-                        'Also accepts a full Wikipedia URL (e.g. "https://en.wikipedia.org/wiki/Quantum_mechanics").',
+                        '"fetch" — retrieve the full text of a specific article by title. ' +
+                        'If omitted, inferred from whether "query" (→ search) or "title" (→ fetch) is present.',
                 },
                 limit: {
                     type: 'integer',
@@ -36,18 +39,22 @@ export const WIKIPEDIA_TOOL: ToolDefinition = {
                     default: 10,
                 },
             },
-            required: ['mode'],
         },
     },
     displayName: 'Wikipedia',
     formatArgs(args) {
-        const mode = (args.mode as string) || '';
-        if (mode === 'search') return (args.query as string) || '';
+        const mode = (args.mode as string) || (args.query ? 'search' : args.title ? 'fetch' : '');
+        if (mode === 'search') return `Searching for ${args.query as string}`;
         if (mode === 'fetch') return (args.title as string) || '';
         return mode;
     },
     formatResult(result) {
         if (result.startsWith('Error:')) return result;
+        const searchMatch = result.match(/Search results for "([^"]+)"/);
+        if (searchMatch) {
+            const count = (result.match(/^\*\*/gm) || []).length;
+            return `Found ${count} results for "${searchMatch[1]}"`;
+        }
         if (result.startsWith('<!-- fetched from Wikipedia')) {
             const titleMatch = result.match(/^# (.+)/m);
             const title = titleMatch ? titleMatch[1].slice(0, 50) : 'Article';
@@ -102,7 +109,7 @@ async function searchArticles(query: string, limit: number): Promise<string> {
         console.log('[wikipedia] No detailed results from summaries', { query });
         return `No detailed results for "${query}".`;
     }
-    return summaries.join('\n\n');
+    return `${summaries.join('\n\n')}\n\nSearch results for "${query}"`;
 }
 
 // ── Fetch mode ──
@@ -159,7 +166,7 @@ async function fetchArticle(rawTitle: string): Promise<string> {
 // ── Executor ──
 
 export async function executeWikipedia(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {
-    const mode = (args.mode as string) || '';
+    const mode = (args.mode as string) || (args.query ? 'search' : args.title ? 'fetch' : '');
 
     if (mode === 'search') {
         const query = (args.query as string || '').trim();

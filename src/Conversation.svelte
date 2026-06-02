@@ -88,7 +88,7 @@
     let allConversationAnnotations: Annotation[] = [];
     let showAllResources = false;
     let showQuickQuestion = false;
-    let quickQuestionInit: { text: string; context: string; allowTools: boolean } = { text: '', context: '', allowTools: true };
+    let quickQuestionInit: { text: string; context: string; allowTools: boolean } = { text: '', context: '', allowTools: false };
 
     isBraveOrChromium().then(result => { console.log(result); supportsWebSpeechTranscription = !result});
     
@@ -320,7 +320,7 @@
         return msg?.role === 'assistant' ? msg.content : '';
     }
 
-    function openQuickQuestion(text: string, context = '', allowTools = true) {
+    function openQuickQuestion(text: string, context = '', allowTools = false) {
         quickQuestionInit = { text, context, allowTools };
         showQuickQuestion = true;
         clearSelection();

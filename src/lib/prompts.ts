@@ -121,10 +121,11 @@ You can call multiple tools at once in a single response — this is faster and 
 Only wrap your answer in <answer> and </answer> tags when you are certain you
 do not need to call any more tools — that is, when this is your final response.
 
-After your <answer> section, output a <ratings> section. Rate each tool call
-result from 1 (useless — error, empty, irrelevant) to 10 (extremely useful —
-exactly what you needed) using <rating tool_call_id="..." score="N"/> per tool
-call.
+After your <answer> section, you MUST output a <ratings> section. EVERY tool
+call result you received must be rated. Rate each from 1 (useless — error,
+empty, irrelevant) to 10 (extremely useful — exactly what you needed) using
+<rating tool_call_id="..." score="N"/> per tool call. Do not skip any tool
+call result.
 
 Scoring examples:
 
