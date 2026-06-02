@@ -1,10 +1,11 @@
 import { parse } from 'svelte/compiler';
-import { callOpenRouterChat, callOpenRouterWithTools } from './models';
+import { callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
 import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo } from './types';
 import { ToolRegistry } from './tools';
 import { DEFAULT_SYSTEM_PROMPT, TOOL_LIMIT_INSTRUCTION, buildToolAddendum, TRUNCATION_NOTICE } from './prompts';
 import { addToCache } from './docCache';
+import { extractRatings, lookupRating, stripRatings } from './util';
 
 export function convertMessageToApiCallMessage(message: MessageData): ApiCallMessage {
     const contentParts: ApiCallMessage['content'] = [];
@@ -54,8 +55,16 @@ export function convertMessageToApiCallMessage(message: MessageData): ApiCallMes
     return result;
 }
 
-export function convertToolCallsToToolMessages(toolCalls: ToolCallRecord[]): ApiCallMessage[] {
-    return toolCalls.map(tc => ({
+export function convertToolCallsToToolMessages(toolCalls: ToolCallRecord[], filterLowRated = false): ApiCallMessage[] {
+    const filtered = filterLowRated
+        ? toolCalls.map(tc => ({
+              ...tc,
+              result: tc.rating != null && tc.rating < 5
+                  ? `[RATED ${tc.rating}/10 SO NOT INCLUDED]`
+                  : tc.result,
+          }))
+        : toolCalls;
+    return filtered.map(tc => ({
         role: 'tool',
         tool_call_id: tc.id,
         content: [{ type: 'text', text: tc.result }],
@@ -101,11 +110,11 @@ export function parseStructuredContent(content: string): { answer: string; think
         working = working.replace(openRe, '').trim();
     }
 
-    // Strip any trailing partial tags that may be split across chunks (e.g. <think, </think, <ANSWER)
+    // Strip any trailing partial tags that may be split across chunks (e.g. <think, </think, <answer)
     working = working.replace(/(?:<[a-zA-Z\/]+)+$/, '').trim();
 
-    const closedAnswerMatch = working.match(/<ANSWER>([\s\S]*?)<\/ANSWER>/);
-    const openAnswerMatch = !closedAnswerMatch ? working.match(/<ANSWER>([\s\S]*)$/) : null;
+    const closedAnswerMatch = working.match(/<ANSWER>([\s\S]*?)<\/ANSWER>/i);
+    const openAnswerMatch = !closedAnswerMatch ? working.match(/<ANSWER>([\s\S]*)$/i) : null;
     let answer: string;
 
     if (closedAnswerMatch) {
@@ -117,13 +126,13 @@ export function parseStructuredContent(content: string): { answer: string; think
         const beforeAnswer = working.substring(0, openAnswerMatch.index).trim();
         if (beforeAnswer) reasoningChunks.push(beforeAnswer);
     } else {
-        const resourcesIdx = working.indexOf('<RESOURCES>');
+        const resourcesIdx = working.toLowerCase().indexOf('<resources>');
         answer = resourcesIdx !== -1
             ? working.substring(0, resourcesIdx).trim()
             : working;
     }
 
-    const resourcesIdx = answer.indexOf('<RESOURCES>');
+    const resourcesIdx = answer.toLowerCase().indexOf('<resources>');
     if (resourcesIdx !== -1) {
         answer = answer.substring(0, resourcesIdx).trim();
     }
@@ -173,7 +182,7 @@ async function doStandardResearchWithTools(
             if (!m.hidden) {
                 messagesForAPI.push(convertMessageToApiCallMessage(m));
                 if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0 && !m.deepResearchResult) {
-                    messagesForAPI.push(...convertToolCallsToToolMessages(m.toolCalls));
+                    messagesForAPI.push(...convertToolCallsToToolMessages(m.toolCalls, true));
                 }
             }
         }
@@ -185,6 +194,8 @@ async function doStandardResearchWithTools(
     let lastResult: CompletionResult | null = null;
     const allAnnotations: Annotation[] = [];
     const maxIterations = config.maxToolIterations || 8;
+    let lastRoundToolCount = 0;
+    const toolCallProgressItems: ToolCallProgress[] = [];
     console.log(`[Tools] Starting tool-calling loop: maxIterations=${maxIterations}, tools=[${tools.map(t => t.function.name).join(', ')}]`);
 
     try {
@@ -233,38 +244,59 @@ async function doStandardResearchWithTools(
                 onStatus,
                 signal: abortController?.signal,
                 reasoningEffort: config.defaultReasoningEffort,
+                onAttempt: (info) => {
+                    toolRounds.push(info);
+                },
             });
             lastResult = result;
             const costStr = result.cost != null ? `$${result.cost.toFixed(6)}` : 'N/A';
             const tokStr = result.totalTokens != null ? `${result.totalTokens} (p${result.promptTokens ?? 0}+c${result.completionTokens ?? 0})` : 'N/A';
             console.log(`[Tools] [${iteration + 1}/${maxIterations}] response: finish=${result.finishReason}, model=${result.model}, cost=${costStr}, tokens=${tokStr}`);
-            toolRounds.push({
-                promptTokens: result.promptTokens,
-                completionTokens: result.completionTokens,
-                cost: result.cost,
-                model: result.model,
-                finishReason: result.finishReason,
-                durationMs: Date.now() - callStartTime,
-                requestBody: result.requestBody,
-                responseBody: JSON.stringify({
-                    id: result.requestID,
-                    model: result.model,
-                    choices: [{
-                        finish_reason: result.finishReason,
-                        message: {
-                            content: result.content,
-                            tool_calls: result.toolCalls,
-                        },
-                    }],
-                    usage: {
-                        prompt_tokens: result.promptTokens,
-                        completion_tokens: result.completionTokens,
-                        total_tokens: result.totalTokens,
-                    },
-                }),
-            });
+            if (result.error) {
+                console.warn(`[Tools] [${iteration + 1}/${maxIterations}] API error: ${result.error}`);
+            }
             if (result.annotations) {
                 allAnnotations.push(...result.annotations);
+            }
+
+            // Parse inline ratings from generation response for all prior tool calls
+            const ratings = extractRatings((result.content ?? '') + (result.reasoningContent ?? ''));
+            if (ratings.size > 0) {
+                console.log(`[ToolRating] Parsed ${ratings.size} ratings`);
+                for (const tc of toolCallRecords) {
+                    const rating = lookupRating(ratings, tc.id, tc.name);
+                    if (rating != null) {
+                        tc.rating = rating;
+                        console.log(`[ToolRating] ${tc.name} (${tc.id}): ${rating}/10`);
+                        const progressItem = toolCallProgressItems.find(p => p.id === tc.id);
+                        if (progressItem) {
+                            progressItem.rating = rating;
+                            onToolCallProgress?.({ ...progressItem });
+                        }
+                        if (rating < 5) {
+                            const toolMsgIdx = messagesForAPI.findIndex(
+                                m => m.role === 'tool' && m.tool_call_id === tc.id,
+                            );
+                            if (toolMsgIdx >= 0) {
+                                messagesForAPI[toolMsgIdx] = {
+                                    ...messagesForAPI[toolMsgIdx],
+                                    content: [{ type: 'text', text: `[RATED ${rating}/10 SO NOT INCLUDED]` }],
+                                };
+                            }
+                        }
+                    }
+                }
+                // Back-fill ratings into toolRounds toolResults
+                for (const round of toolRounds) {
+                    if (round.toolResults) {
+                        for (const tr of round.toolResults) {
+                            const rated = toolCallRecords.find(r => r.id === tr.id);
+                            if (rated?.rating != null) {
+                                tr.rating = rated.rating;
+                            }
+                        }
+                    }
+                }
             }
 
             if (result.finishReason !== 'tool_calls' || !result.toolCalls || result.toolCalls.length === 0) {
@@ -275,6 +307,8 @@ async function doStandardResearchWithTools(
             // Record and execute tool calls
             console.log(`[Tools] [${iteration + 1}/${maxIterations}] LLM requested ${result.toolCalls.length} tools: ${result.toolCalls.map(t => t.function.name).join(', ')}`, result.toolCalls);
             if (onThinking) onThinking('\n\n---\n');
+
+            lastRoundToolCount = result.toolCalls.length;
 
             const assistantMsg: ApiCallMessage = {
                 role: 'assistant',
@@ -291,14 +325,16 @@ async function doStandardResearchWithTools(
                     const def = toolRegistry.getDefinition(tc.function.name);
                     let parsedArgs: Record<string, unknown>;
                     try { parsedArgs = JSON.parse(tc.function.arguments || '{}'); } catch { parsedArgs = {}; }
-                    onToolCallProgress({
+                    const progress: ToolCallProgress = {
                         id: tc.id,
                         name: tc.function.name,
                         displayName: def?.displayName || tc.function.name,
                         args: parsedArgs,
                         formattedArgs: def?.formatArgs(parsedArgs),
                         status: 'running',
-                    });
+                    };
+                    toolCallProgressItems.push(progress);
+                    onToolCallProgress(progress);
                 }
             }
 
@@ -380,6 +416,16 @@ async function doStandardResearchWithTools(
             }
 
             console.log(`[Tools] [${iteration + 1}/${maxIterations}] call complete: ${result.toolCalls.length} tool(s) executed`);
+            // Attach tool results to the last API call round
+            if (toolRounds.length > 0 && lastRoundToolCount > 0) {
+                toolRounds[toolRounds.length - 1].toolResults = toolCallRecords.slice(-lastRoundToolCount).map(r => ({
+                    id: r.id,
+                    name: r.name,
+                    result: r.result,
+                    durationMs: r.durationMs,
+                    rating: r.rating,
+                }));
+            }
             onStatus('');
             iteration++;
 
@@ -393,8 +439,8 @@ async function doStandardResearchWithTools(
         if (finalContent) {
             console.log('[resources] finalContent before parse:', {
                 length: finalContent.length,
-                containsResourceTag: finalContent.includes('<RESOURCE>'),
-                containsRESOURCESTag: finalContent.includes('<RESOURCES>'),
+                containsResourceTag: /<RESOURCE>/i.test(finalContent),
+                containsRESOURCESTag: /<RESOURCES>/i.test(finalContent),
                 finalContent,
             });
             const parsed = parseResourcesFromContent(finalContent);
@@ -405,7 +451,7 @@ async function doStandardResearchWithTools(
         if (finalContent) {
             const { answer, thinking: remainingThinking } = parseStructuredContent(finalContent);
             if (remainingThinking && onThinking) onThinking(remainingThinking);
-            finalContent = answer;
+            finalContent = stripRatings(answer);
         }
 
         onStatus('Research completed');
@@ -508,7 +554,7 @@ export async function doParallelResearch(
             if (!m.hidden) {
                 baseMessages.push(convertMessageToApiCallMessage(m));
                 if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0 && !m.deepResearchResult) {
-                    baseMessages.push(...convertToolCallsToToolMessages(m.toolCalls));
+                    baseMessages.push(...convertToolCallsToToolMessages(m.toolCalls, true));
                 }
             }
         }

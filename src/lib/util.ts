@@ -74,6 +74,31 @@ export async function isBraveOrChromium(): Promise<boolean> {
            /Chromium/.test(navigator.userAgent);
 }
 
+export function extractRatings(content: string): Map<string, number> {
+    const ratings = new Map<string, number>();
+    const regex = /<RATING\s+(?:tool_call_id|tool|tool_name)="([^"]+)"\s+score="(\d+)"\s*\/>/gi;
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+        const val = parseInt(match[2], 10);
+        if (val >= 1 && val <= 10) ratings.set(match[1], val);
+    }
+    return ratings;
+}
+
+export function lookupRating(
+    ratings: Map<string, number>,
+    tcId: string,
+    tcName: string,
+): number | undefined {
+    return ratings.get(tcId) ?? ratings.get(tcName);
+}
+
+export function stripRatings(content: string): string {
+    return content
+        .replace(/<ratings>[\s\S]*?<\/ratings>/gi, '')
+        .replace(/<RATING\s+(?:tool_call_id|tool|tool_name)="[^"]*"\s+score="\d+"\s*\/>/gi, '');
+}
+
 export function resolveQuickQuestionModel(config: Config, models: Model[]): string {
     const enabledModels = models.filter(m => m.allowed);
     if (enabledModels.length === 0) return config.defaultModel;

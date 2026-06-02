@@ -24,28 +24,30 @@ Focus on clear, precise, and factual prose with section headings, but use tables
 // ── Resource Instructions (appended to most prompts) ──
 
 export const RESOURCE_INSTRUCTIONS = 
-`First, wrap your answer to the user in <ANSWER> and </ANSWER> tags. 
-You may wrap any reasoning or chain-of-thought in <think> and </think> tags before the <ANSWER> section.
+`First, wrap your answer to the user in <answer> and </answer> tags. 
+You may wrap any reasoning or chain-of-thought in <think> and </think> tags before the <answer> section.
 
-After you are done with that, add a section that begins with <RESOURCES> and ends with </RESOURCES>. 
-Inside of the RESOURCES section, provide a list of the resources you used to gather information. 
+After your <answer> section, output a <ratings> section to rate any tool calls you made.
 
-Each resource should begin with <RESOURCE> and end with </RESOURCE>. 
+After you are done with that, add a section that begins with <resources> and ends with </resources>. 
+Inside of the resources section, provide a list of the resources you used to gather information. 
 
-The resource should begin with the URL wrapped in <URL> and </URL> tags. 
+Each resource should begin with <resource> and end with </resource>. 
 
-Include relevant information from the resource such as the title (wrapped in <TITLE> </TITLE> tags), 
-author or authors (wrapped in <AUTHOR> </AUTHOR> tags), and date (wrapped in <DATE> </DATE> tags). 
+The resource should begin with the URL wrapped in <url> and </url> tags. 
+
+Include relevant information from the resource such as the title (wrapped in <title> </title> tags), 
+author or authors (wrapped in <author> </author> tags), and date (wrapped in <date> </date> tags). 
 
 Also give a description of the kind of resource it is (e.g. journal article, scientific study, personal blog post, 
-professional blog post, corporate blog post, news article, etc.) wrapped in <TYPE> and </TYPE> tags. 
+professional blog post, corporate blog post, news article, etc.) wrapped in <type> and </type> tags. 
 
 Indicate why the resource was written and published, especially if it is meant to persuade, educate, get business, advertise, 
-provide SEO chum, etc. wrapped in <PURPOSE> and </PURPOSE> tags. 
+provide SEO chum, etc. wrapped in <purpose> and </purpose> tags. 
 
-Include a two to four sentence rich and descriptive summary of the resource wrapped in <SUMMARY> and </SUMMARY> tags.
+Include a two to four sentence rich and descriptive summary of the resource wrapped in <summary> and </summary> tags.
 
-Remember to output <RESOURCES> before you output any of the individual resources, and to output </RESOURCES> after you output all of the individual resources.`;
+Remember to output <resources> before you output any of the individual resources, and to output </resources> after you output all of the individual resources.`;
 
 // ── Strategy Determination ──
 
@@ -89,15 +91,15 @@ export const REFINEMENT_PROMPT =
 // ── Synthesis ──
 
 export const SYNTHESIS_PROMPT_INITIAL = 
-`You are an expert researcher and analyst. Analyze the research results and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <think> and </think> tags. Wrap the answer for the user in <ANSWER> and </ANSWER> tags. `;
+`You are an expert researcher and analyst. Analyze the research results and synthesize them into an answer to the user's question or goal. Wrap any reasoning prior to the answer in <think> and </think> tags. Wrap the answer for the user in <answer> and </answer> tags. `;
 
 export const SYNTHESIS_PROMPT_REFINEMENT = 
-`You are an expert researcher and analyst. Analyze the previous answer to the user's question or goal in light of the new research results and refine the answer to create an improved answer. Focus on addressing any gaps, weaknesses, or inaccuracies in the previous answer. Prefer expanding the answer to removing anything. Wrap any reasoning prior to the answer in <think> and </think> tags. Wrap the refined answer for the user in <ANSWER> and </ANSWER> tags. `;
+`You are an expert researcher and analyst. Analyze the previous answer to the user's question or goal in light of the new research results and refine the answer to create an improved answer. Focus on addressing any gaps, weaknesses, or inaccuracies in the previous answer. Prefer expanding the answer to removing anything. Wrap any reasoning prior to the answer in <think> and </think> tags. Wrap the refined answer for the user in <answer> and </answer> tags. `;
 
 export const TOOL_LIMIT_INSTRUCTION = 
 `You have reached the maximum number of tool calls. No more tools are available. 
 Please generate your final answer to the user's question using all the information you have gathered. 
-Be sure to include the <RESOURCES> section at the end of your response with citations for all sources you used.`;
+Be sure to include the <resources> section at the end of your response with citations for all sources you used.`;
 
 import type { ToolDefinition } from './types';
 
@@ -113,17 +115,38 @@ export const TOOL_ADDENDUM_TEMPLATE =
 
 {tool_list}
 
-Think first: before calling a tool, plan which tools (if any) you need and what arguments to pass. 
-If you cannot do this as thinking/reasoning tokens, put this thinking in <think> and </think> tags.
 
 You can call multiple tools at once in a single response — this is faster and more efficient than calling them one at a time.
 
-When calling tools, output the tool call directly without any preceding text. The tool call itself is all that is needed. 
-This keeps the conversation clean and avoids confusion.
-
-Only wrap your answer in <ANSWER> and </ANSWER> tags when you are certain you
+Only wrap your answer in <answer> and </answer> tags when you are certain you
 do not need to call any more tools — that is, when this is your final response.
-If you are calling tools, just output the tool call JSON directly.`;
+
+After your <answer> section, output a <ratings> section. Rate each tool call
+result from 1 (useless — error, empty, irrelevant) to 10 (extremely useful —
+exactly what you needed) using <rating tool_call_id="..." score="N"/> per tool
+call.
+
+Scoring examples:
+
+Your previous tool call:
+{"id":"call_ex1","type":"function","function":{"name":"web_fetch","arguments":"{\"url\":\"https://nonexistent.example.com/fake-test-page.html\"}"}}
+
+Tool result:
+{"role":"tool","tool_call_id":"call_ex1","content":[{"type":"text","text":"This is a fake test page used only as a documentation example. It does not exist."}]}
+
+<ratings>
+<rating tool_call_id="call_ex1" score="9"/>
+</ratings>
+
+Your previous tool call:
+{"id":"call_ex2","type":"function","function":{"name":"pubmed_search","arguments":"{\"query\":\"ZZ_FAKE_DELETEME_NONSENSE\",\"max\":5,\"mindate\":\"2020/01/01\"}"}}
+
+Tool result:
+{"role":"tool","tool_call_id":"call_ex2","content":[{"type":"text","text":"Error: Invalid query — this example query is intentionally fake"}]}
+
+<ratings>
+<rating tool_call_id="call_ex2" score="1"/>
+</ratings>`;
 
 export const TRUNCATION_NOTICE = (cacheKey: string): string =>
     `[The tool result was over 10,000 words long and has been truncated to fit within the model's context window. The full document has been cached.

@@ -120,6 +120,5 @@ export function createToolRegistry(enabledToolNames: string[]): ToolRegistry {
             registry.register(tool.definition, tool.executor);
         }
     }
-
     return registry;
 }

@@ -84,11 +84,11 @@
     });
 
     function filterContent(content: string): string {
-        const resourcesStart = content.indexOf('<RESOURCES>');
+        const resourcesStart = content.toLowerCase().indexOf('<resources>');
         if (resourcesStart === -1) {
             return content;
         }
-        const resourcesEnd = content.indexOf('</RESOURCES>', resourcesStart);
+        const resourcesEnd = content.toLowerCase().indexOf('</resources>', resourcesStart);
         if (resourcesEnd === -1) {
             return content.substring(0, resourcesStart).trim();
         }

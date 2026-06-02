@@ -1,4 +1,4 @@
-import { type Config, type Model, type StreamingResult, type OpenRouterCredits, type ChatResult, type ApiCallMessage, type ToolDefinition, type ToolCall, type CompletionResult, type Annotation, APIError } from './types';
+import { type Config, type Model, type StreamingResult, type OpenRouterCredits, type ChatResult, type ApiCallMessage, type ToolDefinition, type ToolCall, type CompletionResult, type Annotation, type ToolRoundInfo, APIError } from './types';
 import { getClerkToken } from '../auth';
 
 const OPENROUTER_DIRECT_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -19,6 +19,7 @@ const MODEL_BLACKLIST: RegExp[] = [
 
 const RATE_LIMIT_MAX_RETRIES = 10;
 const MAX_EMPTY_RETRIES = 4;
+const MAX_THINKING_LOOP_RETRIES = 3;
 
 function isEmptyResponse(
     finishReason: string,
@@ -30,16 +31,14 @@ function isEmptyResponse(
         && (promptTokens === 0 || promptTokens === undefined);
 }
 
-function finalizeContent(
-    content: string,
-    finishReason: string,
-    promptTokens: number | undefined,
-    emptyRetryCount: number,
-): string {
-    if (emptyRetryCount >= MAX_EMPTY_RETRIES && isEmptyResponse(finishReason, content, promptTokens)) {
-        return 'The model returned an empty response after multiple retries. Please try again or use a different model.';
-    }
-    return content;
+function stripSignificantTags(content: string): string {
+    return content
+        .replace(/<(think|thinking)>[\s\S]*?<\/(think|thinking)>/gi, '')
+        .replace(/<ANSWER>[\s\S]*?<\/ANSWER>/gi, '')
+        .replace(/<ratings>[\s\S]*?<\/ratings>/gi, '')
+        .replace(/<RATING[^>]*\/>/gi, '')
+        .replace(/<RESOURCES>[\s\S]*?<\/RESOURCES>/gi, '')
+        .trim();
 }
 
 function sleep(ms: number): Promise<void> {
@@ -175,6 +174,7 @@ export async function callOpenRouterChat(
   abortController?: AbortController,
   reasoning_effort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh',
   onStatus?: (status: string) => void,
+  onAttempt?: (info: ToolRoundInfo) => void,
 ): Promise<ChatResult> {
   const finalModel = await enforceModel(config, modelId);
   const body: any = {
@@ -205,6 +205,12 @@ export async function callOpenRouterChat(
               const retryAfterMs = parseInt(response.headers.get('Retry-After') || '0', 10) * 1000;
               const delayMs = Math.max(capped, retryAfterMs);
               onStatus?.(`Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s...`);
+              onAttempt?.({
+                  statusCode: response.status,
+                  requestBody: body_string,
+                  responseBody: await response.clone().text(),
+                  durationMs: Date.now(),
+              });
               await sleep(delayMs);
               continue;
           }
@@ -226,20 +232,51 @@ export async function callOpenRouterChat(
       const content = data.choices[0].message.content;
       const finishReason = data.choices[0].finish_reason;
       const promptTokens = data.usage?.prompt_tokens;
+      const completionTokens = data.usage?.completion_tokens;
+      const totalTokens = data.usage?.total_tokens;
+      const annotations = data.choices[0].message.annotations || [];
+      const requestID = data.id;
+      const model = data.model;
+      const cost = data.usage?.cost ?? undefined;
 
-      if (isEmptyResponse(finishReason, content, promptTokens) && emptyRetryCount < MAX_EMPTY_RETRIES) {
-          emptyRetryCount++;
+      const isEffectivelyEmpty = isEmptyResponse(finishReason, content, promptTokens)
+          || (finishReason === 'stop' && content && stripSignificantTags(content).length === 0);
+      if (isEffectivelyEmpty && emptyRetryCount < MAX_EMPTY_RETRIES) {
+           console.warn(`[EmptyResponse] reason=${isEmptyResponse(finishReason, content, promptTokens) ? 'body' : 'tags-only'} tokens=(${promptTokens}/${completionTokens}) finish=${finishReason} retry=${emptyRetryCount + 1}/${MAX_EMPTY_RETRIES}`);
+           emptyRetryCount++;
+           const lastMsg = messages[messages.length - 1];
+           onAttempt?.({
+              statusCode: 200,
+              promptTokens,
+              completionTokens,
+              totalTokens,
+              cost,
+              model,
+              finishReason,
+              requestBody: body_string,
+               responseBody: JSON.stringify(data),
+              durationMs: Date.now(),
+              error: 'Empty response',
+          });
           onStatus?.(`Empty response received, retrying (${emptyRetryCount}/${MAX_EMPTY_RETRIES})...`);
           await sleep(1000 * emptyRetryCount);
           continue;
       }
 
-      const annotations = data.choices[0].message.annotations || [];
-      const requestID = data.id;
-      const model = data.model;
-      const totalTokens = data.usage?.total_tokens;
-      const completionTokens = data.usage?.completion_tokens;
-      const cost = data.usage?.cost ?? undefined;
+      onAttempt?.({
+          promptTokens,
+          completionTokens,
+          cost,
+          model,
+          finishReason,
+          requestBody: body_string,
+          responseBody: JSON.stringify({ id: requestID, model, choices: [{ finish_reason: finishReason, message: { content } }], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens } }),
+          durationMs: Date.now(),
+      });
+
+      const errorMsg = emptyRetryCount >= MAX_EMPTY_RETRIES && isEffectivelyEmpty
+          ? 'The model returned an empty response after multiple retries. Please try again or use a different model.'
+          : undefined;
 
       return {
           requestID,
@@ -250,8 +287,9 @@ export async function callOpenRouterChat(
           promptTokens,
           completionTokens,
           cost,
-          content: finalizeContent(content, finishReason, promptTokens, emptyRetryCount),
-          annotations
+          content,
+          annotations,
+          error: errorMsg,
       };
   }
 }
@@ -315,8 +353,9 @@ export async function callOpenRouterWithTools(options: {
     onStatus?: (status: string) => void;
     signal?: AbortSignal;
     reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh';
+    onAttempt?: (info: ToolRoundInfo) => void;
 }): Promise<CompletionResult> {
-    const { config, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, onStatus, signal, reasoningEffort } = options;
+    const { config, modelId, messages, maxTokens, tools, toolChoice, stream, onContent, onToolCallDelta, onReasoning, onStatus, signal, reasoningEffort, onAttempt } = options;
 
     const finalModel = await enforceModel(config, modelId);
     const body: Record<string, unknown> = {
@@ -346,6 +385,7 @@ export async function callOpenRouterWithTools(options: {
 
     let response: Response;
     let emptyRetryCount = 0;
+    let thinkingLoopRetryCount = 0;
 
     while (true) {
         let attempt = 0;
@@ -360,6 +400,12 @@ export async function callOpenRouterWithTools(options: {
                 const retryAfterMs = parseInt(response.headers.get('Retry-After') || '0', 10) * 1000;
                 const delayMs = Math.max(capped, retryAfterMs);
                 onStatus?.(`Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s...`);
+                onAttempt?.({
+                    statusCode: response.status,
+                    requestBody: bodyString,
+                    responseBody: await response.clone().text(),
+                    durationMs: Date.now(),
+                });
                 await sleep(delayMs);
                 continue;
             }
@@ -392,8 +438,21 @@ export async function callOpenRouterWithTools(options: {
             const cost = data.usage?.cost ?? undefined;
             const annotations = choice?.message?.annotations || [];
 
-            if (isEmptyResponse(finishReason, content, promptTokens) && emptyRetryCount < MAX_EMPTY_RETRIES) {
+            if ((isEmptyResponse(finishReason, content, promptTokens) || (finishReason === 'stop' && content && stripSignificantTags(content).length === 0)) && emptyRetryCount < MAX_EMPTY_RETRIES) {
+                console.warn(`[EmptyResponse] reason=${isEmptyResponse(finishReason, content, promptTokens) ? 'body' : 'tags-only'} tokens=(${promptTokens}/${completionTokens}) finish=${finishReason} retry=${emptyRetryCount + 1}/${MAX_EMPTY_RETRIES}`);
                 emptyRetryCount++;
+                onAttempt?.({
+                    statusCode: 200,
+                    model: data.model || modelId,
+                    finishReason,
+                    promptTokens,
+                    completionTokens,
+                    cost,
+                    requestBody: bodyString,
+                    responseBody: JSON.stringify(data),
+                    durationMs: Date.now(),
+                    error: 'Empty response',
+                });
                 onStatus?.(`Empty response received, retrying (${emptyRetryCount}/${MAX_EMPTY_RETRIES})...`);
                 await sleep(1000 * emptyRetryCount);
                 continue;
@@ -408,10 +467,28 @@ export async function callOpenRouterWithTools(options: {
                 }
             }
 
+            const isEffectivelyEmpty = isEmptyResponse(finishReason, content, promptTokens)
+                || (finishReason === 'stop' && content && stripSignificantTags(content).length === 0);
+            const errorMsg = emptyRetryCount >= MAX_EMPTY_RETRIES && isEffectivelyEmpty
+                ? 'The model returned an empty response after multiple retries. Please try again or use a different model.'
+                : undefined;
+
+            onAttempt?.({
+                promptTokens,
+                completionTokens,
+                cost,
+                model: data.model || modelId,
+                finishReason,
+                requestBody: bodyString,
+                responseBody: JSON.stringify({ id: data.id, model: data.model, choices: [{ finish_reason: finishReason, message: { content, ...(toolCalls ? { tool_calls: toolCalls } : {}) } }], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens } }),
+                durationMs: Date.now(),
+                error: errorMsg,
+            });
+
             return {
                 requestID: data.id || requestID,
                 model: data.model || modelId,
-                content: finalizeContent(content, finishReason, promptTokens, emptyRetryCount),
+                content,
                 toolCalls,
                 finishReason,
                 totalTokens,
@@ -420,6 +497,7 @@ export async function callOpenRouterWithTools(options: {
                 cost,
                 annotations,
                 requestBody: bodyString,
+                error: errorMsg,
             };
         }
 
@@ -429,11 +507,15 @@ export async function callOpenRouterWithTools(options: {
 
         const decoder = new TextDecoder();
         let content = '';
+        let reasoningAccum = '';
+        let thinkingChunks: string[] = [];
+        let finalError: string | undefined;
         let finishReason: 'stop' | 'tool_calls' | 'length' = 'stop';
         let totalTokens: number | undefined;
         let promptTokens: number | undefined;
         let completionTokens: number | undefined;
         let cost: number | undefined;
+        let provider: string | undefined;
         let shouldRetry = false;
         const annotations: Annotation[] = [];
         const toolCallAccum: Map<number, { id: string; name: string; argumentsChunks: string[] }> = new Map();
@@ -470,15 +552,50 @@ export async function callOpenRouterWithTools(options: {
                             }
                         }
 
-                        if (isEmptyResponse(finishReason, content, promptTokens) && emptyRetryCount < MAX_EMPTY_RETRIES) {
+                        if ((isEmptyResponse(finishReason, content, promptTokens) || (finishReason === 'stop' && content && stripSignificantTags(content).length === 0)) && emptyRetryCount < MAX_EMPTY_RETRIES) {
+                            console.warn(`[EmptyResponse] reason=${isEmptyResponse(finishReason, content, promptTokens) ? 'body' : 'tags-only'} tokens=(${promptTokens}/${completionTokens}) finish=${finishReason} retry=${emptyRetryCount + 1}/${MAX_EMPTY_RETRIES}`);
+                            onAttempt?.({
+                                statusCode: 200,
+                                model: modelId,
+                                finishReason,
+                                promptTokens,
+                                completionTokens,
+                                cost,
+                                requestBody: bodyString,
+                                responseBody: JSON.stringify({ model: modelId, provider, choices: [{ finish_reason: finishReason, message: { content, reasoning: reasoningAccum || undefined, ...(resultToolCalls ? { tool_calls: resultToolCalls } : {}) } }], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens } }),
+                                durationMs: Date.now(),
+                                error: 'Empty response',
+                            });
                             shouldRetry = true;
                             break streamLoop;
                         }
 
+                        const isEffectivelyEmpty = isEmptyResponse(finishReason, content, promptTokens)
+                            || (finishReason === 'stop' && content && stripSignificantTags(content).length === 0);
+                        const errorMsg = emptyRetryCount >= MAX_EMPTY_RETRIES && isEffectivelyEmpty
+                            ? 'The model returned an empty response after multiple retries. Please try again or use a different model.'
+                            : undefined;
+                        if (isEffectivelyEmpty) {
+                            console.warn(`[EmptyResponse] reason=${isEmptyResponse(finishReason, content, promptTokens) ? 'body' : 'tags-only'} tokens=(${promptTokens}/${completionTokens}) finish=${finishReason} retry=${emptyRetryCount}/${MAX_EMPTY_RETRIES}${emptyRetryCount >= MAX_EMPTY_RETRIES ? ' [exhausted]' : ''}`);
+                        }
+
+                        onAttempt?.({
+                            promptTokens,
+                            completionTokens,
+                            cost,
+                            model: modelId,
+                            finishReason,
+                            requestBody: bodyString,
+                            responseBody: JSON.stringify({ model: modelId, provider, choices: [{ finish_reason: finishReason, message: { content, reasoning: reasoningAccum || undefined, ...(resultToolCalls ? { tool_calls: resultToolCalls } : {}) } }], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens } }),
+                            durationMs: Date.now(),
+                            error: errorMsg,
+                        });
+
                         return {
                             requestID,
                             model: modelId,
-                            content: finalizeContent(content, finishReason, promptTokens, emptyRetryCount),
+                            content,
+                            reasoningContent: reasoningAccum,
                             toolCalls: resultToolCalls,
                             finishReason,
                             totalTokens,
@@ -487,6 +604,7 @@ export async function callOpenRouterWithTools(options: {
                             cost,
                             annotations,
                             requestBody: bodyString,
+                            error: errorMsg,
                         };
                     }
 
@@ -503,8 +621,46 @@ export async function callOpenRouterWithTools(options: {
                             onContent(delta.content);
                         }
 
-                        if (delta.reasoning && onReasoning) {
-                            onReasoning(delta.reasoning);
+                        if (delta.reasoning) {
+                            if (onReasoning) onReasoning(delta.reasoning);
+                            reasoningAccum += delta.reasoning;
+
+                            thinkingChunks.push(delta.reasoning);
+                            if (thinkingChunks.length > 8) thinkingChunks.shift();
+
+                            if (thinkingChunks.length >= 3) {
+                                const last3 = thinkingChunks.slice(-3);
+                                if (last3[0].length >= 20 && last3[0] === last3[1] && last3[1] === last3[2]) {
+                                    const snippet = last3[0].slice(0, 80);
+                                    console.warn(`[ThinkingLoop] Loop detected (${thinkingLoopRetryCount + 1}/${MAX_THINKING_LOOP_RETRIES}): "${snippet}..."`);
+                                    onStatus?.('Thinking loop detected, retrying...');
+
+                                    onAttempt?.({
+                                        statusCode: 200,
+                                        model: modelId,
+                                        finishReason: 'stop',
+                                        promptTokens,
+                                        completionTokens,
+                                        cost,
+                                        requestBody: bodyString,
+                                        responseBody: JSON.stringify({ error: 'Thinking loop detected' }),
+                                        durationMs: Date.now(),
+                                        error: `Thinking loop detected (${thinkingLoopRetryCount + 1}/${MAX_THINKING_LOOP_RETRIES})`,
+                                    });
+
+                                    thinkingLoopRetryCount++;
+
+                                    if (thinkingLoopRetryCount <= MAX_THINKING_LOOP_RETRIES) {
+                                        reader.cancel().catch(() => {});
+                                        shouldRetry = true;
+                                        break streamLoop;
+                                    }
+
+                                    reader.cancel().catch(() => {});
+                                    finalError = 'Thinking loop detected after retries exhausted';
+                                    break streamLoop;
+                                }
+                            }
                         }
 
                         const deltaToolCalls = delta.tool_calls;
@@ -546,6 +702,7 @@ export async function callOpenRouterWithTools(options: {
                             completionTokens = json.usage.completion_tokens;
                             if (json.usage.cost != null) cost = json.usage.cost;
                         }
+                        if (json.provider) provider = json.provider;
                     } catch {
                         // Skip malformed SSE lines
                     }
@@ -556,6 +713,11 @@ export async function callOpenRouterWithTools(options: {
         }
 
         if (shouldRetry) {
+            if (thinkingLoopRetryCount > 0) {
+                onStatus?.(`Thinking loop retrying (${thinkingLoopRetryCount}/${MAX_THINKING_LOOP_RETRIES})...`);
+                await sleep(1000 * thinkingLoopRetryCount);
+                continue;
+            }
             emptyRetryCount++;
             onStatus?.(`Empty response received, retrying (${emptyRetryCount}/${MAX_EMPTY_RETRIES})...`);
             await sleep(1000 * emptyRetryCount);
@@ -582,17 +744,53 @@ export async function callOpenRouterWithTools(options: {
             }
         }
 
-        if (isEmptyResponse(finishReason, content, promptTokens) && emptyRetryCount < MAX_EMPTY_RETRIES) {
+        if (!finalError && (isEmptyResponse(finishReason, content, promptTokens) || (finishReason === 'stop' && content && stripSignificantTags(content).length === 0)) && emptyRetryCount < MAX_EMPTY_RETRIES) {
+            console.warn(`[EmptyResponse] reason=${isEmptyResponse(finishReason, content, promptTokens) ? 'body' : 'tags-only'} tokens=(${promptTokens}/${completionTokens}) finish=${finishReason} retry=${emptyRetryCount + 1}/${MAX_EMPTY_RETRIES}`);
             emptyRetryCount++;
+            const lastMsg = messages[messages.length - 1];
+            onAttempt?.({
+                statusCode: 200,
+                model: modelId,
+                finishReason,
+                promptTokens,
+                completionTokens,
+                cost,
+                requestBody: bodyString,
+                responseBody: JSON.stringify({ model: modelId, provider, choices: [{ finish_reason: finishReason, message: { content, reasoning: reasoningAccum || undefined, ...(resultToolCalls ? { tool_calls: resultToolCalls } : {}) } }], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens } }),
+                durationMs: Date.now(),
+                error: 'Empty response',
+            });
             onStatus?.(`Empty response received, retrying (${emptyRetryCount}/${MAX_EMPTY_RETRIES})...`);
             await sleep(1000 * emptyRetryCount);
             continue;
         }
 
+        const isEffectivelyEmpty = !finalError && (isEmptyResponse(finishReason, content, promptTokens)
+            || (finishReason === 'stop' && content && stripSignificantTags(content).length === 0));
+        const errorMsg = finalError ?? (emptyRetryCount >= MAX_EMPTY_RETRIES && isEffectivelyEmpty
+            ? 'The model returned an empty response after multiple retries. Please try again or use a different model.'
+            : undefined);
+        if (isEffectivelyEmpty) {
+            console.warn(`[EmptyResponse] reason=${isEmptyResponse(finishReason, content, promptTokens) ? 'body' : 'tags-only'} tokens=(${promptTokens}/${completionTokens}) finish=${finishReason} retry=${emptyRetryCount}/${MAX_EMPTY_RETRIES}${emptyRetryCount >= MAX_EMPTY_RETRIES ? ' [exhausted]' : ''}`);
+        }
+
+        onAttempt?.({
+            promptTokens,
+            completionTokens,
+            cost,
+            model: modelId,
+            finishReason,
+            requestBody: bodyString,
+            responseBody: JSON.stringify({ model: modelId, provider, choices: [{ finish_reason: finishReason, message: { content, reasoning: reasoningAccum || undefined, ...(resultToolCalls ? { tool_calls: resultToolCalls } : {}) } }], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens } }),
+            durationMs: Date.now(),
+            error: errorMsg,
+        });
+
         return {
             requestID,
             model: modelId,
-            content: finalizeContent(content, finishReason, promptTokens, emptyRetryCount),
+            content,
+            reasoningContent: reasoningAccum,
             toolCalls: resultToolCalls,
             finishReason,
             totalTokens,
@@ -601,6 +799,7 @@ export async function callOpenRouterWithTools(options: {
             cost,
             annotations,
             requestBody: bodyString,
+            error: errorMsg,
         };
     }
 }

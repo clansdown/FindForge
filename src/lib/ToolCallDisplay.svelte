@@ -28,6 +28,9 @@
                 {#if tc.formattedResult}
                     <span class="tc-result-preview">{@html linkify(tc.formattedResult)}</span>
                 {/if}
+                {#if tc.rating != null}
+                    <span class="tc-rating">★ {tc.rating}/10</span>
+                {/if}
                 {#if tc.durationMs}
                     <span class="tc-duration">({tc.durationMs}ms)</span>
                 {/if}
@@ -63,4 +66,5 @@
     .tc-args { color: #999; font-size: 0.8rem; }
     .tc-duration { color: #666; font-size: 0.8rem; }
     .tc-result-preview { color: #aaa; font-size: 0.8rem; }
+    .tc-rating { color: #f5a623; font-weight: bold; }
 </style>

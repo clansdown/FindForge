@@ -10,7 +10,7 @@ import {
     TOOL_LIMIT_INSTRUCTION, TRUNCATION_NOTICE,
 } from "./prompts";
 import type { ApiCallMessage, DeepResearchResult, ApiCallMessageContent, ModelsForResearch, ChatResult, GenerationData, Annotation, Config, Model, ResearchThread, Resource, ToolCallRecord, ToolCallProgress, ToolExecutionContext } from "./types";
-import { generateID } from "./util";
+import { generateID, extractRatings, lookupRating, stripRatings } from "./util";
 import type { ToolRegistry } from "./tools";
 import { addToCache } from "./docCache";
 import { parseStructuredContent } from "./research";
@@ -310,7 +310,7 @@ export async function doDeepResearch(
 
             // Parse the answer content from the synthesis response and handle annotations
             let synthesisContent = synthesisResponse.content ?? '';
-            const answerTagRegex = /<ANSWER>(.*?)<\/ANSWER>/s;
+            const answerTagRegex = /<ANSWER>(.*?)<\/ANSWER>/si;
             const answerMatch = synthesisContent.match(answerTagRegex);
             if (answerMatch && answerMatch[1]) {
                 answer_content = answerMatch[1].trim();
@@ -518,6 +518,7 @@ export async function execute_research_thread(
             firstPassResult = null as unknown as ChatResult;
             const maxIterations = config.maxToolIterations || 8;
             let threadCost = 0;
+            let lastRoundToolCount = 0;
 
         for (let iteration = 0; iteration < maxIterations; iteration++) {
             const isLastAttempt = iteration >= maxIterations - 1;
@@ -560,6 +561,30 @@ export async function execute_research_thread(
 
             firstPassContent += result.content;
 
+            // Parse inline ratings from generation response for all prior tool calls
+            const ratings = extractRatings((result.content ?? '') + (result.reasoningContent ?? ''));
+            if (ratings.size > 0) {
+                console.log(`[ToolRating] Parsed ${ratings.size} ratings`);
+                for (const tc of toolCallRecords) {
+                    const rating = lookupRating(ratings, tc.id, tc.name);
+                    if (rating != null) {
+                        tc.rating = rating;
+                        console.log(`[ToolRating] ${tc.name} (${tc.id}): ${rating}/10`);
+                        if (rating < 5) {
+                            const toolMsgIdx = messages.findIndex(
+                                m => m.role === 'tool' && m.tool_call_id === tc.id,
+                            );
+                            if (toolMsgIdx >= 0) {
+                                messages[toolMsgIdx] = {
+                                    ...messages[toolMsgIdx],
+                                    content: [{ type: 'text', text: `[RATED ${rating}/10 SO NOT INCLUDED]` }],
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
             if (result.finishReason !== 'tool_calls' || !result.toolCalls || result.toolCalls.length === 0) {
                 break;
             }
@@ -569,6 +594,8 @@ export async function execute_research_thread(
                 content: [{ type: 'text', text: '' }],
                 tool_calls: result.toolCalls,
             });
+
+            lastRoundToolCount = result.toolCalls.length;
 
             const startTimeMs = Date.now();
 
@@ -662,13 +689,14 @@ export async function execute_research_thread(
             }
         }
 
-        // Extract thinking and strip think tags
+        // Extract thinking and strip think/ratings tags
         if (firstPassContent) {
             const { thinking: threadThinking } = parseStructuredContent(firstPassContent);
             thread.thinking = threadThinking;
             firstPassContent = firstPassContent
                 .replace(/<(think|thinking)>[\s\S]*?<\/(think|thinking)>/gi, '')
                 .trim();
+            firstPassContent = stripRatings(firstPassContent);
             firstPassResult.content = firstPassContent;
         }
 
@@ -692,6 +720,7 @@ export async function execute_research_thread(
             firstPassContent = firstPassContent
                 .replace(/<(think|thinking)>[\s\S]*?<\/(think|thinking)>/gi, '')
                 .trim();
+            firstPassContent = stripRatings(firstPassContent);
             firstPassResult.content = firstPassContent;
         }
     }
@@ -722,11 +751,12 @@ export async function execute_research_thread(
     const systemPrompt = createSystemApiCallMessage(systemPromptForRefinement);
 
     let contentToRefine = thread.firstPass?.content || '';
-    const resourcesStart = contentToRefine.indexOf('<RESOURCES>');
+    const resourcesStart = contentToRefine.toLowerCase().indexOf('<resources>');
+
     if (resourcesStart !== -1) {
-        const resourcesEnd = contentToRefine.indexOf('</RESOURCES>', resourcesStart);
+        const resourcesEnd = contentToRefine.toLowerCase().indexOf('</resources>', resourcesStart);
         if (resourcesEnd !== -1) {
-            contentToRefine = contentToRefine.substring(0, resourcesStart) + contentToRefine.substring(resourcesEnd + '</RESOURCES>'.length);
+            contentToRefine = contentToRefine.substring(0, resourcesStart) + contentToRefine.substring(resourcesEnd + '</resources>'.length);
         }
     }
 

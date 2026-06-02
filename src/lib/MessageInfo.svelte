@@ -3,6 +3,7 @@
     import { type DeepResearchResult, type ResearchResult, type GenerationData, type Annotation, type ChatResult, type ResearchThread, sanitizeDeepResearch, type ToolCallRecord } from "./types";
     import MarkdownIt from 'markdown-it';
     import { onMount } from 'svelte';
+    import JsonViewer from "./JsonViewer.svelte";
 
     export let researchResult: ResearchResult | undefined = undefined;
     export let deepResearchResult: DeepResearchResult | undefined = undefined;
@@ -63,12 +64,6 @@
         return md.render(content);
     }
 
-    function formatJson(json: string | undefined): string {
-        if (!json) return '';
-        try { return JSON.stringify(JSON.parse(json), null, 2); }
-        catch { return json; }
-    }
-
     async function copyToClipboard(text: string, label: string) {
         try {
             await navigator.clipboard.writeText(text);
@@ -85,7 +80,7 @@
     }
 </script>
 
-<ModalDialog isOpen={true} onClose={onClose}>
+<ModalDialog isOpen={true} onClose={onClose} size="xlg">
     <div class="message-info">
         {#if sanitizedDeepResearch}
             <div class="info-section">
@@ -221,7 +216,11 @@
                                 {#if selectedThread?.toolCallRecords && selectedThread.toolCallRecords.length > 0}
                                     {#each selectedThread.toolCallRecords as tc}
                                         <div class="tool-call-entry">
-                                            <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
+                                            <p>
+                                                <strong>{tc.name}</strong>
+                                                {#if tc.rating != null}<span class="tc-rating">★ {tc.rating}/10</span>{/if}
+                                                — {tc.durationMs}ms
+                                            </p>
                                             {#if tc.formattedArgs || tc.formattedResult}
                                                 <p class="tool-detail">{tc.formattedArgs}{tc.formattedArgs && tc.formattedResult ? ' · ' : ''}{tc.formattedResult}</p>
                                             {/if}
@@ -373,7 +372,11 @@
                         {#if researchResult.toolCallRecords && researchResult.toolCallRecords.length > 0}
                             {#each researchResult.toolCallRecords as tc}
                                 <div class="tool-call-entry">
-                                    <p><strong>{tc.name}</strong> — {tc.durationMs}ms</p>
+                                    <p>
+                                        <strong>{tc.name}</strong>
+                                        {#if tc.rating != null}<span class="tc-rating">★ {tc.rating}/10</span>{/if}
+                                        — {tc.durationMs}ms
+                                    </p>
                                     {#if tc.formattedArgs || tc.formattedResult}
                                         <p class="tool-detail">{tc.formattedArgs}{tc.formattedArgs && tc.formattedResult ? ' · ' : ''}{tc.formattedResult}</p>
                                     {/if}
@@ -410,11 +413,39 @@
                                         </summary>
                                         {#if round.requestBody}
                                             <p><strong>Request:</strong></p>
-                                            <pre class="api-json">{formatJson(round.requestBody)}</pre>
+                                            <JsonViewer json={round.requestBody} />
+                                            <details>
+                                                <summary>Full request text</summary>
+                                                <pre>{round.requestBody}</pre>
+                                            </details>
                                         {/if}
                                         {#if round.responseBody}
                                             <p><strong>Response:</strong></p>
-                                            <pre class="api-json">{formatJson(round.responseBody)}</pre>
+                                            <JsonViewer json={round.responseBody} />
+                                            <details>
+                                                <summary>Full response text</summary>
+                                                <pre>{round.responseBody}</pre>
+                                            </details>
+                                        {/if}
+                                        {#if round.toolResults && round.toolResults.length > 0}
+                                            <details class="tool-results-detail">
+                                                <summary><strong>Tool Results ({round.toolResults.length})</strong></summary>
+                                                <div class="tool-result-list">
+                                                    {#each round.toolResults as tr}
+                                                        <div class="tool-result-entry">
+                                                            <span class="tr-name">{tr.name}</span>
+                                                            <span class="tr-id">({tr.id})</span>
+                                                            {#if tr.durationMs != null}
+                                                                <span class="tr-duration"> — {formatDuration(tr.durationMs)}</span>
+                                                            {/if}
+                                                            {#if tr.rating != null}
+                                                                <span class="tr-rating"> — ★ {tr.rating}/10</span>
+                                                            {/if}
+                                                            <JsonViewer json={JSON.stringify(tr.result)} />
+                                                        </div>
+                                                    {/each}
+                                                </div>
+                                            </details>
                                         {/if}
                                     </details>
                                 {/each}
@@ -438,8 +469,6 @@
 <style>
     .message-info {
         padding: 1rem;
-        height: 90vh;
-        overflow-y: auto;
     }
     .info-section {
         margin-bottom: 0.75rem;
@@ -591,6 +620,11 @@
         color: #999;
         font-size: 0.8rem;
     }
+    .tc-rating {
+        color: #f5a623;
+        font-weight: bold;
+        font-size: 0.8rem;
+    }
     .api-call-entry {
         padding: 0.25rem 0.5rem;
         background: #222;
@@ -601,18 +635,43 @@
         font-size: 0.85rem;
         color: #ddd;
     }
-    .api-json {
-        font-size: 0.7rem;
-        max-height: 500px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-break: break-word;
-        border: 1px solid #444;
-        border-radius: 4px;
-        padding: 0.5rem;
+    .tool-results-detail {
+        margin-top: 0.5rem;
+        padding: 0.25rem 0.5rem;
         background: #1a1a1a;
+        border-radius: 4px;
     }
-
+    .tool-results-detail summary {
+        cursor: pointer;
+        font-size: 0.8rem;
+        color: #bbb;
+    }
+    .tool-result-list {
+        margin-top: 0.25rem;
+    }
+    .tool-result-entry {
+        padding: 0.25rem 0;
+        border-bottom: 1px solid #333;
+    }
+    .tool-result-entry:last-child {
+        border-bottom: none;
+    }
+    .tr-name {
+        color: #b392f0;
+        font-weight: bold;
+    }
+    .tr-id {
+        color: #8b949e;
+        font-size: 0.75rem;
+    }
+    .tr-duration {
+        color: #8b949e;
+        font-size: 0.8rem;
+    }
+    .tr-rating {
+        color: #ffa657;
+        font-size: 0.8rem;
+    }
     .thinking-content {
         white-space: pre-line;
         word-break: break-word;

@@ -476,7 +476,7 @@
                 const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
                     const msgs = [convertMessageToApiCallMessage(msg)];
                     if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && !msg.deepResearchResult) {
-                        msgs.push(...convertToolCallsToToolMessages(msg.toolCalls));
+                        msgs.push(...convertToolCallsToToolMessages(msg.toolCalls, true));
                     }
                     return msgs;
                 });
@@ -506,9 +506,11 @@
                     (progress) => {
                         const index = assistantMessage.toolCallProgress!.findIndex(tc => tc.id === progress.id);
                         if (index >= 0) {
-                            assistantMessage.toolCallProgress![index] = progress;
+                            const arr = [...assistantMessage.toolCallProgress!];
+                            arr[index] = progress;
+                            assistantMessage.toolCallProgress = arr;
                         } else {
-                            assistantMessage.toolCallProgress!.push(progress);
+                            assistantMessage.toolCallProgress = [...assistantMessage.toolCallProgress!, progress];
                         }
                         scrollToBottom();
                         currentConversation.messages = currentConversation.messages.map((msg) =>
@@ -538,7 +540,7 @@
                 const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
                     const msgs = [convertMessageToApiCallMessage(msg)];
                     if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && !msg.deepResearchResult) {
-                        msgs.push(...convertToolCallsToToolMessages(msg.toolCalls));
+                        msgs.push(...convertToolCallsToToolMessages(msg.toolCalls, true));
                     }
                     return msgs;
                 });
@@ -650,9 +652,11 @@
                         }
                         const index = assistantMessage.toolCallProgress.findIndex(tc => tc.id === progress.id);
                         if (index >= 0) {
-                            assistantMessage.toolCallProgress[index] = progress;
+                            const arr = [...assistantMessage.toolCallProgress];
+                            arr[index] = progress;
+                            assistantMessage.toolCallProgress = arr;
                         } else {
-                            assistantMessage.toolCallProgress.push(progress);
+                            assistantMessage.toolCallProgress = [...assistantMessage.toolCallProgress, progress];
                         }
                         scrollToBottom();
                         currentConversation.messages = currentConversation.messages.map((msg) =>

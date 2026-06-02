@@ -6,7 +6,7 @@
     import { callOpenRouterWithTools } from "./models";
     import { createToolRegistry } from "./tools";
     import { buildToolAddendum, QUICK_QUESTION_PROMPT } from "./prompts";
-    import { resolveQuickQuestionModel } from "./util";
+    import { resolveQuickQuestionModel, extractRatings, lookupRating, stripRatings } from "./util";
     import { parseStructuredContent } from "./research";
     import MarkdownIt from "markdown-it";
     import markdownItLinkAttributes from "markdown-it-link-attributes";
@@ -107,12 +107,13 @@
 
         try {
             const apiMessages = buildApiMessages(question);
-            const currentIndex = qaPairs.length - 1;
+            let currentIndex = qaPairs.length - 1;
             let iteration = 0;
             const maxIterations = 8;
             let contentBuffer = '';
             let lastAnswerLen = 0;
             let lastThinkLen = 0;
+            let lastRoundToolCount = 0;
 
             while (iteration < maxIterations) {
                 const isLastAttempt = iteration >= maxIterations - 1;
@@ -139,7 +140,7 @@
 
                         const newAnswer = answer.slice(lastAnswerLen);
                         if (newAnswer) {
-                            qaPairs[currentIndex].answer += newAnswer;
+                            qaPairs[currentIndex].answer += stripRatings(newAnswer);
                             qaPairs = qaPairs;
                             scrollToBottom();
                             lastAnswerLen = answer.length;
@@ -165,9 +166,36 @@
 
                 totalCost += result.cost ?? 0;
 
+                // Parse inline ratings from generation response for all prior tool calls
+                const ratings = extractRatings((result.content ?? '') + (result.reasoningContent ?? ''));
+                if (ratings.size > 0) {
+                    console.log(`[ToolRating] Parsed ${ratings.size} ratings`);
+                    const progress = qaPairs[currentIndex].toolCallProgress;
+                    for (const tc of progress) {
+                        const rating = lookupRating(ratings, tc.id, tc.name);
+                        if (rating != null) {
+                            tc.rating = rating;
+                            console.log(`[ToolRating] ${tc.name} (${tc.id}): ${rating}/10`);
+                            qaPairs[currentIndex].toolCallProgress = [...progress];
+                            qaPairs = qaPairs;
+                            if (rating < 5) {
+                                const toolMsgIdx = apiMessages.findIndex(
+                                    m => m.role === 'tool' && m.tool_call_id === tc.id,
+                                );
+                                if (toolMsgIdx >= 0) {
+                                    apiMessages[toolMsgIdx] = {
+                                        ...apiMessages[toolMsgIdx],
+                                        content: [{ type: 'text', text: `[RATED ${rating}/10 SO NOT INCLUDED]` }],
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (result.finishReason !== 'tool_calls' || !result.toolCalls || result.toolCalls.length === 0) {
                     if (result.content) {
-                        qaPairs[currentIndex].answer = result.content.replace(/<\/?ANSWER>/gi, '').trim();
+                        qaPairs[currentIndex].answer = stripRatings(result.content.replace(/<\/?ANSWER>/gi, '').trim());
                     }
                     qaPairs[currentIndex].complete = true;
                     qaPairs = qaPairs;
@@ -179,6 +207,8 @@
                     content: [{ type: 'text', text: '' }],
                     tool_calls: result.toolCalls,
                 });
+
+                lastRoundToolCount = result.toolCalls.length;
 
                 for (const tc of result.toolCalls) {
                     const def = tools?.getDefinition(tc.function.name);

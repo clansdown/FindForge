@@ -108,7 +108,7 @@ export async function executePubMedFetch(args: Record<string, unknown>, _ctx: To
                 return `Open Access article found for DOI ${doi}:\n\n${parts.join('\n')}\n\nUse web_fetch on the URL to retrieve the full text.`;
             }
             console.log('[pubmed_fetch] DOI not open access:', data.is_oa);
-            return `DOI ${doi} is not open access (is_oa: ${data.is_oa}).`;
+            return `Error: DOI ${doi} is not open access (is_oa: ${data.is_oa}).`;
         } catch (e) {
             console.error('[pubmed_fetch] Unpaywall lookup failed:', e);
             return `Error: Unpaywall lookup failed for DOI ${doi}: ${e instanceof Error ? e.message : String(e)}`;

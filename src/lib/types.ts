@@ -198,6 +198,7 @@ export interface StreamingResult {
     annotations?: Annotation[];
     generationData?: GenerationData;
     finishReason?: 'stop' | 'tool_calls' | 'length';
+    error?: string;
 }
 
 export interface ChatResult extends StreamingResult {
@@ -366,17 +367,28 @@ export interface ToolCallRecord {
     formattedResult?: string;
     startTimeMs: number;
     durationMs: number;
+    rating?: number;
 }
 
 export interface ToolRoundInfo {
     promptTokens?: number;
     completionTokens?: number;
+    totalTokens?: number;
     cost?: number;
     model?: string;
     finishReason?: string;
     requestBody?: string;
     responseBody?: string;
     durationMs?: number;
+    statusCode?: number;
+    error?: string;
+    toolResults?: Array<{
+        id: string;
+        name: string;
+        result: string;
+        durationMs?: number;
+        rating?: number;
+    }>;
 }
 
 export interface ToolCallProgress {
@@ -389,12 +401,14 @@ export interface ToolCallProgress {
     result?: string;
     formattedResult?: string;
     durationMs?: number;
+    rating?: number;
 }
 
 export interface CompletionResult {
     requestID: string;
     model: string;
     content: string;
+    reasoningContent?: string;
     toolCalls: ToolCall[] | null;
     finishReason: 'stop' | 'tool_calls' | 'length';
     requestBody?: string;
@@ -403,6 +417,7 @@ export interface CompletionResult {
     completionTokens?: number;
     cost?: number;
     annotations?: Annotation[];
+    error?: string;
 }
 
 export interface ToolExecutionContext {

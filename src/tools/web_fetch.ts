@@ -195,9 +195,14 @@ async function fetchViaProxy(
             });
 
             if (res.ok) {
-                const html = await res.text();
-                console.log('[resources] fetchViaProxy success:', { url, htmlLength: html.length });
-                return extractContentFromHtml(html, url);
+                const text = await res.text();
+                const contentType = res.headers.get('Content-Type') || '';
+                if (contentType.includes('text/html')) {
+                    console.log('[resources] fetchViaProxy success:', { url, htmlLength: text.length });
+                    return extractContentFromHtml(text, url);
+                }
+                console.log('[resources] fetchViaProxy raw response:', { url, textLength: text.length, contentType });
+                return text;
             }
 
             const respBody = await res.json().catch(() => ({}));
@@ -282,7 +287,7 @@ async function extractContentFromHtml(html: string, url: string): Promise<string
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        doc.querySelectorAll('script, style, nav, footer, header, aside, iframe, noscript, svg, form, .sidebar, .footer, .header')
+        doc.querySelectorAll('script, style, nav, footer, header, aside, iframe, noscript, svg, form, .sidebar, .footer, .header, base')
             .forEach(el => el.remove());
 
         const reader = new Readability(doc);
