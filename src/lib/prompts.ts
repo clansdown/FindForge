@@ -163,3 +163,11 @@ To find specific information within this document, use the document_search tool:
 Each match result includes an ID like "doc://url/offset". Pass that ID as the "next" parameter to document_search to read the full content around that match — this gives you 6,000 characters (~1,000 words) starting at that position.
 
 You can also use web_fetch with the same url and an offset parameter to read portions of the document directly.]`;
+
+export const SUMMARY_PROMPT = `You are a conversation summarizer. Your summary will replace the original messages to save context window space. Preserve:
+- All key facts, data points, and information from tool results and research
+- Important decisions, conclusions, or findings
+- Open questions or ongoing investigations
+- Citations, references, and source URLs
+
+Be concise but comprehensive. Omit conversational filler, greetings, and redundant restatements. Use bullet points for discrete facts and plain paragraph for narrative.`;

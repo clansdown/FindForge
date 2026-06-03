@@ -31,6 +31,7 @@
     let selectedResearchResult = 0;
     let showResources = false;
     let showInfo = false;
+    let showSummary = false;
     let currentResources: Resource[] = message.resources||[];
     let currentAnnotations: Annotation[] = message.annotations||[];
     let currentResearchResult: ResearchResult | undefined;
@@ -166,7 +167,11 @@
 
 <div class="message-container {message.role}">
     {#if message.role === "user"}
-        <button class="edit-button" on:click={() => onEdit(message)}>✏️</button>
+        {#if message.isSummary}
+            <button class="edit-button" on:click={() => showSummary = !showSummary} title="Toggle summary">📝</button>
+        {:else}
+            <button class="edit-button" on:click={() => onEdit(message)}>✏️</button>
+        {/if}
     {/if}
     <div class="message {message.role}">
         <!-- Toolbar -->
@@ -207,7 +212,18 @@
         <!-- Message Body -->
         {#if !message.hidden}
             <div class="content">
-                {#if message.role === "user"}
+                {#if message.isSummary}
+                    <button type="button" class="summary-indicator" on:click={() => showSummary = !showSummary} on:keydown={(e) => e.key === 'Enter' && (showSummary = !showSummary)}>
+                        <span class="summary-icon">📄</span>
+                        <span class="summary-label">Conversation Summary</span>
+                        <span class="summary-toggle">{showSummary ? '▲' : '▼'}</span>
+                    </button>
+                    {#if showSummary}
+                        <div class="summary-content">
+                            {@html formatMessage(message.content)}
+                        </div>
+                    {/if}
+                {:else if message.role === "user"}
                     <!-- User Message -->
                     {@html formatMessage(message.content)}
                     <div class="attachments">
@@ -497,6 +513,41 @@
 
     .error-actions button:hover {
         background-color: #3a3a3a;
+    }
+
+    .summary-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        background-color: #3a3a32;
+        border: 1px solid #554;
+        border-radius: 10px;
+        cursor: pointer;
+        color: #ccc;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    .summary-indicator:hover {
+        background-color: #4a4a42;
+    }
+    .summary-icon {
+        font-size: 1rem;
+    }
+    .summary-label {
+        flex: 1;
+        text-align: left;
+    }
+    .summary-toggle {
+        font-size: 0.8rem;
+        color: #888;
+    }
+    .summary-content {
+        padding: 0.5rem 0.75rem;
+        background-color: #2a2a25;
+        border-radius: 10px;
+        margin-bottom: 0.5rem;
     }
 
 </style>

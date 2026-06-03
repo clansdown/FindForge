@@ -31,8 +31,9 @@
 
 
     } from "./lib/types";
-    import { APIError, Config, type ConversationData, type ToolCallRecord } from "./lib/types";
+    import { APIError, Config, type ConversationData, type ToolCallRecord, type ConversationSummary } from "./lib/types";
     import SearchToolbar from "./SearchToolbar.svelte";
+    import { compactConversationHistory, buildConversationContext } from "./lib/summarize";
     import Resources from "./lib/Resources.svelte";
     import MessageInfo from "./lib/MessageInfo.svelte";
     import GettingStarted from "./GettingStarted.svelte";
@@ -350,8 +351,40 @@
         sendMessage();
     }
 
+    function applyNewSummary(newSummary: ConversationSummary, summaryMsg: MessageData) {
+        const coveredIndex = currentConversation.messages.findIndex(m => m.id === newSummary.upToMessageId);
+        if (coveredIndex < 0) return;
+        for (let i = 0; i <= coveredIndex; i++) {
+            currentConversation.messages[i].hidden = true;
+        }
+        currentConversation.messages.splice(coveredIndex + 1, 0, summaryMsg);
+        currentConversation.summaries = [...(currentConversation.summaries ?? []), newSummary];
+        currentConversation.messages = currentConversation.messages;
+        saveConversation(currentConversation);
+    }
+
+    function clearSummariesAffectedByMessage(messageId: string) {
+        const msgIndex = currentConversation.messages.findIndex(m => m.id === messageId);
+        if (msgIndex < 0) return;
+        const affectedSummaryIds = new Set<string>();
+        for (const s of currentConversation.summaries ?? []) {
+            const coveredIndex = currentConversation.messages.findIndex(m => m.id === s.upToMessageId);
+            if (coveredIndex >= msgIndex) {
+                affectedSummaryIds.add(s.upToMessageId);
+            }
+        }
+        if (affectedSummaryIds.size === 0) return;
+        currentConversation.summaries = (currentConversation.summaries ?? []).filter(
+            s => !affectedSummaryIds.has(s.upToMessageId),
+        );
+        currentConversation.messages = currentConversation.messages.filter(m => !m.isSummary);
+        currentConversation.messages = currentConversation.messages;
+        saveConversation(currentConversation);
+    }
+
     function editUserMessage(message: MessageData) {
         userInput = message.content;
+        clearSummariesAffectedByMessage(message.id);
 
         const index = currentConversation.messages.findIndex((m) => m.id === message.id);
         if (index >= 0 && index < currentConversation.messages.length - 1) {
@@ -472,8 +505,44 @@
 
             if (deepSearch) {
                 console.log("Starting deep research...");
-                // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
-                const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
+
+                const currentModel = models.find(m => m.id === localConfig.defaultModel);
+                const rawHistory = currentConversation.messages.slice(0, -2);
+                let summaryBuffer = '';
+                const { messages: compactedMessages, newSummary } = await buildConversationContext(
+                    localConfig,
+                    currentModel?.id || localConfig.defaultModel,
+                    currentModel?.context_length || 128000,
+                    rawHistory,
+                    abortController?.signal,
+                    {
+                        onCompactionStart: () => {
+                            assistantMessage.status = 'Compacting conversation...';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onContent: (chunk: string) => {
+                            summaryBuffer += chunk;
+                            assistantMessage.thinking = summaryBuffer;
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onRetry: () => {
+                            summaryBuffer = '';
+                            assistantMessage.thinking = '[Retrying summary\u2026]';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onCompactionEnd: () => {
+                            assistantMessage.status = '';
+                            assistantMessage.thinking = '';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                    },
+                );
+
+                if (newSummary) {
+                    applyNewSummary(newSummary, compactedMessages[0]);
+                }
+
+                const contextApiMessages = compactedMessages.flatMap((msg) => {
                     const msgs = [convertMessageToApiCallMessage(msg)];
                     if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && !msg.deepResearchResult) {
                         msgs.push(...convertToolCallsToToolMessages(msg.toolCalls, true));
@@ -494,7 +563,7 @@
                     modelsForResearch,
                     deepSearchStrategy, // strategy
                     userInput.trim(),
-                    apiCallMessages.slice(0, -1), // exclude the current user message
+                    contextApiMessages,
                     (status) => {
                         console.log(status);
                         assistantMessage.status = status;
@@ -536,19 +605,47 @@
                 }
                 assistantMessage.toolCallProgress = undefined;
             } else if (experimentationOptions.parallelResearch) {
-                // Convert the messages (without the assistant placeholder) to ApiCallMessage[]
-                const apiCallMessages = currentConversation.messages.slice(0, -1).flatMap((msg) => {
-                    const msgs = [convertMessageToApiCallMessage(msg)];
-                    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && !msg.deepResearchResult) {
-                        msgs.push(...convertToolCallsToToolMessages(msg.toolCalls, true));
-                    }
-                    return msgs;
-                });
+                const currentModel = models.find(m => m.id === localConfig.defaultModel);
+                const rawHistory = currentConversation.messages.slice(0, -2);
+                let summaryBuffer = '';
+                const { messages: compactedHistory, newSummary } = await buildConversationContext(
+                    localConfig,
+                    currentModel?.id || localConfig.defaultModel,
+                    currentModel?.context_length || 128000,
+                    rawHistory,
+                    abortController?.signal,
+                    {
+                        onCompactionStart: () => {
+                            assistantMessage.status = 'Compacting conversation...';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onContent: (chunk: string) => {
+                            summaryBuffer += chunk;
+                            assistantMessage.thinking = summaryBuffer;
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onRetry: () => {
+                            summaryBuffer = '';
+                            assistantMessage.thinking = '[Retrying summary\u2026]';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onCompactionEnd: () => {
+                            assistantMessage.status = '';
+                            assistantMessage.thinking = '';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                    },
+                );
+
+                if (newSummary) {
+                    applyNewSummary(newSummary, compactedHistory[0]);
+                }
+
                 const results = await doParallelResearch(
                     16384, // maxTokens
                     localConfig,
                     convertMessageToApiCallMessage(userMessage), // user message
-                    currentConversation.messages.slice(0, -2), // history
+                    compactedHistory,
                     experimentationOptions.standardResearchPrompts,
                     experimentationOptions.standardResearchModels,
                     abortController
@@ -572,11 +669,46 @@
                 let speechText = '';
                 const currentModel = models.find(m => m.id === localConfig.defaultModel);
                 const contextWindow = currentModel?.context_length || 128000;
+                const rawHistory = currentConversation.messages.slice(0, -2);
+                let summaryBuffer = '';
+                const { messages: compactedHistory, newSummary } = await buildConversationContext(
+                    localConfig,
+                    currentModel?.id || localConfig.defaultModel,
+                    currentModel?.context_length || 128000,
+                    rawHistory,
+                    abortController?.signal,
+                    {
+                        onCompactionStart: () => {
+                            assistantMessage.status = 'Compacting conversation...';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onContent: (chunk: string) => {
+                            summaryBuffer += chunk;
+                            assistantMessage.thinking = summaryBuffer;
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onRetry: () => {
+                            summaryBuffer = '';
+                            assistantMessage.thinking = '[Retrying summary\u2026]';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                        onCompactionEnd: () => {
+                            assistantMessage.status = '';
+                            assistantMessage.thinking = '';
+                            currentConversation.messages = currentConversation.messages;
+                        },
+                    },
+                );
+
+                if (newSummary) {
+                    applyNewSummary(newSummary, compactedHistory[0]);
+                }
+
                 const result = await doStandardResearch(
                     16384, // maxTokens
                     localConfig,
                     userMessage,
-                    currentConversation.messages.slice(0, -2), // history (all messages except current user and assistant)
+                    compactedHistory,
                     (chunk) => {
                             if (firstChunk && !localConfig.toolsEnabled) {
                                 assistantMessage.isGenerating = false;

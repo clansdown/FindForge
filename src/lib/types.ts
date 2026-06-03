@@ -282,6 +282,7 @@ export interface MessageData {
     webSearchResults?: string[];
     requestID?: string;
     hidden?: boolean; // hides the message in the UI and excludes it from being used as context
+    isSummary?: boolean; // marks a message as a conversation summary (rendered as expandable card)
     attachments?: Attachment[]; // array of file attachments
     isGenerating?: boolean; // true when the message is being generated
     status?: string; // status text for deep research
@@ -303,12 +304,24 @@ export interface MessageData {
     };
 }
 
+export interface ConversationSummary {
+    /** ID of the last message covered by this summary */
+    upToMessageId: string;
+    /** The summary text */
+    content: string;
+    /** Estimated token count of this summary */
+    tokenEstimate: number;
+    /** When the summary was created */
+    created: number;
+}
+
 export interface ConversationData {
     id: string;
     title: string;
     messages: MessageData[];
     created: number;
     updated: number;
+    summaries?: ConversationSummary[];
 }
 
 export interface ApiCallMessageContent {

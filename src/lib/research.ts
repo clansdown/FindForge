@@ -1,7 +1,7 @@
 import { parse } from 'svelte/compiler';
 import { callOpenRouterWithTools } from './models';
 import { resourceInstructions, parseResourcesFromContent } from './resources';
-import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, Annotation, ToolExecutionContext, ToolRoundInfo } from './types';
+import type { ApiCallMessage, MessageData, Config, GenerationData, ResearchResult, Resource, SystemPrompt, ParallelResearchModel, ToolCallRecord, ToolCallProgress, CompletionResult, ChatResult, Annotation, ToolExecutionContext, ToolRoundInfo } from './types';
 import { ToolRegistry } from './tools';
 import { DEFAULT_SYSTEM_PROMPT, TOOL_LIMIT_INSTRUCTION, buildToolAddendum, TRUNCATION_NOTICE } from './prompts';
 import { addToCache } from './docCache';
@@ -559,7 +559,6 @@ export async function doParallelResearch(
     abortController?: AbortController
 ): Promise<ResearchResult[]> {
     const resources: Resource[] = [];
-    const maxWebRequests = config.allowWebSearch ? config.webSearchMaxResults : 0;
     console.log('Starting parallel research', systemPrompts, models);
 
     // Prepare base messages (history) that are common to all requests
@@ -594,28 +593,42 @@ export async function doParallelResearch(
         ];
         
         try {
-            const chatResult = await callOpenRouterChat(
+            const cr = await callOpenRouterWithTools({
                 config,
-                model.modelId,
+                modelId: model.modelId,
+                messages: messagesForAPI,
                 maxTokens,
-                maxWebRequests,
-                messagesForAPI,
-                abortController,
-                config.defaultReasoningEffort
-            );
+                stream: true,
+                signal: abortController?.signal,
+                reasoningEffort: config.defaultReasoningEffort,
+            });
             
-            const generationData: GenerationData | undefined = chatResult.requestID ? {
-                id: chatResult.requestID,
-                total_cost: chatResult.cost ?? 0,
-                model: chatResult.model || config.defaultModel,
+            const chatResult: ChatResult = {
+                requestID: cr.requestID,
+                model: cr.model,
+                created: Date.now(),
+                done: cr.finishReason !== 'tool_calls',
+                content: cr.content,
+                totalTokens: cr.totalTokens,
+                promptTokens: cr.promptTokens,
+                completionTokens: cr.completionTokens,
+                cost: cr.cost,
+                annotations: cr.annotations,
+                finishReason: cr.finishReason,
+            };
+
+            const generationData: GenerationData | undefined = cr.requestID ? {
+                id: cr.requestID,
+                total_cost: cr.cost ?? 0,
+                model: cr.model || config.defaultModel,
                 generation_time: 0,
                 provider_name: '',
                 created: Date.now(),
                 streamed: true,
                 canceled: false,
-                finish_reason: chatResult.finishReason || 'stop',
-                tokens_prompt: chatResult.promptTokens,
-                tokens_completion: chatResult.completionTokens,
+                finish_reason: cr.finishReason || 'stop',
+                tokens_prompt: cr.promptTokens,
+                tokens_completion: cr.completionTokens,
             } : undefined;
 
             return {
@@ -624,9 +637,9 @@ export async function doParallelResearch(
                 modelId: model.modelId,
                 modelName: model.modelName,
                 streamingResult: chatResult,
-                chatResult: chatResult, 
+                chatResult,
                 generationData, 
-                annotations: chatResult.annotations || [], 
+                annotations: cr.annotations || [], 
                 resources: [...resources],
                 contextWasIncluded: config.includePreviousMessagesAsContext
             };

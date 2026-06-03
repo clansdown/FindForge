@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node --eval \"const{copyFileSync}=require('fs');copyFileSync('node_modules/extract2md/dist/pdf.worker.min.mjs','public/pdf.worker.min.mjs')\" && vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
   },

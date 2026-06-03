@@ -118,3 +118,41 @@ export function resolveQuickQuestionModel(config: Config, models: Model[]): stri
     return sorted[0].id;
 }
 
+/**
+ * Roughly estimates how many tokens a string would consume in a language-model
+ * context window, using simple heuristics and no external tokenizer.
+ *
+ * **Heuristic breakdown:**
+ *
+ * +-----------------------+-------------------+----------------------------------+
+ * | Character class       | Tokens per unit   | Notes                            |
+ * +-----------------------+-------------------+----------------------------------+
+ * | CJK (Han ideographs)  | 1 per character   | Chinese, Japanese kanji,         |
+ * |                       |                   | Korean hanja; covers major       |
+ * |                       |                   | CJK Unicode blocks.              |
+ * | Roman-alphabet words  | 1.33 per group    | A *group* is a run of letters    |
+ * | (incl. accented       |                   | (a–z, A–Z, 0–9, `_`, plus       |
+ * | Latin: é, ñ, ü, …)   |                   | accented Latin \u{00C0}–\u{024F} |
+ * | Single punctuation    | 1 per character   | Every non-CJK, non-whitespace    |
+ * |                       |                   | character outside a word group   |
+ * |                       |                   | gets its own slot. E.g. `"(foo)"`|
+ * |                       |                   | → `(`, `foo`, `)` → 3 groups.   |
+ * +-----------------------+-------------------+----------------------------------+
+ *
+ * CJK characters are **counted first and then stripped**, so a mixed string
+ * like `"你好 world"` yields `2 (CJK) + 2 × 1.33 (world, hello) ≈ 5` tokens.
+ *
+ * The 1.33 multiplier is a common approximation for GPT-family BPE tokenizers
+ * on English/European text. The result is `Math.ceil`'d so callers can safely
+ * compare against hard context limits without tripping over decimals.
+ */
+const CJK_RE = /[\u{4E00}-\u{9FFF}\u{3400}-\u{4DBF}\u{F900}-\u{FAFF}\u{2F800}-\u{2FA1F}\u{20000}-\u{2A6DF}]/gu;
+const WORD_GROUP_RE = /[a-zA-Z0-9_\u{00C0}-\u{024F}]+|[^\s]/gu;
+
+export function estimateTokenCount(text: string): number {
+    const cjkCount = (text.match(CJK_RE) || []).length;
+    const nonCjk = text.replace(CJK_RE, '');
+    const groups = (nonCjk.match(WORD_GROUP_RE) || []).length;
+    return Math.ceil(cjkCount + groups * 1.33);
+}
+
