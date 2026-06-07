@@ -360,6 +360,12 @@ export interface ToolDefinition {
     isCacheable?: boolean;
     /** Max age of a cached result in ms. 0 or undefined = never stale. */
     cacheTTLMs?: number;
+    /**
+     * If set, called after each successful execution to optionally contribute a
+     * Resource to the conversation's resource list.  Return null to skip (e.g.
+     * for search results or errors).
+     */
+    resourceMapper?: (args: Record<string, unknown>, result: string) => Resource | null;
 }
 
 export interface ToolCall {

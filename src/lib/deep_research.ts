@@ -490,7 +490,8 @@ export async function execute_research_thread(
     const thread: ResearchThread = {
         prompt,
         generationPromises: [],
-        handleGenerationData
+        handleGenerationData,
+        resources: [],
     };
 
     /*********************/
@@ -701,6 +702,12 @@ export async function execute_research_thread(
                         durationMs,
                     });
                 }
+
+                // Track successful page-fetching tool calls as resources
+                if (def?.resourceMapper && !tr.content.startsWith('Error:')) {
+                    const resource = def.resourceMapper(parsedArgs, tr.content);
+                    if (resource && thread.resources) thread.resources.push(resource);
+                }
             }
         }
 
@@ -739,8 +746,13 @@ export async function execute_research_thread(
             firstPassResult.content = firstPassContent;
         }
     }
-    // Extract resources from first pass content
-    thread.resources = parseResourcesFromContent(firstPassContent);
+    // Extract resources from first pass content (merge with tool-contributed resources)
+    const llmResources = parseResourcesFromContent(firstPassContent);
+    if (thread.resources) {
+        thread.resources.push(...llmResources);
+    } else {
+        thread.resources = llmResources;
+    }
 
     if (firstPassResult.requestID) {
         firstPassResult.generationData = {

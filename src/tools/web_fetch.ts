@@ -48,6 +48,12 @@ export const WEB_FETCH_TOOL: ToolDefinition = {
     },
     isCacheable: true,
     cacheTTLMs: 60_000,
+    resourceMapper(args, result) {
+        if (result.startsWith('Error:')) return null;
+        const url = args.url as string;
+        if (!url) return null;
+        return { url, type: 'web_fetch', summary: result.slice(0, 200) };
+    },
 };
 
 // ── Shared proxy URL (also used by pubmed_fetch.ts and fetch_paper.ts) ──

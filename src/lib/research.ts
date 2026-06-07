@@ -404,29 +404,10 @@ async function doStandardResearchWithTools(
                     content: [{ type: 'text', text: tr.content }],
                 });
 
-                // Track successful web_fetch calls as resources
-                if (tc.function.name === 'web_fetch') {
-                    const isError = tr.content.startsWith('Error:');
-                    console.log('[resources] web_fetch result:', {
-                        arguments: tc.function.arguments,
-                        isError,
-                        contentSample: tr.content.slice(0, 300),
-                        fullContent: tr.content,
-                    });
-                    if (!isError) {
-                        let url = '';
-                        try {
-                            url = JSON.parse(tc.function.arguments || '{}').url;
-                        } catch {}
-                        if (url) {
-                            resources.push({
-                                url,
-                                type: 'web_fetch',
-                                summary: tr.content.slice(0, 200),
-                            });
-                            console.log('[resources] pushed web_fetch resource:', { url, resourcesSoFar: resources.length, resources: resources.map(r => ({ url: r.url })) });
-                        }
-                    }
+                // Track successful page-fetching tool calls as resources
+                if (def?.resourceMapper && !tr.content.startsWith('Error:')) {
+                    const resource = def.resourceMapper(parsedArgs, tr.content);
+                    if (resource) resources.push(resource);
                 }
             }
 

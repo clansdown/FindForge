@@ -121,8 +121,8 @@
     }
 </script>
 
-<div class="toolbar">
-    <div class="toolbar-group">
+<div class="row g-2 align-items-center mb-3 pb-2 border-bottom">
+    <div class="col-auto">
         <select bind:value={config.defaultModel}>
             {#each filteredModels as model}
                 <option value={model.id}>
@@ -132,46 +132,24 @@
         </select>
     </div>
 
-    <div class="toolbar-group">
-        <PushButton 
-            title="Include previous messages as context. This uses more tokens and thus costs more."
-            bind:pushed={config.includePreviousMessagesAsContext}
-            disabled={experimentMode || deepSearch}>
-            💬
-        </PushButton>
-    </div>
-
     {#if $applicationMode !== 'brainstorming'}
-        <div class="toolbar-group">
-            <label title="If enabled, the LLM can look up information on the web. This costs extra money.">
-                <input type="checkbox" bind:checked={config.allowWebSearch} />
-                🌐
-            </label>
-            <label class="ms-2" title="The maximum number of results to allow the LLM to request. At time of writing, they cost $.004 per result.">
-                <input style="width: 2rem;" type="number" bind:value={config.webSearchMaxResults} min="1" max="10" />
-            </label>
-        </div>
-    {/if}
-
-    {#if $applicationMode !== 'brainstorming'}
-        <div class="toolbar-group">
+        <div class="col-auto">
             <PushButton title="Enable deep searching" bind:pushed={deepSearch} disabled={experimentMode}>⛏️</PushButton>
         </div>
     {/if}
-    <div class="toolbar-group">
+    <div class="col-auto">
         <PushButton title="Enable experimentation features" bind:pushed={experimentMode} disabled={deepSearch}>🔬</PushButton>
     </div>
-    <div class="toolbar-group">
+    <div class="col-auto">
         <PushButton title="Use Text-to-speech to read out the LLM's response" bind:pushed={config.speakMessages} disabled={experimentMode || deepSearch}>🔊</PushButton>
     </div>
-    <div class="toolbar-group">
+    <div class="col-auto">
         <label title="Toggle auto-saving of topics">
             <PushButton title="Auto-save topics" bind:pushed={config.autoSave} on:toggle={() => config.autoSave = !config.autoSave}>💾</PushButton>
         </label>
-
     </div>
-    <div class="toolbar-group">
-        <button class="toolbar-button" on:click={onQuickQuestion} title="Quick Question">Ⓠ</button>
+    <div class="col-auto ms-auto">
+        <button class="btn btn-sm" on:click={onQuickQuestion} title="Ask a quick question which isn't saved in the history.">Ⓠ</button>
     </div>
 </div>
 

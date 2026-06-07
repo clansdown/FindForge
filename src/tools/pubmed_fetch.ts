@@ -35,6 +35,18 @@ export const PUBMED_FETCH_TOOL: ToolDefinition = {
     },
     isCacheable: true,
     cacheTTLMs: 600_000,
+    resourceMapper(args, result) {
+        if (result.startsWith('Error:')) return null;
+        const pmcid = args.pmcid as string;
+        const pmid = args.pmid as string;
+        const doi = args.doi as string;
+        let url = '';
+        if (pmcid) url = `https://www.ncbi.nlm.nih.gov/pmc/articles/${normalizePmcid(pmcid)}/`;
+        else if (pmid) url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
+        else if (doi) url = `https://doi.org/${doi}`;
+        if (!url) return null;
+        return { url, type: 'pubmed_fetch' };
+    },
 };
 
 export async function executePubMedFetch(args: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<string> {

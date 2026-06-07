@@ -71,6 +71,19 @@ export const FETCH_PAPER_TOOL: ToolDefinition = {
     },
     isCacheable: true,
     cacheTTLMs: 300_000,
+    resourceMapper(args, result) {
+        if (result.startsWith('Error:')) return null;
+        const id = args.document_id as string;
+        if (!id) return null;
+        const titleMatch = result.match(/^# (.+)/m);
+        const title = titleMatch ? titleMatch[1].trim() : undefined;
+        let url = id;
+        if (!url.startsWith('http')) {
+            if (/^\d{4}\.\d{4,5}/.test(id)) url = `https://arxiv.org/abs/${id}`;
+            else if (/^10\./.test(id)) url = `https://doi.org/${id}`;
+        }
+        return { url, title, type: 'paper' };
+    },
 };
 
 // ── Identifier Extraction (maximum-flexibility parser) ──

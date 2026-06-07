@@ -56,6 +56,16 @@ export const SEP_TOOL: ToolDefinition = {
     },
     isCacheable: true,
     cacheTTLMs: 600_000,
+    resourceMapper(args, result) {
+        if (result.startsWith('Error:')) return null;
+        if (args.mode !== 'fetch') return null;
+        const slugMatch = result.match(/^<!-- fetched from SEP: ([^ ]+) -->/);
+        const slug = slugMatch ? slugMatch[1] : (args.topic_id as string);
+        if (!slug) return null;
+        const titleMatch = result.match(/^# (.+)/m);
+        const title = titleMatch ? titleMatch[1].trim() : undefined;
+        return { url: `https://plato.stanford.edu/entries/${slug}/`, title, type: 'sep' };
+    },
 };
 
 // ── Helpers ──

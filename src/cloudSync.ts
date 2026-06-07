@@ -115,6 +115,19 @@ let syncReloadCallback: ((changedPaths: string[]) => Promise<void>) | null = nul
 let syncTimerHandle: ReturnType<typeof setInterval> | null = null;
 let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+// ── Cloud sync prompt (first-run opt-in) ──
+
+let _cloudSyncPromptNeeded = false;
+
+export function isCloudSyncPromptNeeded(): boolean {
+    return _cloudSyncPromptNeeded;
+}
+
+export async function dismissCloudSyncPrompt(): Promise<void> {
+    _cloudSyncPromptNeeded = false;
+    await writeCloudPreference('cloudSyncPromptDismissed', 'true');
+}
+
 export type ConflictResolver = (conflict: SyncConflict) => Promise<'local' | 'remote'>;
 let conflictResolver: ConflictResolver | null = null;
 
@@ -346,6 +359,28 @@ async function getCloudState(prefix: string): Promise<CloudState | null> {
         return JSON.parse(text) as CloudState;
     } catch {
         return null;
+    }
+}
+
+// ── Remote data detection ──
+
+export async function checkRemoteDataExists(): Promise<boolean> {
+    if (!isClerkEnabled() || !isSignedIn()) return false;
+
+    try {
+        const credFiles = await listRemoteFiles('credentials');
+        const hasRealCreds = credFiles.some(
+            f => !f.path.endsWith('syncManifest') && !f.path.endsWith('cloud-state.json')
+        );
+        if (hasRealCreds) return true;
+
+        const appFiles = await listRemoteFiles('');
+        const hasRealData = appFiles.some(f => !f.path.endsWith('cloud-state.json'));
+        if (hasRealData) return true;
+
+        return false;
+    } catch {
+        return false;
     }
 }
 
@@ -773,10 +808,28 @@ export function setSyncReloadCallback(cb: (changedPaths: string[]) => Promise<vo
 export async function initCloudSync(): Promise<void> {
     await initJournal();
 
-    // Read shared settings from /cloud/
-    const enabledStr = await readCloudPreference('cloudSyncEnabled');
-    STATE.enabled = enabledStr === 'true';
+    // Read local preference
+    let shouldEnable = (await readCloudPreference('cloudSyncEnabled')) === 'true';
 
+    // Auto-enable or prompt if not yet decided
+    if (!shouldEnable && isClerkEnabled() && isSignedIn()) {
+        const dismissed = await readCloudPreference('cloudSyncPromptDismissed');
+        if (dismissed !== 'true') {
+            try {
+                const hasRemoteData = await checkRemoteDataExists();
+                if (hasRemoteData) {
+                    await writeCloudPreference('cloudSyncEnabled', 'true');
+                    shouldEnable = true;
+                } else {
+                    _cloudSyncPromptNeeded = true;
+                }
+            } catch {
+                // Network error — leave disabled
+            }
+        }
+    }
+
+    STATE.enabled = shouldEnable;
     if (!STATE.enabled) return;
 
     if (!isClerkEnabled() || !isSignedIn()) return;
@@ -812,11 +865,12 @@ export async function initCloudSync(): Promise<void> {
         syncFromCloud().catch(console.error);
     }, SYNC_INTERVAL_MS);
 
-    // Initial credential sync
-    syncCredentialsFromCloud(true).catch(console.error);
+    // Initial credential sync (awaited so credentials are in OPFS before mount)
+    await syncCredentialsFromCloud(true).catch(console.error);
 }
 
 export async function enableCloudSync(): Promise<void> {
+    _cloudSyncPromptNeeded = false;
     STATE.enabled = true;
     await writeCloudPreference('cloudSyncEnabled', 'true');
     await initCloudSync();

@@ -67,6 +67,18 @@ export const WIKIPEDIA_TOOL: ToolDefinition = {
     },
     isCacheable: true,
     cacheTTLMs: 300_000,
+    resourceMapper(args, result) {
+        if (result.startsWith('Error:')) return null;
+        const mode = (args.mode as string) || (args.query ? 'search' : args.title ? 'fetch' : '');
+        if (mode !== 'fetch') return null;
+        const titleMatch = result.match(/^<!-- fetched from Wikipedia: ([^ ]+) -->/);
+        const title = titleMatch ? decodeURIComponent(titleMatch[1]) : (args.title as string || 'Unknown');
+        return {
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`,
+            title,
+            type: 'wikipedia',
+        };
+    },
 };
 
 // ── Helpers ──

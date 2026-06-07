@@ -62,6 +62,21 @@ export const FANDOM_TOOL: ToolDefinition = {
     },
     isCacheable: true,
     cacheTTLMs: 300_000,
+    resourceMapper(args, result) {
+        if (result.startsWith('Error:')) return null;
+        if (args.mode !== 'fetchPage') return null;
+        const wikiName = args.wiki_name as string;
+        const pageTitle = args.query as string;
+        if (!wikiName || !pageTitle) return null;
+        const cleanName = cleanWikiName(wikiName);
+        const titleMatch = result.match(/^<!-- fetched from [^:]+: ([^ ]+) -->/);
+        const title = titleMatch ? titleMatch[1].trim() : pageTitle;
+        return {
+            url: `https://${cleanName}.fandom.com/wiki/${encodeURIComponent(pageTitle.replace(/ /g, '_'))}`,
+            title,
+            type: 'fandom',
+        };
+    },
 };
 
 // ── Helpers ──

@@ -10,6 +10,8 @@
   import Intro from './Intro.svelte';
   import { getLocalPreferenceStore } from './lib/storage';
   import { onMount } from 'svelte';
+  import { isCloudSyncPromptNeeded, enableCloudSync, dismissCloudSyncPrompt, isSignedIn } from './cloudSync';
+  import { isClerkEnabled } from './auth';
 
   let config : Config;
   let showHistory = true;
@@ -24,6 +26,8 @@
     updated: new Date().valueOf()
   };
   let conversations: ConversationData[] = [];
+  let showCloudSyncPrompt = false;
+  let enablingCloudSync = false;
 
   initialize();
 
@@ -35,6 +39,10 @@
   onMount(() => {
     const appEl = document.getElementById('app');
     if (!appEl) return;
+
+    if (isCloudSyncPromptNeeded() && isClerkEnabled() && isSignedIn()) {
+      showCloudSyncPrompt = true;
+    }
 
     const handleConfigUpdated = (e: Event) => {
       config = (e as CustomEvent).detail as Config;
@@ -129,6 +137,27 @@
     saveConversationStorage(conversation);
   }
 
+  async function handleEnableCloudSync() {
+    enablingCloudSync = true;
+    try {
+      await enableCloudSync();
+      // Re-read config after sync to pick up downloaded API key
+      const newConfig = await loadConfig();
+      config = newConfig;
+      availableModelsStore.set(config.availableModels);
+      refreshCredits(config);
+    } catch (err) {
+      console.error('Failed to enable cloud sync:', err);
+    }
+    enablingCloudSync = false;
+    showCloudSyncPrompt = false;
+  }
+
+  function handleDismissCloudSync() {
+    dismissCloudSyncPrompt();
+    showCloudSyncPrompt = false;
+  }
+
   function openSettings() {
     const event = new CustomEvent('openSettings');
     document.dispatchEvent(event);
@@ -154,6 +183,23 @@
     <Intro on:openSettings={openSettings} />
   {/if}
 </main>
+
+{#if showCloudSyncPrompt}
+  <div class="cloud-sync-overlay">
+    <div class="cloud-sync-modal">
+      <h3>Enable cloud sync?</h3>
+      <p>Back up your data and access it on other devices.</p>
+      <div class="cloud-sync-actions">
+        <button class="btn btn-primary" on:click={handleEnableCloudSync} disabled={enablingCloudSync}>
+          {enablingCloudSync ? 'Enabling…' : 'Yes'}
+        </button>
+        <button class="btn btn-secondary ms-2" on:click={handleDismissCloudSync} disabled={enablingCloudSync}>
+          No thanks
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   main {
@@ -195,6 +241,39 @@
     width: 100%;
     overflow: hidden;
     min-width: 0;
+  }
+
+  .cloud-sync-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+
+  .cloud-sync-modal {
+    background: #222;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: 420px;
+    width: 90%;
+  }
+
+  .cloud-sync-modal h3 {
+    margin: 0 0 0.5rem;
+  }
+
+  .cloud-sync-modal p {
+    margin: 0 0 1.5rem;
+    color: #aaa;
+  }
+
+  .cloud-sync-actions {
+    display: flex;
+    justify-content: flex-end;
   }
 
 </style>
