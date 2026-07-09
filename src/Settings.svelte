@@ -18,6 +18,8 @@
 
     export let config: Config;
     export let isOpen: boolean = false;
+    export let showPromptEditor: boolean = false;
+    export let showSynthesisPromptEditor: boolean = false;
 
     let localConfig: Config = new Config();
     let openrouterModels: Model[] = [];
@@ -26,8 +28,8 @@
     let currentTab: "general" | "model" | "deep-research" | "tools" | "cloud-sync" | "config" = config?.apiKey ? "general" : "model";
     let modelFilter = "";
     let estimatedDeepResearchCost: number | string | null = null;
-    let showPromptEditor: boolean = false;
-    let showSynthesisPromptEditor: boolean = false;
+    let showPromptEditorVisible: boolean = false;
+    let showSynthesisPromptEditorVisible: boolean = false;
     let currentSystemPromptIndex: number = 0;
     let currentSystemPromptName: string = '';
     let currentSystemPromptText: string = '';
@@ -101,6 +103,18 @@
     } else if (currentSynthesisPromptIndex === -1) {
         currentSynthesisPromptName = '';
         currentSynthesisPromptText = '';
+    }
+
+    $: if (showPromptEditor) {
+        currentTab = 'general';
+        showPromptEditorVisible = true;
+        showPromptEditor = false; // consume the trigger
+    }
+
+    $: if (showSynthesisPromptEditor) {
+        currentTab = 'deep-research';
+        showSynthesisPromptEditorVisible = true;
+        showSynthesisPromptEditor = false; // consume the trigger
     }
 
     function opened() {
@@ -295,11 +309,11 @@
             </select>
         </div>
 
-        <button class="small" style="margin-bottom: 1rem;" on:click={() => showPromptEditor = !showPromptEditor}>
-            {showPromptEditor ? 'Hide' : 'Manage'} Prompts
+        <button class="small" style="margin-bottom: 1rem;" on:click={() => showPromptEditorVisible = !showPromptEditorVisible}>
+            {showPromptEditorVisible ? 'Hide' : 'Manage'} Prompts
         </button>
 
-        {#if showPromptEditor}
+        {#if showPromptEditorVisible}
             <div class="form-group">
                 <label for="system-prompt-select">Prompt to Edit:</label>
                 <select id="system-prompt-select" bind:value={currentSystemPromptIndex}>
@@ -387,11 +401,11 @@
             </select>
         </div>
 
-        <button class="small" on:click={() => showSynthesisPromptEditor = !showSynthesisPromptEditor}>
-            {showSynthesisPromptEditor ? 'Hide' : 'Manage'} Prompts
+        <button class="small" on:click={() => showSynthesisPromptEditorVisible = !showSynthesisPromptEditorVisible}>
+            {showSynthesisPromptEditorVisible ? 'Hide' : 'Manage'} Prompts
         </button>
 
-        {#if showSynthesisPromptEditor}
+        {#if showSynthesisPromptEditorVisible}
             <div class="form-group">
                 <label for="synthesis-prompt-select">Prompt to Edit:</label>
                 <select id="synthesis-prompt-select" bind:value={currentSynthesisPromptIndex}>

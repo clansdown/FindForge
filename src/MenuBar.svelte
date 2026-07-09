@@ -1,14 +1,16 @@
 <script lang="ts">
-  import type { ApplicationMode, Config } from './lib/types';
+  import type { Config } from './lib/types';
   import Settings from './Settings.svelte';
   import About from './About.svelte';
   import GettingStarted from './GettingStarted.svelte';
   import ToolsHelp from './ToolsHelp.svelte';
   import ModalDialog from './lib/ModalDialog.svelte';
   import { onMount } from 'svelte';
-  import type { Writable } from 'svelte/store';
   import { creditStore } from './lib/creditStore';
   import { cloudSyncStore, triggerManualSync, enableCloudSync, isSignedIn, getClerk } from './cloudSync';
+  import { createEventDispatcher } from 'svelte';
+
+  const dispatch = createEventDispatcher();
 
   export let config: Config;
 
@@ -20,13 +22,14 @@
 
   export let showHistory: boolean;
   export let newConversation: () => void;
-  export let applicationMode: Writable<ApplicationMode>;
 
   let activeMenu: string | null = null;
   let showSettings = false;
   let showAbout = false;
   let showGettingStarted = false;
   let showTools = false;
+  let showPromptEditor = false;
+  let showSynthesisPromptEditor = false;
   let signedIn = isSignedIn();
 
   function toggleMenu(menu: string) {
@@ -84,12 +87,11 @@
       <div class="dropdown">
         <button on:click={() => { newConversation(); closeMenu(); }}>New Topic</button>
         <div class="menu-separator"></div>
-        <button on:click={() => { $applicationMode = 'research';  }}>
-          {#if $applicationMode === 'research'}✓{:else}&nbsp;&nbsp;&nbsp;{/if} Research
-        </button>
-        <button on:click={() => { $applicationMode = 'brainstorming';  }}>
-          {#if $applicationMode === 'brainstorming'}✓{:else}&nbsp;&nbsp;&nbsp;{/if} Brainstorming
-        </button>
+        <button on:click={() => { dispatch('openNewProject'); closeMenu(); }}>New Project</button>
+        <button on:click={() => { dispatch('openProjectSettings'); closeMenu(); }}>Project Settings</button>
+        <div class="menu-separator"></div>
+        <button on:click={() => { showPromptEditor = true; closeMenu(); }}>Manage Prompts</button>
+        <button on:click={() => { showSynthesisPromptEditor = true; closeMenu(); }}>Manage Synthesis Prompts</button>
         <div class="menu-separator"></div>
         <button on:click={() => { window.location.href = '/translate/'; closeMenu(); }}>Translate</button>
       </div>
@@ -162,7 +164,7 @@
 </div>
 
 {#if config}
-<Settings bind:config bind:isOpen={showSettings} />
+<Settings bind:config bind:isOpen={showSettings} bind:showPromptEditor={showPromptEditor} bind:showSynthesisPromptEditor={showSynthesisPromptEditor} />
 {/if}
 <About bind:isOpen={showAbout} onClose={() => showAbout = false} />
 <ModalDialog isOpen={showGettingStarted} onClose={() => showGettingStarted = false}>

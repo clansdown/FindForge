@@ -1,5 +1,6 @@
 import { type Writable, writable } from 'svelte/store';
-import { Config, type ConversationData } from './types';
+import { Config, type ConversationData, type ProjectData } from './types';
+import { generateID } from './util';
 import {
     initOpfsStorage,
     writeLocalFile,
@@ -203,6 +204,7 @@ export async function loadConversations(): Promise<ConversationData[]> {
                 if (content) {
                     try {
                         const conv = JSON.parse(content) as ConversationData;
+                        if (!conv.projectId) conv.projectId = '';
                         if (!seen.has(conv.id)) {
                             // Skip conversations with invalid dates
                             if (typeof conv.updated !== 'number' || isNaN(conv.updated) || conv.updated <= 0) {
@@ -244,6 +246,7 @@ export async function loadConversations(): Promise<ConversationData[]> {
                     if (convData) {
                         try {
                             const conv = JSON.parse(convData) as ConversationData;
+                            if (!conv.projectId) conv.projectId = '';
                             if (!seen.has(conv.id)) {
                                 // Skip conversations with invalid dates
                                 if (typeof conv.updated !== 'number' || isNaN(conv.updated) || conv.updated <= 0) {
@@ -364,4 +367,137 @@ export async function isLocalStorageInUse(): Promise<boolean> {
     } catch {
         return false;
     }
+}
+
+// ── Project persistence ──
+
+let projectsCache: ProjectData[] | null = null;
+
+async function loadProjectIDs(): Promise<string[]> {
+    try {
+        const listJson = await readLocalFile('projects/project_list.json');
+        if (listJson) return JSON.parse(listJson) as string[];
+    } catch { /* not available */ }
+    return [];
+}
+
+export async function saveProject(project: ProjectData): Promise<void> {
+    const projectJson = JSON.stringify(project);
+    const hash = computeHash(projectJson);
+    const ids = await loadProjectIDs();
+
+    const projPath = `projects/project_${project.id}.json`;
+    try {
+        await writeLocalFile(projPath, projectJson);
+        recordWrite(projPath, hash);
+    } catch (err) {
+        console.error('Failed to write project to OPFS:', err);
+    }
+
+    if (!ids.includes(project.id)) {
+        ids.push(project.id);
+        const listJson = JSON.stringify(ids);
+        const listHash = computeHash(listJson);
+        try {
+            await writeLocalFile('projects/project_list.json', listJson);
+            recordWrite('projects/project_list.json', listHash);
+        } catch (err) {
+            console.error('Failed to write project list:', err);
+        }
+    }
+
+    queueSync();
+    projectsCache = null;
+}
+
+export async function loadProjects(): Promise<ProjectData[]> {
+    if (projectsCache) return projectsCache;
+
+    const projects: ProjectData[] = [];
+    const ids = await loadProjectIDs();
+    for (const id of ids) {
+        try {
+            const content = await readLocalFile(`projects/project_${id}.json`);
+            if (content) {
+                projects.push(JSON.parse(content) as ProjectData);
+            }
+        } catch {
+            console.error(`Failed to load project ${id}`);
+        }
+    }
+
+    projectsCache = projects;
+    return projects;
+}
+
+export async function deleteProject(id: string): Promise<void> {
+    const projPath = `projects/project_${id}.json`;
+    try {
+        await deleteLocalFile(projPath);
+        recordDelete(projPath);
+    } catch (err: unknown) {
+        if (!(err instanceof DOMException && err.name === 'NotFoundError')) {
+            console.error(`Failed to delete project ${id}:`, err);
+        }
+    }
+
+    const ids = await loadProjectIDs();
+    const filtered = ids.filter(i => i !== id);
+    const listJson = JSON.stringify(filtered);
+    const listHash = computeHash(listJson);
+    try {
+        await writeLocalFile('projects/project_list.json', listJson);
+        recordWrite('projects/project_list.json', listHash);
+    } catch (err) {
+        console.error('Failed to update project list:', err);
+    }
+
+    queueSync();
+    projectsCache = null;
+}
+
+/**
+ * Migrate from flat (no-project) conversations to project-scoped.
+ * Creates a default "My Research" project and assigns all existing
+ * conversations to it. Safe to call on every startup — no-ops if
+ * projects already exist.
+ */
+export async function migrateToProjects(): Promise<ProjectData[]> {
+    const existing = await loadProjects();
+    if (existing.length > 0) return existing;
+
+    const defaultProject: ProjectData = {
+        id: generateID(),
+        name: 'My Research',
+        type: 'research',
+        created: Date.now(),
+        updated: Date.now(),
+    };
+
+    await saveProject(defaultProject);
+
+    // Assign all existing conversations to the default project
+    const convIds = await loadConversationIDs();
+    for (const convId of convIds) {
+        try {
+            const content = await readLocalFile(`conversations/conversation_${convId}.json`);
+            if (content) {
+                const conv = JSON.parse(content) as ConversationData;
+                if (!conv.projectId) {
+                    conv.projectId = defaultProject.id;
+                    conv.updated = Date.now();
+                    const convJson = JSON.stringify(conv);
+                    const convHash = computeHash(convJson);
+                    await writeLocalFile(`conversations/conversation_${conv.id}.json`, convJson);
+                    recordWrite(`conversations/conversation_${conv.id}.json`, convHash);
+                }
+            }
+        } catch { /* skip */ }
+    }
+
+    // Invalidate conversation cache so reload picks up projectId
+    conversationsCache = null;
+
+    projectsCache = null;
+    return [defaultProject];
 }

@@ -1,16 +1,19 @@
 <script lang="ts">
-  import type { ConversationData } from './lib/types';
+  import type { ConversationData, ProjectData } from './lib/types';
   export let conversations: ConversationData[];
   export let setCurrentConversation: (conversation: ConversationData) => void;
   export let removeConversation: (conversation: ConversationData) => void;
+  export let currentProject: ProjectData | null;
+
+  $: projectConversations = conversations.filter(c => !currentProject || c.projectId === currentProject.id);
 
   let filter = '';
   $: filteredConversations = (filter
-    ? conversations.filter(convo => 
+    ? projectConversations.filter(convo => 
         convo.title.toLowerCase().includes(filter.toLowerCase()) ||
         convo.messages[0]?.content?.toLowerCase().includes(filter.toLowerCase())
       )
-    : conversations
+    : projectConversations
   ).sort((a, b) => b.updated - a.updated);
 </script>
 

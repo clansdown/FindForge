@@ -27,8 +27,7 @@
 
         Resource,
 
-        ApplicationMode
-
+        ProjectData
 
     } from "./lib/types";
     import { APIError, Config, type ConversationData, type ToolCallRecord, type ConversationSummary } from "./lib/types";
@@ -38,14 +37,17 @@
     import MessageInfo from "./lib/MessageInfo.svelte";
     import GettingStarted from "./GettingStarted.svelte";
     import Message from "./lib/Message.svelte";
-    import type { Writable } from "svelte/store";
     import { creditStore } from "./lib/creditStore";
+    import { createEventDispatcher } from "svelte";
+
+    const dispatch = createEventDispatcher();
 
     /***************/
     /* Properties  */
     /***************/
     export let currentConversation: ConversationData;
-    export let applicationMode: Writable<ApplicationMode>;
+    export let currentProject: ProjectData | null;
+    export let projects: ProjectData[] = [];
     export let saveConversation: (conversation: ConversationData) => void;
     export let config: Config;
 
@@ -54,6 +56,18 @@
     /* Local Variables */
     /*******************/
     let localConfig = createConfigCopy(config);
+    function buildEffectiveConfig(base: Config, project: ProjectData | null): Config {
+        const copy = createConfigCopy(base);
+        if (project?.settings) {
+            Object.assign(copy, project.settings);
+        }
+        if (project?.defaultSystemPromptId) {
+            const p = base.systemPrompts.find(s => s.id === project.defaultSystemPromptId);
+            if (p) copy.systemPrompt = p.prompt;
+        }
+        return copy;
+    }
+    $: localConfig = buildEffectiveConfig(config, currentProject);
     let supportsWebSpeechTranscription : boolean;
     let speechTimeoutMS = 5000; // milliseconds of silence before auto-send
     let speechSendCommand = "Computer: send message"; // voice command to send
@@ -90,6 +104,16 @@
     let showAllResources = false;
     let showQuickQuestion = false;
     let quickQuestionInit: { text: string; context: string; allowTools: boolean } = { text: '', context: '', allowTools: false };
+    let selectedProjectId = currentProject?.id || '';
+
+    $: selectedProjectId = currentProject?.id || '';
+
+    function handleProjectChange() {
+        const project = projects.find(p => p.id === selectedProjectId);
+        if (project) {
+            dispatch('switchProject', project);
+        }
+    }
 
     isBraveOrChromium().then(result => { console.log(result); supportsWebSpeechTranscription = !result});
     
@@ -116,7 +140,6 @@
     /**************/
     /* Reactivity */
     /**************/
-    $: localConfig = createConfigCopy(config);
     // Handle conversation changes
     $: {
         if (currentConversationID !== currentConversation.id) {
@@ -970,9 +993,9 @@
 <div class="conversation">
     <div class="conversation-header">
         <input type="text" class="conversation-title" bind:value={currentConversation.title} on:blur={() => saveConversation(currentConversation)} />
-        <select class="prompt-override" bind:value={localConfig.systemPrompt} title="System prompt to use for this topic">
-            {#each localConfig.systemPrompts as prompt}
-                <option value={prompt.prompt}>{prompt.name}</option>
+        <select class="project-selector" bind:value={selectedProjectId} on:change={handleProjectChange} title="Switch project">
+            {#each projects as p}
+                <option value={p.id}>{p.name}</option>
             {/each}
         </select>
         {#if allConversationResources.length > 0 || allConversationAnnotations.length > 0}
@@ -980,7 +1003,7 @@
         {/if}
     </div>
     <!-- Toolbar goes here -->
-    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions applicationMode={applicationMode} onQuickQuestion={() => openQuickQuestion('')} />
+    <ConversationToolbar bind:config={localConfig} bind:deepSearch bind:deepSearchStrategy bind:experimentationOptions projectType={currentProject?.type || 'research'} onQuickQuestion={() => openQuickQuestion('')} />
 
     <!-- Conversation content will go here -->
     <div class="conversation-window">
@@ -1133,7 +1156,7 @@
         border-bottom: 1px solid #666;
     }
 
-    .prompt-override {
+    .project-selector {
         background-color: #333;
         color: white;
         border: 1px solid #666;

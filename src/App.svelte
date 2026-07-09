@@ -2,24 +2,25 @@
   import MenuBar from './MenuBar.svelte';
   import History from './History.svelte';
   import Conversation from './Conversation.svelte';
-  import type { ApplicationMode, Config, ConversationData } from './lib/types';
-  import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation, initializeConversationStorage } from './lib/storage';
+  import type { Config, ConversationData, ProjectData } from './lib/types';
+  import { loadConfig, saveConfig, storeConversation as saveConversationStorage, loadConversations, deleteConversation, initializeConversationStorage, migrateToProjects } from './lib/storage';
   import { generateID } from './lib/util';
   import { availableModelsStore } from './lib/availableModelsStore';
   import { creditStore, refreshCredits } from './lib/creditStore';
   import Intro from './Intro.svelte';
-  import { getLocalPreferenceStore } from './lib/storage';
   import { onMount } from 'svelte';
   import { isCloudSyncPromptNeeded, enableCloudSync, dismissCloudSyncPrompt, isSignedIn } from './cloudSync';
   import { isClerkEnabled } from './auth';
+  import NewProjectDialog from './NewProjectDialog.svelte';
+  import ProjectSettings from './ProjectSettings.svelte';
 
   let config : Config;
   let showHistory = true;
-  const applicationMode = getLocalPreferenceStore('ApplicationMode', 'research' as ApplicationMode);
   let isDragging = false;
   let splitContainer: HTMLDivElement;
   let currentConversation : ConversationData = {
     id: generateID(),
+    projectId: '',
     title: 'New Topic',
     messages: [],
     created: new Date().valueOf(),
@@ -28,12 +29,21 @@
   let conversations: ConversationData[] = [];
   let showCloudSyncPrompt = false;
   let enablingCloudSync = false;
+  let projects: ProjectData[] = [];
+  let currentProject: ProjectData | null = null;
+  let showNewProjectDialog = false;
+  let showProjectSettings = false;
 
   initialize();
 
   // Refresh credits when config changes (apiKey toggle, init, etc.)
   $: if (config) {
     refreshCredits(config);
+  }
+
+  // Persist last used project
+  $: if (currentProject) {
+    localStorage.setItem('lastProjectId', currentProject.id);
   }
 
   onMount(() => {
@@ -69,19 +79,35 @@
     };
   });
 
-  function initialize() {
+  async function initialize() {
     /* Load the config */
-    loadConfig().then((loadedConfig) => {
-      config = loadedConfig;
-      availableModelsStore.set(config.availableModels);
-    });
+    const loadedConfig = await loadConfig();
+    config = loadedConfig;
+    availableModelsStore.set(config.availableModels);
 
-    /* Initialize conversation storage and load existing conversations */
-    initializeConversationStorage().then(() => {
-      loadConversations().then((loadedConversations) => {
-        conversations = loadedConversations;
-      });
-    });
+    /* Initialize conversation storage */
+    await initializeConversationStorage();
+
+    /* Migrate to projects if needed and load projects */
+    projects = await migrateToProjects();
+
+    /* Load existing conversations */
+    const loadedConversations = await loadConversations();
+    conversations = loadedConversations;
+
+    /* Select current project */
+    const lastId = localStorage.getItem('lastProjectId');
+    const target = lastId ? projects.find(p => p.id === lastId) : null;
+    if (target) {
+      currentProject = target;
+    } else if (projects.length > 0) {
+      currentProject = projects[0];
+    }
+
+    /* Ensure current conversation has a valid projectId */
+    if (currentProject && !currentConversation.projectId) {
+      currentConversation.projectId = currentProject.id;
+    }
   }
 
   function startDrag() {
@@ -104,6 +130,7 @@
   function newConversation() {
     currentConversation = {
       id: generateID(),
+      projectId: currentProject?.id || '',
       title: 'New Topic',
       messages: [],
       created: new Date().valueOf(),
@@ -137,6 +164,31 @@
     saveConversationStorage(conversation);
   }
 
+  async function setCurrentProject(project: ProjectData) {
+    currentProject = project;
+    // Save current conversation before switching
+    if (currentConversation.messages.length > 0) {
+      saveConversation(currentConversation);
+    }
+    // Start fresh conversation for the new project
+    newConversation();
+  }
+
+  async function handleProjectCreated(project: ProjectData) {
+    projects = [...projects, project];
+    currentProject = project;
+    showNewProjectDialog = false;
+    newConversation();
+  }
+
+  async function handleProjectUpdated(updated: ProjectData) {
+    projects = projects.map(p => p.id === updated.id ? updated : p);
+    if (currentProject?.id === updated.id) {
+      currentProject = updated;
+    }
+    showProjectSettings = false;
+  }
+
   async function handleEnableCloudSync() {
     enablingCloudSync = true;
     try {
@@ -165,18 +217,21 @@
 </script>
 
 <main>
-  <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation} {applicationMode} />
+  <MenuBar bind:config={config} bind:showHistory={showHistory} {newConversation}
+    on:openNewProject={() => showNewProjectDialog = true}
+    on:openProjectSettings={() => showProjectSettings = true} />
   {#if config?.apiKey}
     <!-- svelte-ignore a11y-click-events-have-key-events a11y_no_noninteractive_element_interactions -->
     <div class="split-container" bind:this={splitContainer} on:mousemove={handleDrag} on:mouseup={stopDrag} on:mouseleave={stopDrag} role="main">
       {#if showHistory}
         <div class="history-container" style="width: {config.historyWidth}px">
-          <History {conversations} {setCurrentConversation} {removeConversation} />
+          <History {conversations} {setCurrentConversation} {removeConversation} {currentProject} />
         </div>
         <div class="resize-handle" on:mousedown={startDrag} role="slider" tabindex="0" aria-valuenow={config.historyWidth}></div>
       {/if}
       <div class="conversation-container">
-        <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {applicationMode} />
+        <Conversation bind:currentConversation={currentConversation} {config} {saveConversation} {currentProject} {projects}
+          on:switchProject={(e) => setCurrentProject(e.detail)} />
       </div>
     </div>
   {:else}
@@ -200,6 +255,9 @@
     </div>
   </div>
 {/if}
+
+<NewProjectDialog isOpen={showNewProjectDialog} on:create={(e) => handleProjectCreated(e.detail)} on:close={() => showNewProjectDialog = false} />
+<ProjectSettings project={currentProject} {config} isOpen={showProjectSettings} on:save={(e) => handleProjectUpdated(e.detail)} on:close={() => showProjectSettings = false} />
 
 <style>
   main {

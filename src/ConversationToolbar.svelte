@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getModels } from "./lib/models";
-    import type { Config, Model, ExperimentationOptions, SystemPrompt, ParallelResearchModel, ApplicationMode } from "./lib/types";
+    import type { Config, Model, ExperimentationOptions, SystemPrompt, ParallelResearchModel, ProjectType } from "./lib/types";
     import { onMount } from "svelte";
     import PushButton from "./lib/PushButton.svelte";
     import { formatModelName, formatModelLabel } from "./lib/util";
@@ -8,13 +8,12 @@
     import { estimateDeepResearchCost } from "./lib/deep_research";
     import Select from "svelte-select";
     import IconCheckedList from "./lib/IconCheckedList.svelte";
-    import type { Writable } from "svelte/store";
 
     export let config: Config;
     export let deepSearch = false; // bound from parent
     export let deepSearchStrategy: "auto" | "deep" | "broad" = "auto"; // bound from parent
     export let experimentationOptions: ExperimentationOptions; // bound from parent
-    export let applicationMode: Writable<ApplicationMode>; // bound from parent
+    export let projectType: ProjectType = 'research'; // bound from parent
     export let onQuickQuestion: () => void = () => {};
 
     let allModels: Model[] = [];
@@ -132,7 +131,7 @@
         </select>
     </div>
 
-    {#if $applicationMode !== 'brainstorming'}
+    {#if projectType !== 'brainstorming'}
         <div class="col-auto">
             <PushButton title="Enable deep searching" bind:pushed={deepSearch} disabled={experimentMode}>⛏️</PushButton>
         </div>

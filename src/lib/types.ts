@@ -2,6 +2,7 @@ import { generateID } from "./util";
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_DEEP_RESEARCH_SYNTHESIS_PROMPT } from "./prompts";
 
 export type ApplicationMode = 'research' | 'brainstorming';
+export type ProjectType = ApplicationMode;
 
 export class Config {
     historyWidth!: number;
@@ -317,11 +318,34 @@ export interface ConversationSummary {
 
 export interface ConversationData {
     id: string;
+    projectId: string;
     title: string;
     messages: MessageData[];
     created: number;
     updated: number;
     summaries?: ConversationSummary[];
+}
+
+export interface ProjectData {
+    id: string;
+    name: string;
+    type: ProjectType;
+    created: number;
+    updated: number;
+    settings?: Partial<Config>;
+    defaultSystemPromptId?: string;
+    references?: Reference[];
+}
+
+export interface Reference {
+    id: string;
+    title?: string;
+    content: string;
+    url?: string;
+    source?: string;
+    summary?: string;
+    created: number;
+    updated: number;
 }
 
 export interface ApiCallMessageContent {
